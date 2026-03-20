@@ -13,48 +13,31 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Flatpickr CSS for Custom Date Picker -->
+    <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <link rel="stylesheet" href="bookbar.css">
-
-    <style>
-        .error-message {
-            color: #ffcccc;
-            font-size: 0.875rem;
-            margin-top: 5px;
-            display: none;
-        }
-        
-        .error-message.show {
-            display: block;
-        }
-        
-        .form-input.error,
-        .form-select.error {
-            border: 2px solid #ff6b6b;
-        }
-    </style>
-
 </head>
 
 <body>
 
-    <!-- Header (from menu.html) -->
+    <!-- Grain overlay -->
+    <div class="grain-overlay"></div>
+
+    <!-- Header — matches index.html exactly -->
     <header>
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
-
-            <button class="menu-toggle" id="mobile-menu" aria-label="Toggle navigation menu">
-                <i class="fa-solid fa-bars"></i>
-            </button>
-
-            <nav class="nav-menu" id="nav-menu">
+            <div class="menu-toggle" id="mobile-menu"><i class="fa-solid fa-bars"></i></div>
+            <nav class="nav-menu" id="navMenu">
                 <a href="index.html">Home</a>
                 <a href="menu.html">Menu</a>
                 <a href="bookBar.html" class="active">Book Bar</a>
                 <a href="gallery.html">Gallery</a>
                 <a href="aboutUs.html">About Us</a>
+                <a href="account.html" class="nav-account-icon" title="Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
             </nav>
         </div>
     </header>
@@ -65,15 +48,8 @@
 
             <!-- Banner -->
             <div class="banner-container">
-                <img src="/images/bookbarbanner.webp" alt="Book Bar Banner" />
-
-                <div style="position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: center; align-items: center; padding-top: 30px;">
-                    <img src="/images/sushibar.webp" style="width: 100%; max-width: 350px; height: auto;" class="glow-image hover-glow" alt="Sushi bar" />
-                </div>
-
-                <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; align-items: end; padding-bottom: 20px;">
-                    <img src="/images/bylukes2.webp" style="width: 100%; max-width: 420px; height: auto;" class="glow-image hover-glow" alt="By Lukes" />
-                </div>
+                <img src="https://github.com/maxmonice/WEBTOOLS/blob/2d17035d2195524857c2d553525d08579e0f6373/images/sushibar.webp?raw=true" class="banner-top-image" alt="Sushi bar" />
+                <img src="https://github.com/maxmonice/WEBTOOLS/blob/2d17035d2195524857c2d553525d08579e0f6373/images/bylukes2.webp?raw=true" class="banner-bottom-image" alt="By Lukes" />
             </div>
 
             <!-- Event Booking Form -->
@@ -82,7 +58,7 @@
                     <h1 style="font-family: 'Aclonica', sans-serif; font-size: 2.5rem; font-weight: bold;">
                         Event Booking Form
                     </h1>
-                    <img src="/images/redline.webp" style="width: 250px; height: auto; margin-top: 20px;" alt="redline" />
+                    <img src="https://github.com/maxmonice/WEBTOOLS/blob/2d17035d2195524857c2d553525d08579e0f6373/images/redline.webp?raw=true" style="width: 250px; height: auto; margin-top: 20px;" alt="redline" />
                 </div>
 
                 <div class="form-box">
@@ -106,7 +82,6 @@
                                     Event Date:
                                     <input type="text" id="eventDate" class="form-input" placeholder="Select date" readonly required>
                                 </label>
-
                                 <label class="form-label">
                                     Event Time:
                                     <input type="text" id="eventTime" class="form-input" placeholder="Select time" readonly required>
@@ -164,7 +139,6 @@
                                     <input type="tel" class="form-input" id="contactNumber" placeholder="09XX XXX XXXX" maxlength="11" required>
                                     <span class="error-message" id="phoneError"></span>
                                 </label>
-
                                 <label class="form-label">
                                     Email Address:
                                     <input type="email" class="form-input" id="emailAddress" placeholder="example@gmail.com" required>
@@ -180,9 +154,7 @@
 
                         <!-- Submit Button -->
                         <div style="text-align: center;">
-                            <button type="submit" class="submit-btn">
-                                Submit
-                            </button>
+                            <button type="submit" class="submit-btn">Submit</button>
                         </div>
                     </form>
                 </div>
@@ -191,16 +163,16 @@
         </section>
     </main>
 
-    <!-- Footer (from menu.html) -->
+    <!-- Footer -->
     <footer>
-        <div class="footer-container">
+        <div class="container">
             <div class="footer-grid desktop-view">
                 <div class="footer-col">
                     <h4>Socials</h4>
-                    <a href="https://facebook.com" target="_blank" class="social-item">
+                    <a href="https://facebook.com/lukeseafoodtrading" target="_blank" class="social-item">
                         <i class="fab fa-facebook"></i> Luke's Seafood Taguig
                     </a>
-                    <a href="https://instagram.com" target="_blank" class="social-item">
+                    <a href="https://www.instagram.com/luke_seafoods/" target="_blank" class="social-item">
                         <i class="fab fa-instagram"></i> luke_seafoods
                     </a>
                 </div>
@@ -228,44 +200,33 @@
 
             <div class="mobile-footer-view">
                 <p class="mobile-info">
-                    <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i> luke_seafoods</a>
+                    <a href="https://www.instagram.com/luke_seafoods/" target="_blank"><i class="fab fa-instagram"></i> luke_seafoods</a>
                     <span class="pipe">|</span>
-
                     <a href="mailto:lukeseafoods28@gmail.com"><i class="fas fa-envelope"></i> lukeseafoods28@gmail.com</a>
                     <span class="pipe">|</span>
-
-                    <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a>
+                    <a href="https://facebook.com/lukeseafoodtrading" target="_blank"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a>
                     <span class="pipe">|</span>
-
                     <span class="mobile-hours"><i class="fas fa-clock"></i> 9:00 AM TO 8:00 PM</span>
                     <span class="pipe">|</span>
-
                     <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank"><i class="fa-solid fa-location-pin"></i> VULCAN ST. COR C5 ROAD, TAGUIG</a>
                     <span class="pipe">|</span>
-
                     <a href="tel:09392999912"><i class="fa-solid fa-phone"></i> 09392999912</a>
                 </p>
-
-                <p class="mobile-menu">
-                    About Us: At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.
-                </p>
-
-                <p class="mobile-copyright">
-                    © 2025 Luke's Seafood Trading
-                </p>
+                <p class="mobile-menu">About Us: At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
+                <p class="mobile-copyright">© 2025 Luke's Seafood Trading</p>
             </div>
 
-            <div class="copyright desktop-view">
-                © 2025 Luke's Seafood Trading | All Rights Reserved
-            </div>
+            <div class="copyright desktop-view">© 2025 Luke's Seafood Trading | All Rights Reserved</div>
         </div>
     </footer>
 
     <!-- Flatpickr JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    
-    <!-- Custom JavaScript -->
     <script src="bookbar.js"></script>
-
+    <script>
+        document.getElementById('mobile-menu').addEventListener('click', function () {
+            document.getElementById('navMenu').classList.toggle('active');
+        });
+    </script>
 </body>
 </html>

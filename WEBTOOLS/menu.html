@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luke's Seafood - Menu</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="menu.css">
+</head>
+<body>
+    
+    <header>
+        <div class="container header-container">
+            <div class="logo">Luke's Seafood Trading</div>
+            
+            <button class="menu-toggle" id="mobile-menu" aria-label="Toggle navigation menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <nav class="nav-menu" id="nav-menu">
+                <a href="index.html">Home</a>
+                <a href="#" class="active">Menu</a>
+                <a href="bookbar.html">Book Bar</a>
+                <a href="gallery.html">Gallery</a>
+                <a href="aboutUs.html">About Us</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="content-wrapper">
+        <aside class="left-sidebar" role="navigation" aria-label="Menu Categories">
+            <div class="sidebar-item" data-target="salad-section">Salad</div>
+            <div class="sidebar-item" data-target="fusion-section">Fusion</div>
+            <div class="sidebar-item" data-target="a-la-carte-section">A La Carte</div>
+            <div class="sidebar-item" data-target="platters-section">Platters</div>
+            <div class="sidebar-item" data-target="bento-section">Bento</div>
+        </aside>
+
+        <section class="menu-section">
+            <div class="hero-banner" role="banner">
+                <div class="banner-image-placeholder" aria-label="Decorative image showing various sushi dishes"></div>
+                <div class="banner-text">Delicious and affordable Sushi and Sashimi</div>
+            </div>
+
+            <h1 class="main-menu-heading">Menu</h1>
+
+            <h2 class="category-heading" id="salad-section">Salad</h2>
+            <div class="menu-grid single-column"> 
+                <div class="menu-item">
+                    <img src="" alt="Image of Kani Mango Salad" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Kani Mango Salad</div>
+                        <div class="item-price">₱175</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+            </div>
+
+            <h2 class="category-heading" id="fusion-section">Fusion Rolls & Sushi</h2>
+            <div class="menu-grid">
+                <div class="menu-item">
+                    <img src="images/california_maki.png" alt="Image of California Maki" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">California Maki</div>
+                        <div class="item-price">₱169 <span class="item-pieces">6 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="images/crazy_maki.png" alt="Image of Crazy Maki" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Crazy Maki</div>
+                        <div class="item-price">₱195 <span class="item-pieces">8 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="images/mango_roll.png" alt="Image of Mango Roll" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Mango Roll</div>
+                        <div class="item-price">₱195 <span class="item-pieces">8 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="images/spicy.png" alt="Image of Spicy Salmon Roll" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Spicy Salmon</div>
+                        <div class="item-price">₱195 <span class="item-pieces">8 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Ebi Tempura Maki" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Ebi Tempura Maki</div>
+                        <div class="item-price">₱150 <span class="item-pieces">8 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Avocado Dragon Roll" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Avocado Dragon Roll</div>
+                        <div class="item-price">₱312</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Ebi Sushi" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Ebi Sushi</div>
+                        <div class="item-price">₱208 <span class="item-pieces">4 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Tamago Sushi" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Tamago Sushi</div>
+                        <div class="item-price">₱169 <span class="item-pieces">6 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+            </div>
+
+            <h2 class="category-heading" id="a-la-carte-section">A La Carte</h2>
+            <div class="menu-grid single-column">
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Tempura" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Tempura</div>
+                        <div class="item-price">₱221</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+            </div>
+
+            <h2 class="category-heading" id="platters-section">Platters</h2>
+            <div class="menu-grid">
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Square Platter Combo A" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Square Platter Combo A</div>
+                        <div class="item-price">₱539.50</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Square Platter Combo B" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Square Platter Combo B</div>
+                        <div class="item-price">₱487.50</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Sushi Boat A" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Sushi Boat A</div>
+                        <div class="item-price">₱1,558.70</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Sushi Boat B" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Sushi Boat B</div>
+                        <div class="item-price">₱2,078.70</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Tempura Boat" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Tempura Boat</div>
+                        <div class="item-price">₱1,168.70 <span class="item-pieces">20 Pcs</span></div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Cali Maki Platter" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Cali Maki</div>
+                        <div class="item-price">₱312</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Mixed Maki Platter" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Mixed Maki Platter</div>
+                        <div class="item-price">₱1,168.70</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+            </div>
+
+            <h2 class="category-heading" id="bento-section">Bento Boxes</h2>
+            <div class="menu-grid three-columns">
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Tuna Steak in Oyster Sauce Bento" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Tuna Steak in Oyster Sauce</div>
+                        <div class="item-price">₱379</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Garlic Buttered Salmon Bento" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Garlic Buttered Salmon</div>
+                        <div class="item-price">₱239</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Combo E Bento Box" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Combo E</div>
+                        <div class="item-price">₱125</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Combo K Bento Box" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Combo K</div>
+                        <div class="item-price">₱199</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Combo L Bento Box" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Combo L</div>
+                        <div class="item-price">₱269</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+                <div class="menu-item">
+                    <img src="menu/sampleimage.png" alt="Image of Combo U Bento Box" class="item-image-placeholder">
+                    <div class="item-details">
+                        <div class="item-name">Combo U</div>
+                        <div class="item-price">₱245</div>
+                    </div>
+                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <div class="container">
+            <div class="footer-grid desktop-view">
+                <div class="footer-col">
+                    <h4>Socials</h4>
+                    <a href="https://facebook.com" target="_blank" class="social-item">
+                        <i class="fab fa-facebook"></i> Luke's Seafood Taguig
+                    </a>
+                    <a href="https://instagram.com" target="_blank" class="social-item">
+                        <i class="fab fa-instagram"></i> luke_seafoods
+                    </a>
+                </div>
+                <div class="footer-col">
+                    <h4>About Us</h4>
+                    <ul class="footer-menu">
+                        <p>At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Location</h4>
+                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank" class="social-item location-text">
+                        <i class="fa-solid fa-location-pin"></i> 
+                        <span>vulcan st. cor c5 road, Taguig, Philippines</span>
+                    </a>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact Us</h4>
+                    <a href="mailto:lukeseafoods28@gmail.com" class="social-item">
+                        <i class="fas fa-envelope"></i> lukeseafoods28@gmail.com
+                    </a>
+                    <a href="tel:09392999912" class="social-item">
+                        <i class="fa-solid fa-phone"></i> 09392999912
+                    </a>
+                </div>
+            </div>
+
+            <div class="mobile-footer-view">
+                <p class="mobile-info">
+                    <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i> luke_seafoods</a> 
+                    <span class="pipe">|</span> 
+                    
+                    <a href="mailto:lukeseafoods28@gmail.com"><i class="fas fa-envelope"></i> lukeseafoods28@gmail.com</a> 
+                    <span class="pipe">|</span> 
+                    
+                    <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a> 
+                    <span class="pipe">|</span> 
+                    
+                    <span class="mobile-hours"><i class="fas fa-clock"></i> 9:00 AM TO 8:00 PM</span> 
+                    <span class="pipe">|</span> 
+                    
+                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank"><i class="fa-solid fa-location-pin"></i> VULCAN ST. COR C5 ROAD, TAGUIG</a> 
+                    <span class="pipe">|</span> 
+                    
+                    <a href="tel:09392999912"><i class="fa-solid fa-phone"></i> 09392999912</a>
+                </p>
+
+                <p class="mobile-menu">
+                    About Us: At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.
+                </p>
+                
+                <p class="mobile-copyright">
+                    © 2025 Luke's Seafood Trading
+                </p>
+            </div>
+
+            <div class="copyright desktop-view">
+                © 2025 Luke's Seafood Trading | All Rights Reserved
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mobileMenuBtn = document.getElementById('mobile-menu');
+            const navMenu = document.getElementById('nav-menu');
+            const sidebarItems = document.querySelectorAll('.sidebar-item');
+            const navLinks = document.querySelectorAll('.nav-menu a');
+
+            // Toggle mobile menu
+            mobileMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                navMenu.classList.toggle('active');
+                
+                // Change icon
+                const icon = mobileMenuBtn.querySelector('i');
+                if (navMenu.classList.contains('active')) {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
+                } else {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+
+            // Close menu when clicking nav links
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    navMenu.classList.remove('active');
+                    const icon = mobileMenuBtn.querySelector('i');
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                });
+            });
+
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!navMenu.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+                    navMenu.classList.remove('active');
+                    const icon = mobileMenuBtn.querySelector('i');
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+
+            // Sidebar smooth scrolling
+            sidebarItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = item.getAttribute('data-target');
+                    const targetElement = document.getElementById(targetId);
+
+                    if (targetElement) {
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.scrollY - 20;
+
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

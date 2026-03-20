@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">    
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luke's Seafood Trading - About Us</title>
+    <title>About Us - Luke's Seafood Trading</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -12,74 +12,122 @@
 </head>
 <body>
 
+    <div class="grain-overlay"></div>
+
     <header>
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
-            
-            <div class="menu-toggle" id="mobile-menu">
-                <i class="fa-solid fa-bars"></i>
-            </div>
-
-            <nav class="nav-menu">
+            <div class="menu-toggle" id="mobile-menu"><i class="fa-solid fa-bars"></i></div>
+            <nav class="nav-menu" id="navMenu">
                 <a href="index.html">Home</a>
                 <a href="menu.html">Menu</a>
-                <a href="bookBar.html">Book Bar</a>
+                <a href="bookbar.html">Book Bar</a>
                 <a href="gallery.html">Gallery</a>
                 <a href="aboutUs.html" class="active">About Us</a>
+                <a href="account.html" class="nav-account-icon" title="Account"><i class="fas fa-user-circle"></i></a>
             </nav>
         </div>
     </header>
 
+    <!-- HERO -->
     <section class="hero">
-        <h1>About Us</h1>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <div class="hero-eyebrow">Luke's Seafood Trading</div>
+            <h1>About Us</h1>
+            <div class="hero-divider">
+                <span class="hero-divider-line"></span>
+                <span class="hero-divider-icon"><i class="fas fa-fish"></i></span>
+                <span class="hero-divider-line"></span>
+            </div>
+            <p class="hero-desc">Fresh from the ocean. Crafted with passion.<br>Served with pride — right here in Taguig.</p>
+        </div>
     </section>
 
+    <!-- IMAGE SHOWCASE -->
     <section class="image-showcase">
         <div class="container">
+            <p class="showcase-label">Our Story in Pictures</p>
             <div class="image-grid">
-                <img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20145.png?raw=true" alt="Sushi Platter">
-                <img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%203.png?raw=true" alt="Tempura">
-                <img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20144.png?raw=true" alt="Sushi Rolls">
+                <div class="image-grid-item">
+                    <img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20145.png?raw=true" alt="Sushi Platter">
+                </div>
+                <div class="image-grid-item">
+                    <img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%203.png?raw=true" alt="Tempura">
+                </div>
+                <div class="image-grid-item">
+                    <img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20144.png?raw=true" alt="Sushi Rolls">
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="text-description">
+    <!-- STORY TEXT SECTION -->
+    <section class="story-section">
         <div class="container">
-            <p>
-                Luke's Seafood Trading is your premier source for authentic, fresh Japanese-inspired seafood. We are an excellent quality seafood supplier, meticulously sourcing premium ingredients daily to ensure peak freshness. Our mission is to serve, supply, and cater with one goal: to share the excellence of every dish with you.
-            </p>
-            <p>
-                Located at Vulcan St. cor C5 Road, Taguig, we proudly offer high-quality services. We run a catering business for custom, fresh seafood dishes at any event, and a takeaway shop specializing in delicious and affordable sushi and sashimi.
-            </p>
+            <div class="story-text">
+                <span class="section-eyebrow">Who We Are</span>
+                <h2 class="story-heading">A Passion for <span>Premium Seafood</span></h2>
+                <p>Luke's Seafood Trading is your premier source for authentic, fresh Japanese-inspired seafood. We are an excellent quality seafood supplier, meticulously sourcing premium ingredients daily to ensure peak freshness.</p>
+                <p>Our mission is to serve, supply, and cater with one goal: to share the excellence of every dish with you. Located at Vulcan St. cor C5 Road, Taguig, we proudly offer high-quality services for every occasion.</p>
+                <div class="story-tag-row">
+                    <span class="story-tag"><i class="fas fa-map-marker-alt"></i> Taguig, Philippines</span>
+                    <span class="story-tag"><i class="fas fa-clock"></i> Open Daily</span>
+                </div>
+            </div>
         </div>
     </section>
 
-    <section class="offers">
-        <div class="circle circle-1"></div>
-        <div class="circle circle-2"></div>
-        <div class="circle circle-3"></div>
-
-        <h2 class="section-title">What We Offer</h2>
-        
+    <!-- STATS STRIP -->
+    <section class="stats-strip">
         <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number">500+</div>
+                    <div class="stat-label">Events Catered</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">Daily</div>
+                    <div class="stat-label">Fresh Sourcing</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Premium Quality</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WHAT WE OFFER -->
+    <section class="offers">
+        <div class="offers-bg-blob offers-bg-blob--1"></div>
+        <div class="offers-bg-blob offers-bg-blob--2"></div>
+        <div class="container">
+            <div class="section-heading">
+                <span class="section-eyebrow">What We Do</span>
+                <h2>What We Offer</h2>
+            </div>
             <div class="offer-grid">
                 <div class="offer-card">
+                    <div class="offer-icon"><i class="fas fa-store"></i></div>
                     <h3>Retail & Takeaway</h3>
-                    <p>Dine in or grab delicious, affordable sushi to go!</p>
+                    <p>Dine in or grab delicious, affordable sushi to go! Fresh batches prepared every morning, ready when you are.</p>
                 </div>
                 <div class="offer-card">
+                    <div class="offer-icon"><i class="fas fa-utensils"></i></div>
                     <h3>Catering Services</h3>
-                    <p>Weddings, birthdays, or celebrations, we got you!</p>
+                    <p>Weddings, birthdays, or any celebration — we bring fresh seafood spreads tailored exactly to your event.</p>
                 </div>
                 <div class="offer-card">
+                    <div class="offer-icon"><i class="fas fa-fish"></i></div>
                     <h3>Seafood Supply</h3>
-                    <p>We supply the freshest, premium fish and seafood daily.</p>
+                    <p>Trusted by restaurants and families alike for consistent, top-grade fish and seafood delivered daily.</p>
                 </div>
             </div>
         </div>
     </section>
 
+    <!-- FOOTER -->
     <footer>
         <div class="container">
             <div class="footer-grid desktop-view">
@@ -94,58 +142,41 @@
                 </div>
                 <div class="footer-col">
                     <h4>About Us</h4>
-                    <ul class="footer-menu">
-                        <p>At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
-                    </ul>
+                    <p>At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
                 </div>
                 <div class="footer-col">
                     <h4>Location</h4>
-                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank" class="social-item location-text">
-                        <i class="fa-solid fa-location-pin"></i> 
+                    <a href="https://maps.app.goo.gl/E5JosjsspQtZmqrK8" target="_blank" class="social-item location-text">
+                        <i class="fa-solid fa-location-pin"></i>
                         <span>vulcan st. cor c5 road, Taguig, Philippines</span>
                     </a>
                 </div>
                 <div class="footer-col">
                     <h4>Contact Us</h4>
-                    <a href="mailto:lukeseafoods28@gmail.com" class="social-item">
-                        <i class="fas fa-envelope"></i> lukeseafoods28@gmail.com
+                    <a href="mailto:lukeseafoodtrading@gmail.com" class="social-item">
+                        <i class="fas fa-envelope"></i> lukeseafoodtrading@gmail.com
                     </a>
                     <a href="tel:09392999912" class="social-item">
                         <i class="fa-solid fa-phone"></i> 09392999912
                     </a>
                 </div>
             </div>
-
             <div class="mobile-footer-view">
                 <p class="mobile-info">
-                    <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i> luke_seafoods</a> 
-                    <span class="pipe">|</span> 
-                    
-                    <a href="mailto:lukeseafoods28@gmail.com"><i class="fas fa-envelope"></i> lukeseafoods28@gmail.com</a> 
-                    <span class="pipe">|</span> 
-                    
-                    <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a> 
-                    <span class="pipe">|</span> 
-
-                    
-                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank"><i class="fa-solid fa-location-pin"></i> VULCAN ST. COR C5 ROAD, TAGUIG</a> 
-                    <span class="pipe">|</span> 
-                    
+                    <a href="https://www.instagram.com/luke_seafoods/" target="_blank"><i class="fab fa-instagram"></i> luke_seafoods</a>
+                    <span class="pipe">|</span>
+                    <a href="mailto:lukeseafoodtrading@gmail.com"><i class="fas fa-envelope"></i> lukeseafoodtrading@gmail.com</a>
+                    <span class="pipe">|</span>
+                    <a href="https://www.facebook.com/lukeseafoodtrading" target="_blank"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a>
+                    <span class="pipe">|</span>
+                    <a href="https://maps.app.goo.gl/E5JosjsspQtZmqrK8" target="_blank"><i class="fa-solid fa-location-pin"></i> VULCAN ST. COR C5 ROAD, TAGUIG</a>
+                    <span class="pipe">|</span>
                     <a href="tel:09392999912"><i class="fa-solid fa-phone"></i> 09392999912</a>
                 </p>
-
-                <p class="mobile-menu">
-                    About Us: At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.
-                </p>
-                
-                <p class="mobile-copyright">
-                    © 2025 Luke's Seafood Trading
-                </p>
+                <p class="mobile-menu">About Us: At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
+                <p class="mobile-copyright">© 2025 Luke's Seafood Trading</p>
             </div>
-
-            <div class="copyright desktop-view">
-                © 2025 Luke's Seafood Trading | All Rights Reserved
-            </div>
+            <div class="copyright desktop-view">© 2025 Luke's Seafood Trading | All Rights Reserved</div>
         </div>
     </footer>
 

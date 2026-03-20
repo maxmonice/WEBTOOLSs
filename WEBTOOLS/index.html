@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luke's Seafood Trading</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+    <!-- Navbar -->
+    <header>
+        <div class="container header-container">
+            <div class="logo">Luke's Seafood Trading</div>
+            
+            <div class="menu-toggle" id="mobile-menu">
+                <i class="fa-solid fa-bars"></i>
+            </div>
+
+            <nav class="nav-menu" id="navMenu">
+                <a href="index.html" class="active">Home</a>
+                <a href="menu.html">Menu</a>
+                <a href="bookbar.html">Book Bar</a>
+                <a href="gallery.html">Gallery</a>
+                <a href="aboutUs.html">About Us</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <img src="/images/banner.png" class="banner" alt="Banner" />
+        
+        <div class="hero-content">
+            <img src="/images/lukeslogo.webp" class="hero-logo glow-image-white" alt="Luke's Seafood Trading Logo" />
+            
+            <h1 class="hero-title">Luke's Seafood <br> Trading</h1>
+            
+            <p class="hero-subtitle">Supply and delivery of Japanese Food Products and fresh seafoods</p>
+            
+            <p class="hero-tagline">"From sea to sushi,<br> taste the journey."</p>
+
+            <img src="/images/line.webp" class="glow-image hero-line"/>
+            
+            <a href="menu.html">
+                <img src="/images/ordernows.webp" class="order-btn hover-glow pulse-glow" alt="Order Now" />
+            </a>
+            <img src="/images/redline.webp" class="border-line"/>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="features-grid">
+            <div class="feature-card bestseller-card card-glow">
+                <img src="/images/bestseller.webp" alt="Bestseller" />
+            </div>
+            
+            <div class="feature-card card-glow">
+                <img src="/images/fresh.webp" alt="Fresh" />
+            </div>
+            
+            <div class="feature-card card-glow">
+                <img src="/images/quality.webp" alt="Quality" />
+            </div>
+            
+            <div class="feature-card card-glow">
+                <img src="/images/goodservice.webp" alt="Good Service" />
+            </div>
+            
+            <div class="feature-card card-glow">
+                <img src="/images/affordable.webp" alt="Affordable" />
+            </div>
+        </div>
+
+        <div class="feature-text">
+            Luke's Seafood Trading is known for having a fresh product. We assure that our customers always receive 100% fresh products, High Quality, Have a Good Service, and also affordable. This keeps the customers <br class="desktop-br"> satisfied and wanting it more.
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="about-section">
+        <div class="about-header">
+            <h2 class="about-title">About Us</h2>
+            <img src="/images/redline.webp" class="glow-image redline-image" alt="Red Line" />
+        </div>
+
+        <div class="about-content">
+            <p class="about-text">At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market. With a commitment to sustainability, integrity, and excellence, we connect trusted fisheries with businesses that demand the best. From dock to doorstep, Luke's is your reliable partner in premium seafood.</p> 
+            <div class="about-image">
+                <img src="/images/sushibigimage.webp" class="glow-image-white" alt="Sushi" />
+            </div>
+        </div>
+
+        <a href="aboutUs.html" class="about-image-button">
+            <img src="/images/moreaboutus.webp" alt="More About Us" class="more-about-btn">
+        </a>
+    </section>
+
+    <!-- Sushi Bar Section -->
+    <section class="sushi-bar-section">
+        <h2 class="sushi-bar-title">Luke's Seafood Trading also offers:</h2>
+
+        <div class="banner-wrapper">
+            <img src="/images/banner22.webp" class="banner-image" alt="Sushi Bar Banner" />
+            
+            <div class="banner-content">
+                <img src="/images/sushibar.webp" class="sushi-bar-image glow-image-white" alt="Sushi Bar" />
+                <img src="/images/bylukes2.webp" class="bylukes-image glow-image" alt="By Luke's" />
+                <a href="bookbar.html">
+                    <img src="/images/booknow.webp" class="book-btn hover-glow pulse-glow" alt="Book Now" />
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section class="gallery-section">
+        <div class="gallery-header">
+            <h2 class="gallery-title">Gallery</h2>
+            <img src="/images/redline.webp" class="glow-image gallery-redline" style="width: 300px; height: auto; margin: 0 auto; display: block;" alt="Red Line" />
+        </div>
+
+        <div class="gallery-carousel">
+            <div class="carousel-track" id="carouselTrack">
+                <div class="carousel-slide">
+                    <img src="/images/image1.jpg" alt="Sushi Platter 1">
+                </div>
+                <div class="carousel-slide">
+                    <img src="/images/image2.jpg" alt="Fresh Seafood">
+                </div>
+                <div class="carousel-slide">
+                    <img src="/images/image3.jpg" alt="Sushi Rolls">
+                </div>
+                <div class="carousel-slide">
+                    <img src="/images/image4.jpg" alt="Japanese Cuisine">
+                </div>
+                <div class="carousel-slide">
+                    <img src="/images/image1.jpg" alt="Fresh Fish">
+                </div>
+            </div>
+
+            <button class="carousel-arrow prev" id="prevBtn">‹</button>
+            <button class="carousel-arrow next" id="nextBtn">›</button>
+        </div>
+
+        <div class="carousel-dots" id="carouselDots"></div>
+        <a href="gallery.html" class="view-all-btn">View All Gallery</a>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid desktop-view">
+                <div class="footer-col">
+                    <h4>Socials</h4>
+                    <a href="https://facebook.com" target="_blank" class="social-item">
+                        <i class="fab fa-facebook"></i> Luke's Seafood Taguig
+                    </a>
+                    <a href="https://instagram.com" target="_blank" class="social-item">
+                        <i class="fab fa-instagram"></i> luke_seafoods
+                    </a>
+                </div>
+                <div class="footer-col">
+                    <h4>About Us</h4>
+                    <ul class="footer-menu">
+                        <p>At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Location</h4>
+                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank" class="social-item location-text">
+                        <i class="fa-solid fa-location-pin"></i> 
+                        <span>vulcan st. cor c5 road, Taguig, Philippines</span>
+                    </a>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact Us</h4>
+                    <a href="mailto:lukeseafoods28@gmail.com" class="social-item">
+                        <i class="fas fa-envelope"></i> lukeseafoods28@gmail.com
+                    </a>
+                    <a href="tel:09392999912" class="social-item">
+                        <i class="fa-solid fa-phone"></i> 09392999912
+                    </a>
+                </div>
+            </div>
+
+            <div class="mobile-footer-view">
+                <p class="mobile-info">
+                    <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i> luke_seafoods</a> 
+                    <span class="pipe">|</span> 
+                    <a href="mailto:lukeseafoods28@gmail.com"><i class="fas fa-envelope"></i> lukeseafoods28@gmail.com</a> 
+                    <span class="pipe">|</span> 
+                    <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a> 
+                    <span class="pipe">|</span> 
+                    <span class="mobile-hours"><i class="fas fa-clock"></i> 9:00 AM TO 8:00 PM</span> 
+                    <span class="pipe">|</span> 
+                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank"><i class="fa-solid fa-location-pin"></i> VULCAN ST. COR C5 ROAD, TAGUIG</a> 
+                    <span class="pipe">|</span> 
+                    <a href="tel:09392999912"><i class="fa-solid fa-phone"></i> 09392999912</a>
+                </p>
+
+                <p class="mobile-menu">
+                    About Us: At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.
+                </p>
+                
+                <p class="mobile-copyright">
+                    © 2025 Luke's Seafood Trading
+                </p>
+            </div>
+
+            <div class="copyright desktop-view">
+                © 2025 Luke's Seafood Trading | All Rights Reserved
+            </div>
+        </div>
+    </footer>
+
+    <script src="galleryindex.js"></script>
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobile-menu').addEventListener('click', function() {
+            document.getElementById('navMenu').classList.toggle('active');
+        });
+    </script>
+</body>
+</html>

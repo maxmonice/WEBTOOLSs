@@ -203,9 +203,123 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         }
         
-        // If validation passes, you can submit the form
-        alert('Form submitted successfully!');
+        // If validation passes, show summary popup
+        showSummaryPopup();
+    });
+
+    // Function to show summary popup
+    function showSummaryPopup() {
+        // Get all form values
+        const formData = {
+            eventName: document.getElementById('eventName').value,
+            address: document.getElementById('address').value,
+            eventDate: document.getElementById('eventDate').value,
+            eventTime: document.getElementById('eventTime').value,
+            eventType: document.getElementById('eventType').value,
+            numGuests: document.getElementById('numGuests').value,
+            fullName: document.getElementById('fullName').value,
+            contactNumber: document.getElementById('contactNumber').value,
+            emailAddress: document.getElementById('emailAddress').value,
+            notes: document.getElementById('notes').value || 'N/A'
+        };
+
+        // Format event type for display
+        const eventTypeLabels = {
+            'wedding': 'Wedding',
+            'birthday': 'Birthday Party',
+            'corporate': 'Corporate Event',
+            'anniversary': 'Anniversary',
+            'graduation': 'Graduation',
+            'reunion': 'Reunion',
+            'conference': 'Conference',
+            'seminar': 'Seminar/Workshop',
+            'teambuilding': 'Team Building',
+            'holiday': 'Holiday Party',
+            'other': 'Other'
+        };
+
+        // Create popup HTML
+        const popupHTML = `
+            <div class="popup-overlay" id="summaryPopup">
+                <div class="popup-content">
+                    <h2 class="popup-title">Booking Summary</h2>
+                    <div class="summary-section">
+                        <h3>Event Details</h3>
+                        <div class="summary-row">
+                            <span class="summary-label">Event Name:</span>
+                            <span class="summary-value">${formData.eventName}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Address:</span>
+                            <span class="summary-value">${formData.address}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Date:</span>
+                            <span class="summary-value">${formData.eventDate}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Time:</span>
+                            <span class="summary-value">${formData.eventTime}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Event Type:</span>
+                            <span class="summary-value">${eventTypeLabels[formData.eventType]}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Number of Guests:</span>
+                            <span class="summary-value">${formData.numGuests}</span>
+                        </div>
+                    </div>
+                    <div class="summary-section">
+                        <h3>Contact Details</h3>
+                        <div class="summary-row">
+                            <span class="summary-label">Full Name:</span>
+                            <span class="summary-value">${formData.fullName}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Contact Number:</span>
+                            <span class="summary-value">${formData.contactNumber}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Email:</span>
+                            <span class="summary-value">${formData.emailAddress}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Notes/Request:</span>
+                            <span class="summary-value">${formData.notes}</span>
+                        </div>
+                    </div>
+                    <div class="popup-buttons">
+                        <button type="button" class="popup-btn cancel-btn" onclick="closeSummaryPopup()">Edit</button>
+                        <button type="button" class="popup-btn confirm-btn" onclick="confirmSubmission()">Confirm & Submit</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add popup to body
+        document.body.insertAdjacentHTML('beforeend', popupHTML);
+    }
+
+    // Global functions for popup buttons
+    window.closeSummaryPopup = function() {
+        const popup = document.getElementById('summaryPopup');
+        if (popup) {
+            popup.remove();
+        }
+    };
+
+    window.confirmSubmission = function() {
+        // Close popup
+        closeSummaryPopup();
+        
+        // Show success message
+        alert('Form submitted successfully! We will contact you soon.');
+        
+        // Reset form
+        bookingForm.reset();
+        
         // Here you would normally send the form data to your server
         // bookingForm.submit();
-    });
+    };
 });
