@@ -7,9 +7,17 @@
 
 require_once 'db.php';
 
-// --- CORS & headers (adjust origin for production) ---
+// --- CORS & headers ---
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+
+$allowed_origins = ['http://localhost', 'http://127.0.0.1'];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowed_origins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+} else {
+    header('Access-Control-Allow-Origin: http://localhost');
+}
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
@@ -44,27 +52,22 @@ function handleSignup(array $data): void {
     $email    = strtolower(trim($data['email']    ?? ''));
     $password = $data['password'] ?? '';
 
-    // Validate
-    if (!$name)                          respond(false, 'Name is required.');
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) respond(false, 'Invalid email address.');
-    if (strlen($password) < 8)           respond(false, 'Password must be at least 8 characters.');
+    if (!$name)                                          respond(false, 'Name is required.');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL))      respond(false, 'Invalid email address.');
+    if (strlen($password) < 8)                           respond(false, 'Password must be at least 8 characters.');
 
     $db = getDB();
 
-    // Check duplicate email
     $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
     $stmt->execute([$email]);
     if ($stmt->fetch()) respond(false, 'An account with this email already exists.');
 
-    // Hash password
     $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
-    // Insert user
     $stmt = $db->prepare('INSERT INTO users (name, email, password_hash, provider) VALUES (?, ?, ?, ?)');
     $stmt->execute([$name, $email, $hash, 'email']);
     $userId = (int) $db->lastInsertId();
 
-    // Start session
     startUserSession($userId, $name, $email);
     respond(true, 'Account created successfully.', ['name' => $name, 'email' => $email]);
 }
@@ -92,14 +95,12 @@ function handleLogin(array $data): void {
         respond(false, 'Incorrect password.');
     }
 
-    // Start session
     startUserSession($user['id'], $user['name'], $user['email']);
 
-    // Remember me — set a 30-day cookie + store token in DB
     if ($remember) {
         $token = bin2hex(random_bytes(32));
         $db->prepare('UPDATE users SET remember_token = ? WHERE id = ?')->execute([$token, $user['id']]);
-        setcookie('remember_token', $token, time() + (30 * 24 * 60 * 60), '/', '', true, true);
+        setcookie('remember_token', $token, time() + (30 * 24 * 60 * 60), '/', '', false, true);
     }
 
     respond(true, 'Logged in successfully.', ['name' => $user['name'], 'email' => $user['email']]);
@@ -112,47 +113,41 @@ function handleGoogleAuth(array $data): void {
     $idToken = trim($data['id_token'] ?? '');
     if (!$idToken) respond(false, 'Missing Google ID token.');
 
-    // Verify token with Google
     $url      = 'https://oauth2.googleapis.com/tokeninfo?id_token=' . urlencode($idToken);
     $response = @file_get_contents($url);
-    if (!$response) respond(false, 'Could not verify Google token.');
+    if (!$response) respond(false, 'Could not verify Google token. Check that allow_url_fopen is enabled in php.ini.');
 
     $payload = json_decode($response, true);
 
-    // Validate audience matches your client ID
     $expectedClientId = '694050007372-2crn9q3ek8jav88iduut5ddf50ecgj0a.apps.googleusercontent.com';
     if (($payload['aud'] ?? '') !== $expectedClientId) {
         respond(false, 'Google token audience mismatch.');
     }
 
-    $googleId  = $payload['sub']      ?? '';
-    $email     = strtolower($payload['email'] ?? '');
-    $name      = $payload['name']     ?? 'Google User';
-    $avatar    = $payload['picture']  ?? null;
+    $googleId = $payload['sub']     ?? '';
+    $email    = strtolower($payload['email']   ?? '');
+    $name     = $payload['name']    ?? 'Google User';
+    $avatar   = $payload['picture'] ?? null;
 
     if (!$googleId || !$email) respond(false, 'Invalid Google token payload.');
 
     $db = getDB();
 
-    // Find existing user by provider_id or email
     $stmt = $db->prepare('SELECT id, name, email FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1');
     $stmt->execute([$googleId]);
     $user = $stmt->fetch();
 
     if (!$user) {
-        // Check if email exists under another provider
         $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
         $stmt->execute([$email]);
         if ($stmt->fetch()) respond(false, 'This email is already registered. Please sign in with email/password.');
 
-        // Create new user
         $stmt = $db->prepare('INSERT INTO users (name, email, provider, provider_id, avatar_url) VALUES (?, ?, "google", ?, ?)');
         $stmt->execute([$name, $email, $googleId, $avatar]);
         $userId = (int) $db->lastInsertId();
     } else {
         $userId = $user['id'];
         $name   = $user['name'];
-        // Update avatar
         $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([$avatar, $userId]);
     }
 
@@ -164,14 +159,13 @@ function handleGoogleAuth(array $data): void {
 //  FACEBOOK OAUTH — verify access token server-side
 // =====================================================
 function handleFacebookAuth(array $data): void {
-    $accessToken  = trim($data['access_token'] ?? '');
-    $facebookAppId     = 'YOUR_FACEBOOK_APP_ID_HERE';    // <-- paste your FB App ID
-    $facebookAppSecret = 'YOUR_FACEBOOK_APP_SECRET_HERE'; // <-- paste your FB App Secret
+    $accessToken       = trim($data['access_token'] ?? '');
+    $facebookAppId     = 'YOUR_FACEBOOK_APP_ID_HERE';
+    $facebookAppSecret = 'YOUR_FACEBOOK_APP_SECRET_HERE';
 
     if (!$accessToken) respond(false, 'Missing Facebook access token.');
 
-    // Verify token with Facebook Graph API
-    $appToken = $facebookAppId . '|' . $facebookAppSecret;
+    $appToken  = $facebookAppId . '|' . $facebookAppSecret;
     $verifyUrl = 'https://graph.facebook.com/debug_token?input_token=' . urlencode($accessToken)
                . '&access_token=' . urlencode($appToken);
     $verifyResponse = @file_get_contents($verifyUrl);
@@ -180,22 +174,20 @@ function handleFacebookAuth(array $data): void {
     $verifyData = json_decode($verifyResponse, true);
     if (empty($verifyData['data']['is_valid'])) respond(false, 'Invalid Facebook token.');
 
-    // Fetch user info
     $userUrl  = 'https://graph.facebook.com/me?fields=id,name,email,picture&access_token=' . urlencode($accessToken);
     $userResp = @file_get_contents($userUrl);
     if (!$userResp) respond(false, 'Could not fetch Facebook user info.');
 
-    $fbUser    = json_decode($userResp, true);
-    $facebookId = $fbUser['id']    ?? '';
-    $name      = $fbUser['name']  ?? 'Facebook User';
-    $email     = strtolower($fbUser['email'] ?? '');
-    $avatar    = $fbUser['picture']['data']['url'] ?? null;
+    $fbUser     = json_decode($userResp, true);
+    $facebookId = $fbUser['id']   ?? '';
+    $name       = $fbUser['name'] ?? 'Facebook User';
+    $email      = strtolower($fbUser['email'] ?? '');
+    $avatar     = $fbUser['picture']['data']['url'] ?? null;
 
     if (!$facebookId) respond(false, 'Invalid Facebook user data.');
 
     $db = getDB();
 
-    // Find existing user
     $stmt = $db->prepare('SELECT id, name, email FROM users WHERE provider = "facebook" AND provider_id = ? LIMIT 1');
     $stmt->execute([$facebookId]);
     $user = $stmt->fetch();
@@ -225,13 +217,12 @@ function handleFacebookAuth(array $data): void {
 // =====================================================
 function handleLogout(): void {
     session_destroy();
-    // Clear remember_token cookie
-    setcookie('remember_token', '', time() - 3600, '/', '', true, true);
+    setcookie('remember_token', '', time() - 3600, '/', '', false, true);
     respond(true, 'Logged out.');
 }
 
 // =====================================================
-//  CHECK SESSION (called on page load)
+//  CHECK SESSION
 // =====================================================
 function handleCheckSession(): void {
     if (!empty($_SESSION['user_id'])) {
@@ -241,7 +232,6 @@ function handleCheckSession(): void {
         ]);
     }
 
-    // Check remember_token cookie
     $token = $_COOKIE['remember_token'] ?? '';
     if ($token) {
         $db   = getDB();

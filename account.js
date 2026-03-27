@@ -1,13 +1,8 @@
 // =====================================================
 //  account.js — Luke's Seafood Trading
-//  Talks to auth.php for all auth actions
 // =====================================================
 
-const AUTH_URL = 'auth.php'; // path to auth.php on your server
-
-// =====================================================
-//  GOOGLE CLIENT ID
-// =====================================================
+const AUTH_URL = 'auth.php';
 const GOOGLE_CLIENT_ID = '694050007372-2crn9q3ek8jav88iduut5ddf50ecgj0a.apps.googleusercontent.com';
 
 // =====================================================
@@ -24,39 +19,73 @@ function loadGoogleSDK() {
 
 function initGoogle() {
     google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback:  handleGoogleResponse,
+        client_id:              GOOGLE_CLIENT_ID,
+        callback:               handleGoogleResponse,
+        auto_select:            false,
+        cancel_on_tap_outside:  true,
     });
 }
 
-// Called by Google SDK after user picks account
 async function handleGoogleResponse(response) {
+    if (!response || !response.credential) {
+        showError('Google sign-in was cancelled or failed. Please try again.');
+        return;
+    }
     showLoading(true);
     try {
         const result = await callAuth({ action: 'google_auth', id_token: response.credential });
         if (result.success) {
             onLoginSuccess(result);
         } else {
-            showError(result.message);
+            showError(result.message || 'Google sign-in failed.');
         }
     } catch (e) {
+        console.error(e);
         showError('Google sign-in failed. Please try again.');
     } finally {
         showLoading(false);
     }
 }
 
+// Render a real hidden Google button and click it — more reliable than prompt()
 function signInWithGoogle() {
-    google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // Fallback: render a hidden button and click it
-            const wrapper = document.createElement('div');
-            wrapper.style.display = 'none';
-            document.body.appendChild(wrapper);
-            google.accounts.id.renderButton(wrapper, { theme: 'outline', size: 'large' });
-            google.accounts.id.prompt();
-        }
+    if (typeof google === 'undefined' || !google.accounts) {
+        showError('Google sign-in is not available. Please try again in a moment.');
+        return;
+    }
+
+    // Remove any old container
+    const old = document.getElementById('_g_btn_container');
+    if (old) old.remove();
+
+    // Create a hidden container, render the button, then click it
+    const container = document.createElement('div');
+    container.id = '_g_btn_container';
+    container.style.cssText = 'position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden;';
+    document.body.appendChild(container);
+
+    google.accounts.id.renderButton(container, {
+        type:  'standard',
+        theme: 'outline',
+        size:  'large',
     });
+
+    // Give the button a tick to render, then click it
+    setTimeout(() => {
+        const btn = container.querySelector('div[role="button"]') || container.querySelector('button');
+        if (btn) {
+            btn.click();
+        } else {
+            // Final fallback — try One Tap prompt
+            google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed()) {
+                    showError('Google sign-in was blocked by your browser. Try disabling popup blockers.');
+                } else if (notification.isSkippedMoment()) {
+                    showError('Google sign-in was dismissed. Please try again.');
+                }
+            });
+        }
+    }, 300);
 }
 
 // =====================================================
@@ -65,21 +94,24 @@ function signInWithGoogle() {
 function loadFacebookSDK() {
     window.fbAsyncInit = function () {
         FB.init({
-            appId:   'YOUR_FACEBOOK_APP_ID_HERE',  // <-- paste your FB App ID
+            appId:   'YOUR_FACEBOOK_APP_ID_HERE',
             cookie:  true,
             xfbml:   true,
             version: 'v19.0',
         });
     };
-
-    const script    = document.createElement('script');
-    script.src      = 'https://connect.facebook.net/en_US/sdk.js';
-    script.async    = true;
-    script.defer    = true;
+    const script = document.createElement('script');
+    script.src   = 'https://connect.facebook.net/en_US/sdk.js';
+    script.async = true;
+    script.defer = true;
     document.head.appendChild(script);
 }
 
 async function signInWithFacebook() {
+    if (typeof FB === 'undefined') {
+        showError('Facebook sign-in is not available. Please try again in a moment.');
+        return;
+    }
     FB.login(async function (response) {
         if (!response.authResponse) {
             showError('Facebook login was cancelled.');
@@ -94,7 +126,7 @@ async function signInWithFacebook() {
             if (result.success) {
                 onLoginSuccess(result);
             } else {
-                showError(result.message);
+                showError(result.message || 'Facebook sign-in failed.');
             }
         } catch (e) {
             showError('Facebook sign-in failed. Please try again.');
@@ -111,7 +143,7 @@ async function callAuth(payload) {
     const res = await fetch(AUTH_URL, {
         method:      'POST',
         headers:     { 'Content-Type': 'application/json' },
-        credentials: 'include',   // send/receive cookies for sessions
+        credentials: 'include',
         body:        JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Server error: ' + res.status);
@@ -119,49 +151,12 @@ async function callAuth(payload) {
 }
 
 // =====================================================
-//  ON LOGIN / SIGNUP SUCCESS
+//  ON LOGIN SUCCESS
 // =====================================================
 function onLoginSuccess(result) {
-    // Store user info in sessionStorage for display
     sessionStorage.setItem('user_name',  result.name  || '');
     sessionStorage.setItem('user_email', result.email || '');
-
-    // Show welcome state or redirect
-    showWelcome(result.name);
-}
-
-function showWelcome(name) {
-    const overlay = document.getElementById('modalOverlay');
-    overlay.innerHTML = `
-        <div class="modal" style="text-align:center;">
-            <div class="modal-fish-icon" style="margin:0 auto 20px;">
-                <i class="fas fa-fish"></i>
-            </div>
-            <h2 style="font-family:'Aclonica',sans-serif;font-size:1.3rem;margin-bottom:8px;">
-                Welcome, ${escapeHtml(name)}!
-            </h2>
-            <p style="color:rgba(255,255,255,0.6);font-size:0.88rem;margin-bottom:28px;">
-                You're now signed in to Luke's Seafood Trading.
-            </p>
-            <a href="index.html" class="btn-primary" style="text-decoration:none;display:inline-flex;">
-                <span>Go to Homepage</span>
-                <i class="fas fa-arrow-right"></i>
-            </a>
-            <br><br>
-            <button class="btn-google" onclick="handleLogout()" style="width:100%;">
-                <i class="fas fa-sign-out-alt"></i> Sign Out
-            </button>
-        </div>
-    `;
-}
-
-// =====================================================
-//  LOGOUT
-// =====================================================
-async function handleLogout() {
-    await callAuth({ action: 'logout' });
-    sessionStorage.clear();
-    window.location.reload();
+    window.location.href = 'account-dashboard.html';
 }
 
 // =====================================================
@@ -208,14 +203,12 @@ function togglePw(inputId, btn) {
 // =====================================================
 function showError(msg) {
     clearError();
-    // Find active modal
     const activeModal = document.querySelector('.modal:not(.hidden)');
     if (!activeModal) return;
     const err = document.createElement('div');
     err.className = 'auth-error';
     err.id        = 'authError';
     err.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${escapeHtml(msg)}`;
-    // Insert before first form-group
     const form = activeModal.querySelector('.modal-form');
     form.insertBefore(err, form.firstChild);
 }
@@ -230,7 +223,11 @@ function showLoading(on) {
 }
 
 function escapeHtml(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
 }
 
 // =====================================================
@@ -238,11 +235,10 @@ function escapeHtml(str) {
 // =====================================================
 document.addEventListener('DOMContentLoaded', async () => {
 
-    // Load OAuth SDKs
     loadGoogleSDK();
     loadFacebookSDK();
 
-    // Mobile nav toggle
+    // Mobile nav
     const menuToggle = document.getElementById('mobile-menu');
     const navMenu    = document.getElementById('navMenu');
     if (menuToggle && navMenu) {
@@ -310,13 +306,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- CHECK EXISTING SESSION on page load ---
+    // --- CHECK SESSION ON PAGE LOAD ---
     try {
         const session = await callAuth({ action: 'check_session' });
         if (session.success) {
-            showWelcome(session.name);
+            sessionStorage.setItem('user_name',  session.name  || '');
+            sessionStorage.setItem('user_email', session.email || '');
+            window.location.href = 'account-dashboard.html';
+        } else {
+            sessionStorage.removeItem('user_name');
+            sessionStorage.removeItem('user_email');
         }
     } catch (e) {
-        // No session — show login form (default state)
+        sessionStorage.removeItem('user_name');
+        sessionStorage.removeItem('user_email');
+        console.warn('Session check failed:', e.message);
     }
 });
