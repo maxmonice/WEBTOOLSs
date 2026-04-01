@@ -12,16 +12,16 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --red:        #c0392b;
-            --red-dark:   #962d22;
-            --red-glow:   rgba(192,57,43,0.25);
-            --bg:         #0d0d0d;
-            --surface:    #161616;
-            --surface2:   #1e1e1e;
+            --red:        #C22626;
+            --red-dark:   #8B0A1E;
+            --red-glow:   rgba(194,38,38,0.25);
+            --bg:         #191919;
+            --surface:    #222222;
+            --surface2:   #2a2a2a;
             --border:     rgba(255,255,255,0.07);
-            --border-red: rgba(192,57,43,0.35);
+            --border-red: rgba(194,38,38,0.35);
             --text:       #f0ece6;
-            --muted:      #7a7068;
+            --muted:      rgba(255,255,255,0.45);
         }
 
         body {
@@ -31,69 +31,61 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
 
-        body::before {
-            content: '';
+        /* Grain overlay */
+        .grain-overlay {
             position: fixed; inset: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-            pointer-events: none; z-index: 0;
+            pointer-events: none; z-index: 9990; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         }
 
+        /* ── HEADER / NAV ── */
         header {
-            position: sticky; top: 0; z-index: 100;
-            background: rgba(13,13,13,0.88);
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border);
+            background: linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%);
+            height: 70px; padding: 0;
+            display: flex; align-items: center;
+            position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 1000;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06);
         }
-        .header-container {
-            max-width: 1100px; margin: 0 auto;
-            padding: 0 24px; height: 62px;
-            display: flex; align-items: center; justify-content: space-between;
-        }
+        .container { max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 20px; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; }
         .logo {
             font-family: 'Aclonica', sans-serif;
-            font-size: 1.1rem; color: var(--text);
-            text-decoration: none; letter-spacing: 0.02em;
+            font-size: 1.4rem; color: white; white-space: nowrap;
+            letter-spacing: 0.02em; text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            text-decoration: none;
         }
-        .nav-menu { display: flex; align-items: center; gap: 28px; }
+        .menu-toggle { display: none; cursor: pointer; font-size: 1.5rem; color: white; }
+        .nav-menu { display: flex; align-items: center; gap: 30px; }
         .nav-menu a {
-            font-size: 0.83rem; font-weight: 600;
-            letter-spacing: 0.04em; color: var(--muted);
-            text-decoration: none; text-transform: uppercase;
-            transition: color 0.2s;
+            color: rgba(255,255,255,0.88); text-decoration: none;
+            font-weight: 500; font-size: 0.95rem; letter-spacing: 0.03em;
+            position: relative; transition: color 0.3s;
         }
-        .nav-menu a:hover { color: var(--text); }
-        .nav-menu a.active { color: var(--red); }
-        .nav-menu .nav-home-btn {
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 7px 16px; border-radius: 7px;
-            border: 1px solid var(--border-red); color: var(--red);
-            font-size: 0.78rem; font-weight: 700;
-            letter-spacing: 0.06em; text-transform: uppercase;
-            transition: background 0.2s, color 0.2s;
+        .nav-menu a:hover { color: #fff; }
+        .nav-menu a.active { color: #fff; }
+        .nav-menu a.active::after {
+            content: ''; display: block; width: 100%; height: 3px;
+            background: rgba(0,0,0,0.4); border-radius: 2px;
+            position: absolute; bottom: -26px; left: 0;
         }
-        .nav-menu .nav-home-btn:hover { background: var(--red); color: #fff; }
+        .nav-account-icon {
+            display: flex !important; align-items: center;
+            font-size: 1.35rem !important; color: white !important;
+            transition: transform 0.2s, opacity 0.2s !important; opacity: 0.9;
+        }
+        .nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
+        .nav-account-icon.active::after { display: none !important; }
 
-        .menu-toggle { display: none; font-size: 1.3rem; cursor: pointer; color: var(--text); }
-
-        @media (max-width: 700px) {
-            .menu-toggle { display: block; }
-            .nav-menu {
-                display: none; position: absolute; top: 62px; left: 0; right: 0;
-                flex-direction: column; align-items: flex-start; gap: 0;
-                background: rgba(13,13,13,0.97);
-                border-bottom: 1px solid var(--border); padding: 12px 0;
-            }
-            .nav-menu.active { display: flex; }
-            .nav-menu a { padding: 12px 24px; width: 100%; }
-            .nav-menu .nav-home-btn { margin: 8px 24px; width: calc(100% - 48px); justify-content: center; }
-        }
+        /* ── MAIN ── */
+        main { margin-top: 70px; flex: 1; }
 
         .page {
             position: relative; z-index: 1;
             max-width: 900px; margin: 0 auto;
-            width: 100%; padding: 48px 24px 80px; flex: 1;
+            width: 100%; padding: 48px 24px 80px;
         }
         .page-eyebrow {
             font-size: 0.72rem; font-weight: 700;
@@ -106,6 +98,7 @@
             line-height: 1.15; margin-bottom: 40px;
         }
 
+        /* ── SECTION BLOCKS ── */
         .section-block {
             background: var(--surface); border: 1px solid var(--border);
             border-radius: 16px; overflow: hidden; margin-bottom: 20px;
@@ -188,7 +181,7 @@
         .menu-divider { margin: 0 22px; border: none; border-top: 1px solid var(--border); }
 
         .logout-block {
-            background: var(--surface); border: 1px solid rgba(192,57,43,0.2);
+            background: var(--surface); border: 1px solid rgba(194,38,38,0.2);
             border-radius: 16px; overflow: hidden; margin-top: 8px;
         }
         .logout-btn {
@@ -198,17 +191,18 @@
             font-family: 'Be Vietnam Pro', sans-serif;
             font-size: 0.95rem; font-weight: 700; transition: background 0.2s;
         }
-        .logout-btn:hover { background: rgba(192,57,43,0.1); }
+        .logout-btn:hover { background: rgba(194,38,38,0.1); }
         .logout-icon {
             width: 38px; height: 38px; border-radius: 10px;
-            background: rgba(192,57,43,0.12); border: 1px solid var(--border-red);
+            background: rgba(194,38,38,0.12); border: 1px solid var(--border-red);
             display: flex; align-items: center; justify-content: center;
             font-size: 0.9rem; flex-shrink: 0; transition: background 0.2s;
         }
         .logout-btn:hover .logout-icon { background: var(--red); color: #fff; }
         .logout-label { flex: 1; text-align: left; }
-        .logout-label small { display: block; font-size: 0.72rem; font-weight: 500; color: rgba(192,57,43,0.6); margin-top: 1px; }
+        .logout-label small { display: block; font-size: 0.72rem; font-weight: 500; color: rgba(194,38,38,0.6); margin-top: 1px; }
 
+        /* ── MODALS ── */
         .modal-overlay {
             display: none; position: fixed; inset: 0; z-index: 500;
             background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
@@ -269,7 +263,7 @@
         .logout-confirm-body { padding: 28px 24px 8px; text-align: center; }
         .logout-confirm-icon {
             width: 56px; height: 56px; border-radius: 50%;
-            background: rgba(192,57,43,0.12); border: 1px solid var(--border-red);
+            background: rgba(194,38,38,0.12); border: 1px solid var(--border-red);
             display: flex; align-items: center; justify-content: center;
             font-size: 1.3rem; color: var(--red); margin: 0 auto 16px;
         }
@@ -284,6 +278,7 @@
         }
         .btn-logout-confirm:hover { background: var(--red-dark); }
 
+        /* ── TOAST ── */
         .toast {
             position: fixed; bottom: 28px; right: 28px; z-index: 999;
             background: var(--surface); border: 1px solid var(--border-red);
@@ -297,6 +292,72 @@
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast i { color: #22c55e; }
 
+        /* ── FOOTER ── */
+        footer {
+            background: linear-gradient(135deg, #8B0A1E 0%, #C22626 60%, #9B0A1E 100%);
+            padding: 60px 0 20px;
+            color: white;
+            font-size: 0.9rem;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+        }
+        footer a { color: white; text-decoration: none; }
+        footer a:hover { opacity: 0.85; }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px 80px;
+            max-width: 900px;
+            margin: 0 auto 50px;
+        }
+        .footer-col h4 {
+            font-family: 'Aclonica', sans-serif;
+            font-size: 1.2rem; font-weight: 400;
+            margin-bottom: 14px; letter-spacing: 0.04em;
+        }
+        .social-item {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 12px; font-size: 0.95rem;
+            transition: opacity 0.2s;
+        }
+        .social-item:hover { opacity: 0.8; }
+        .social-item i { font-size: 1.1rem; }
+        .location-text { align-items: flex-start; }
+        .location-text i { margin-top: 4px; }
+        .copyright {
+            text-align: center; font-size: 0.82rem;
+            margin-top: 20px; padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            opacity: 0.8;
+        }
+        .mobile-footer-view { display: none; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .menu-toggle { display: block; }
+            .nav-menu {
+                display: none; position: absolute; top: 100%; right: 0;
+                width: 200px; background: #a31e1e; flex-direction: column;
+                padding: 10px 0; gap: 0; z-index: 200;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            }
+            .nav-menu.active { display: flex; }
+            .nav-menu a { padding: 12px 20px; width: 100%; text-align: right; }
+            .nav-menu a.active::after { display: none; }
+            .nav-account-icon { justify-content: flex-end; }
+
+            .desktop-view { display: none; }
+            .mobile-footer-view {
+                display: flex; flex-direction: column;
+                align-items: center; text-align: center; gap: 20px;
+            }
+            .mobile-info { font-size: 0.82rem; line-height: 1.7; color: white; text-transform: uppercase; max-width: 90%; font-weight: 400; }
+            .mobile-info a { color: white; border-bottom: 1px dotted rgba(255,255,255,0.4); }
+            .mobile-info i { margin-right: 5px; }
+            .pipe { font-weight: 800; margin: 0 4px; }
+            .mobile-menu-text { font-size: 0.88rem; color: white; }
+            .mobile-copyright { font-size: 0.78rem; color: white; font-weight: 500; }
+        }
+
         @media (max-width: 540px) {
             .profile-card { flex-wrap: wrap; }
             .edit-btn { width: 100%; justify-content: center; }
@@ -306,113 +367,173 @@
 </head>
 <body>
 
+    <div class="grain-overlay"></div>
+
+    <!-- HEADER -->
     <header>
-        <div class="header-container">
+        <div class="container header-container">
             <a href="index.html" class="logo">Luke's Seafood Trading</a>
             <div class="menu-toggle" id="mobile-menu"><i class="fa-solid fa-bars"></i></div>
             <nav class="nav-menu" id="navMenu">
                 <a href="index.html">Home</a>
                 <a href="menu.html">Menu</a>
-                <a href="bookbar.html">Book Bar</a>
+                <a href="bookBar.html">Book Bar</a>
                 <a href="gallery.html">Gallery</a>
                 <a href="aboutUs.html">About Us</a>
-                <a href="index.html" class="nav-home-btn">
-                    <i class="fa-solid fa-house"></i> Back to Home
+                <a href="account.html" class="nav-account-icon active" title="Account">
+                    <i class="fas fa-user-circle"></i>
                 </a>
             </nav>
         </div>
     </header>
 
-    <main class="page">
+    <main>
+        <div class="page">
 
-        <p class="page-eyebrow">Logged In</p>
-        <h1 class="page-title">My Account</h1>
+            <p class="page-eyebrow">Logged In</p>
+            <h1 class="page-title">My Account</h1>
 
-        <div class="section-block">
-            <div class="section-label">
-                <i class="fa-solid fa-user"></i> Profile &amp; Account Info
+            <div class="section-block">
+                <div class="section-label">
+                    <i class="fa-solid fa-user"></i> Profile &amp; Account Info
+                </div>
+                <div class="profile-card">
+                    <div class="avatar-wrap">
+                        <div class="avatar" id="avatarInitial">?</div>
+                        <div class="avatar-badge"></div>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="displayName">Loading...</div>
+                        <div class="profile-email" id="displayEmail">Loading...</div>
+                    </div>
+                    <button class="edit-btn" onclick="openEdit()">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+                    </button>
+                </div>
+                <div class="detail-rows">
+                    <div class="detail-row">
+                        <span class="dr-label">Full Name</span>
+                        <span class="dr-value" id="detailName">—</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="dr-label">Email Address</span>
+                        <span class="dr-value" id="detailEmail">—</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="dr-label">Member Since</span>
+                        <span class="dr-value" id="memberSince">—</span>
+                    </div>
+                </div>
             </div>
-            <div class="profile-card">
-                <div class="avatar-wrap">
-                    <div class="avatar" id="avatarInitial">?</div>
-                    <div class="avatar-badge"></div>
+
+            <div class="section-block">
+                <div class="section-label">
+                    <i class="fa-solid fa-circle-question"></i> Help &amp; Support
                 </div>
-                <div class="profile-info">
-                    <div class="profile-name" id="displayName">Loading...</div>
-                    <div class="profile-email" id="displayEmail">Loading...</div>
+                <div class="menu-rows">
+                    <a class="menu-row" href="#" onclick="return false;">
+                        <div class="mr-left">
+                            <div class="mr-icon"><i class="fa-solid fa-book-open"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">Help Center</div>
+                                <div class="mr-sub">Browse FAQs and guides</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
+                    </a>
+                    <hr class="menu-divider">
+                    <a class="menu-row" href="mailto:lukeseafoods28@gmail.com">
+                        <div class="mr-left">
+                            <div class="mr-icon"><i class="fa-solid fa-headset"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">Contact Support</div>
+                                <div class="mr-sub">Reach out to our admin team</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
+                    </a>
+                    <hr class="menu-divider">
+                    <a class="menu-row" href="https://www.facebook.com/lukeseafoodtrading" target="_blank">
+                        <div class="mr-left">
+                            <div class="mr-icon"><i class="fa-brands fa-facebook-messenger"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">Message Us on Facebook</div>
+                                <div class="mr-sub">Chat with us directly</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-arrow-up-right-from-square mr-arrow"></i>
+                    </a>
                 </div>
-                <button class="edit-btn" onclick="openEdit()">
-                    <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+            </div>
+
+            <div class="logout-block">
+                <button class="logout-btn" onclick="openLogout()">
+                    <div class="logout-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+                    <div class="logout-label">
+                        Log Out
+                        <small>Signed in as <span id="logoutEmail">—</span></small>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="color:rgba(194,38,38,0.4);font-size:0.75rem;"></i>
                 </button>
             </div>
-            <div class="detail-rows">
-                <div class="detail-row">
-                    <span class="dr-label">Full Name</span>
-                    <span class="dr-value" id="detailName">—</span>
-                </div>
-                <div class="detail-row">
-                    <span class="dr-label">Email Address</span>
-                    <span class="dr-value" id="detailEmail">—</span>
-                </div>
-                <div class="detail-row">
-                    <span class="dr-label">Member Since</span>
-                    <span class="dr-value" id="memberSince">—</span>
-                </div>
-            </div>
-        </div>
 
-        <div class="section-block">
-            <div class="section-label">
-                <i class="fa-solid fa-circle-question"></i> Help &amp; Support
-            </div>
-            <div class="menu-rows">
-                <a class="menu-row" href="#" onclick="return false;">
-                    <div class="mr-left">
-                        <div class="mr-icon"><i class="fa-solid fa-book-open"></i></div>
-                        <div class="mr-text">
-                            <div class="mr-title">Help Center</div>
-                            <div class="mr-sub">Browse FAQs and guides</div>
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right mr-arrow"></i>
-                </a>
-                <hr class="menu-divider">
-                <a class="menu-row" href="mailto:lukeseafoods28@gmail.com">
-                    <div class="mr-left">
-                        <div class="mr-icon"><i class="fa-solid fa-headset"></i></div>
-                        <div class="mr-text">
-                            <div class="mr-title">Contact Support</div>
-                            <div class="mr-sub">Reach out to our admin team</div>
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right mr-arrow"></i>
-                </a>
-                <hr class="menu-divider">
-                <a class="menu-row" href="https://www.facebook.com/lukeseafoodtrading" target="_blank">
-                    <div class="mr-left">
-                        <div class="mr-icon"><i class="fa-brands fa-facebook-messenger"></i></div>
-                        <div class="mr-text">
-                            <div class="mr-title">Message Us on Facebook</div>
-                            <div class="mr-sub">Chat with us directly</div>
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-arrow-up-right-from-square mr-arrow"></i>
-                </a>
-            </div>
         </div>
-
-        <div class="logout-block">
-            <button class="logout-btn" onclick="openLogout()">
-                <div class="logout-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
-                <div class="logout-label">
-                    Log Out
-                    <small>Signed in as <span id="logoutEmail">—</span></small>
-                </div>
-                <i class="fa-solid fa-chevron-right" style="color:rgba(192,57,43,0.4);font-size:0.75rem;"></i>
-            </button>
-        </div>
-
     </main>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid desktop-view">
+                <div class="footer-col">
+                    <h4>Socials</h4>
+                    <a href="https://facebook.com/lukeseafoodtrading" target="_blank" class="social-item">
+                        <i class="fab fa-facebook"></i> Luke's Seafood Taguig
+                    </a>
+                    <a href="https://www.instagram.com/luke_seafoods/" target="_blank" class="social-item">
+                        <i class="fab fa-instagram"></i> luke_seafoods
+                    </a>
+                </div>
+                <div class="footer-col">
+                    <h4>About Us</h4>
+                    <p>At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Location</h4>
+                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank" class="social-item location-text">
+                        <i class="fa-solid fa-location-pin"></i>
+                        <span>vulcan st. cor c5 road, Taguig, Philippines</span>
+                    </a>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact Us</h4>
+                    <a href="mailto:lukeseafoods28@gmail.com" class="social-item">
+                        <i class="fas fa-envelope"></i> lukeseafoods28@gmail.com
+                    </a>
+                    <a href="tel:09392999912" class="social-item">
+                        <i class="fa-solid fa-phone"></i> 09392999912
+                    </a>
+                </div>
+            </div>
+
+            <div class="mobile-footer-view">
+                <p class="mobile-info">
+                    <a href="https://www.instagram.com/luke_seafoods/" target="_blank"><i class="fab fa-instagram"></i> luke_seafoods</a>
+                    <span class="pipe">|</span>
+                    <a href="mailto:lukeseafoods28@gmail.com"><i class="fas fa-envelope"></i> lukeseafoods28@gmail.com</a>
+                    <span class="pipe">|</span>
+                    <a href="https://facebook.com/lukeseafoodtrading" target="_blank"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a>
+                    <span class="pipe">|</span>
+                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank"><i class="fa-solid fa-location-pin"></i> VULCAN ST. COR C5 ROAD, TAGUIG</a>
+                    <span class="pipe">|</span>
+                    <a href="tel:09392999912"><i class="fa-solid fa-phone"></i> 09392999912</a>
+                </p>
+                <p class="mobile-menu-text">About Us: At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market.</p>
+                <p class="mobile-copyright">© 2025 Luke's Seafood Trading</p>
+            </div>
+
+            <div class="copyright desktop-view">© 2025 Luke's Seafood Trading | All Rights Reserved</div>
+        </div>
+    </footer>
 
     <!-- EDIT MODAL -->
     <div class="modal-overlay" id="editModal">
@@ -466,10 +587,7 @@
     </div>
 
     <script>
-        // =====================================================
-        // DASHBOARD INIT — verify PHP session is still alive
-        // before showing anything. This runs immediately on load.
-        // =====================================================
+        // ── Session guard ──
         (async function guardSession() {
             try {
                 const res = await fetch('auth.php', {
@@ -479,27 +597,18 @@
                     body: JSON.stringify({ action: 'check_session' })
                 });
                 const data = await res.json();
-
                 if (!data.success) {
-                    // PHP session is dead — clear everything and go to login
                     sessionStorage.clear();
                     window.location.href = 'account.html';
                     return;
                 }
-
-                // Always use fresh data from PHP session, not stale sessionStorage
                 sessionStorage.setItem('user_name',  data.name  || '');
                 sessionStorage.setItem('user_email', data.email || '');
-
             } catch (e) {
-                // Can't reach server — send to login to be safe
                 sessionStorage.clear();
                 window.location.href = 'account.html';
             }
-        })().then(() => {
-            // Only populate UI after session is confirmed
-            initDashboard();
-        });
+        })().then(() => { initDashboard(); });
 
         function initDashboard() {
             userData.name  = sessionStorage.getItem('user_name')  || 'Guest';
@@ -517,8 +626,6 @@
             document.getElementById('detailName').textContent    = userData.name;
             document.getElementById('detailEmail').textContent   = userData.email;
             document.getElementById('logoutEmail').textContent   = userData.email;
-
-            // Show current month/year as member since
             const now = new Date();
             document.getElementById('memberSince').textContent =
                 now.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -552,8 +659,6 @@
             closeLogout();
             showToast('Signing out…');
             try {
-                // CRITICAL: Call auth.php logout FIRST to destroy the PHP session
-                // Without this, check_session on account.html will keep redirecting back
                 await fetch('auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -561,10 +666,8 @@
                     body: JSON.stringify({ action: 'logout' })
                 });
             } catch (e) {
-                // Even if fetch fails, still clear local storage and redirect
                 console.warn('Logout request failed:', e.message);
             }
-            // Clear client-side storage AFTER PHP session is destroyed
             sessionStorage.clear();
             localStorage.clear();
             window.location.href = 'account.html';
@@ -585,7 +688,7 @@
             });
         });
 
-        // ── Mobile nav ──
+        // ── Mobile nav toggle ──
         document.getElementById('mobile-menu').addEventListener('click', () => {
             document.getElementById('navMenu').classList.toggle('active');
         });

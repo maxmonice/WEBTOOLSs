@@ -11,10 +11,139 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="menu.css">
+
+    <style>
+        /* ── AUTH GUARD MODAL ── */
+        .auth-modal-overlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.82);
+            backdrop-filter: blur(8px);
+            align-items: center; justify-content: center; padding: 24px;
+        }
+        .auth-modal-overlay.open {
+            display: flex;
+            animation: authFadeIn 0.22s ease;
+        }
+        @keyframes authFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .auth-modal {
+            background: #222;
+            border: 1px solid rgba(194,38,38,0.4);
+            border-radius: 20px;
+            width: 100%; max-width: 400px;
+            overflow: hidden;
+            animation: authSlideUp 0.25s cubic-bezier(.16,1,.3,1);
+            position: relative;
+        }
+        .auth-modal::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(to right, #8B0A1E, #C22626);
+            border-radius: 20px 20px 0 0;
+        }
+        @keyframes authSlideUp {
+            from { opacity: 0; transform: translateY(28px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .auth-modal-icon {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: rgba(194,38,38,0.12);
+            border: 1px solid rgba(194,38,38,0.35);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; color: #C22626;
+            margin: 36px auto 20px;
+        }
+        .auth-modal-body {
+            text-align: center;
+            padding: 0 30px 10px;
+        }
+        .auth-modal-body h3 {
+            font-family: 'Aclonica', sans-serif;
+            font-size: 1.25rem; color: #fff; margin-bottom: 10px;
+        }
+        .auth-modal-body p {
+            font-size: 0.87rem;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.65;
+        }
+        .auth-modal-body p strong {
+            color: rgba(255,255,255,0.75);
+            font-weight: 700;
+        }
+        .auth-modal-foot {
+            display: flex; flex-direction: column; gap: 10px;
+            padding: 24px 28px 28px;
+        }
+        .auth-btn-signin {
+            width: 100%; padding: 13px;
+            background: linear-gradient(135deg, #C22626, #8B0A1E);
+            color: #fff; border: none; border-radius: 10px;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            font-size: 0.9rem; font-weight: 700;
+            cursor: pointer; letter-spacing: 0.03em;
+            transition: opacity 0.2s, box-shadow 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .auth-btn-signin:hover {
+            opacity: 0.9;
+            box-shadow: 0 6px 24px rgba(194,38,38,0.45);
+        }
+        .auth-btn-cancel {
+            width: 100%; padding: 12px;
+            background: transparent;
+            color: rgba(255,255,255,0.45);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            font-size: 0.88rem; font-weight: 600;
+            cursor: pointer; transition: color 0.2s, border-color 0.2s;
+        }
+        .auth-btn-cancel:hover {
+            color: #fff; border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ── CHECKOUT LOCKED STATE ── */
+        .checkout-btn.locked {
+            opacity: 0.75;
+            cursor: pointer;
+            position: relative;
+        }
+        .checkout-btn.locked .lock-icon {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 6px;
+        }
+        .checkout-btn .lock-icon { display: none; }
+
+        /* ── AUTH BADGE in cart panel ── */
+        .cart-auth-notice {
+            display: flex; align-items: center; gap: 9px;
+            padding: 10px 14px; border-radius: 9px;
+            font-size: 0.8rem; font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .cart-auth-notice.signed-in {
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.25);
+            color: #86efac;
+        }
+        .cart-auth-notice.signed-out {
+            background: rgba(194,38,38,0.1);
+            border: 1px solid rgba(194,38,38,0.3);
+            color: #fca5a5;
+        }
+        .cart-auth-notice i { font-size: 0.85rem; flex-shrink: 0; }
+        .cart-auth-notice a {
+            color: #fff; font-weight: 700;
+            text-decoration: underline; text-underline-offset: 2px;
+            margin-left: 3px;
+        }
+    </style>
 </head>
 <body>
 
-    <!-- Grain overlay — matches index.html -->
+    <!-- Grain overlay -->
     <div class="grain-overlay"></div>
 
     <header>
@@ -262,7 +391,7 @@
         </section>
     </main>
 
-    <!-- Modal Popup -->
+    <!-- Item Modal Popup -->
     <div class="modal" id="itemModal">
         <div class="modal-content">
             <button class="modal-close" id="modalClose">×</button>
@@ -290,7 +419,7 @@
                     <i class="fas fa-shopping-cart"></i> Add to Cart
                 </button>
                 <button class="order-btn" id="orderNowBtn">
-                    Order Now on Foodpanda
+                    <i class="fas fa-shopping-cart"></i> Go to Cart
                 </button>
             </div>
         </div>
@@ -301,7 +430,110 @@
         <i class="fas fa-shopping-cart"></i>
         <span class="cart-count" id="cartCount">0</span>
     </div>
-    
+
+    <!-- Cart Overlay -->
+    <div class="cart-overlay" id="cartOverlay">
+        <div class="cart-panel">
+
+            <!-- LEFT — Cart Items -->
+            <div class="cart-left">
+                <button class="cart-back-btn" id="cartBackBtn">
+                    <i class="fas fa-chevron-left"></i> Back to menu
+                </button>
+                <div class="cart-divider"></div>
+
+                <div class="cart-heading">
+                    Shopping cart
+                    <span class="cart-subheading" id="cartSubheading">You have 0 items in your cart</span>
+                </div>
+
+                <div class="cart-items-list" id="cartItemsList"></div>
+
+                <div class="cart-empty" id="cartEmpty">
+                    <i class="fas fa-shopping-basket"></i>
+                    <p>Your cart is empty</p>
+                    <small>Add some items from the menu!</small>
+                </div>
+            </div>
+
+            <!-- RIGHT — Address & Payment -->
+            <div class="cart-right">
+
+                <!-- Auth notice injected here by JS -->
+                <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
+
+                <div class="cart-right-section">
+                    <h3 class="cart-right-title">Address</h3>
+                    <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
+                </div>
+
+                <div class="cart-right-section">
+                    <h3 class="cart-right-title">Payment Details</h3>
+
+                    <p class="cart-label">Type of payment</p>
+                    <div class="payment-methods">
+                        <button class="payment-method-btn active" data-method="mastercard">
+                            <img src="https://i0.wp.com/www.dafontfree.io/wp-content/uploads/2023/11/mastercard-logo.png?resize=2000%2C1311&ssl=1" alt="MasterCard">
+                        </button>
+                        <button class="payment-method-btn" data-method="visa">
+                            <img src="https://cdn.manilastandard.net/wp-content/uploads/2025/07/visa-logo-800x450-1.jpg" alt="VISA">
+                        </button>
+                        <button class="payment-method-btn" data-method="gcash">
+                            <img src="https://cdn.prod.website-files.com/64199d190fc7afa82666d89c/6491becbd0bc77d89f67fd22_gcash-1.webp" alt="GCash">
+                        </button>
+                    </div>
+
+                    <div id="cardFields">
+                        <p class="cart-label" style="margin-top:14px;">Name on card</p>
+                        <input type="text" class="cart-input dark" placeholder="Name" id="cardName">
+
+                        <p class="cart-label" style="margin-top:12px;">Card Number</p>
+                        <input type="text" class="cart-input dark" placeholder="1111 2222 3333 4444" id="cardNumber" maxlength="19">
+
+                        <div class="card-row">
+                            <div>
+                                <p class="cart-label">Expiration date</p>
+                                <input type="text" class="cart-input dark" placeholder="mm/yy" id="cardExpiry" maxlength="5">
+                            </div>
+                            <div>
+                                <p class="cart-label">CVV</p>
+                                <input type="text" class="cart-input dark" placeholder="123" id="cardCvv" maxlength="3">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="gcashFields" style="display:none;">
+                        <p class="cart-label" style="margin-top:14px;">GCash Number</p>
+                        <input type="text" class="cart-input dark" placeholder="09XX XXX XXXX" id="gcashNumber" maxlength="13">
+                    </div>
+                </div>
+
+                <!-- Totals -->
+                <div class="cart-totals">
+                    <div class="cart-total-row">
+                        <span>Subtotal</span>
+                        <span id="cartSubtotal">₱0</span>
+                    </div>
+                    <div class="cart-total-row">
+                        <span>Shipping</span>
+                        <span>₱50</span>
+                    </div>
+                    <div class="cart-total-row total">
+                        <span>Total (Tax incl.)</span>
+                        <span id="cartTotal">₱50</span>
+                    </div>
+                </div>
+
+                <button class="checkout-btn" id="checkoutBtn">
+                    <span id="checkoutTotal">₱50</span>
+                    <span>Checkout <i class="fas fa-arrow-right"></i><i class="fas fa-lock lock-icon"></i></span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer -->
     <footer>
         <div class="container">
             <div class="footer-grid desktop-view">
@@ -358,25 +590,119 @@
         </div>
     </footer>
 
-    <script src="menu.js"></script>
+    <!-- ══ AUTH GUARD MODAL ══ -->
+    <div class="auth-modal-overlay" id="authModal">
+        <div class="auth-modal">
+            <div class="auth-modal-icon">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div class="auth-modal-body">
+                <h3>Sign In Required</h3>
+                <p>You need to be signed in to place an order.<br>
+                <strong>Please log in to your account</strong> to continue.</p>
+            </div>
+            <div class="auth-modal-foot">
+                <button class="auth-btn-signin" onclick="goToSignIn()">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In to My Account
+                </button>
+                <button class="auth-btn-cancel" onclick="closeAuthModal()">Maybe Later</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ AUTH GUARD SCRIPT — loads BEFORE menu.js ══ -->
     <script>
-        // Mobile menu toggle
+        window.__isLoggedIn = false;
+
+        // Check session immediately
+        (async function checkAuth() {
+            try {
+                const res = await fetch('auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check_session' })
+                });
+                const data = await res.json();
+                window.__isLoggedIn = !!data.success;
+
+                if (data.success) {
+                    sessionStorage.setItem('user_name',  data.name  || '');
+                    sessionStorage.setItem('user_email', data.email || '');
+                }
+            } catch (e) {
+                window.__isLoggedIn = false;
+            }
+
+            renderAuthUI();
+        })();
+
+        function renderAuthUI() {
+            const notice       = document.getElementById('cartAuthNotice');
+            const checkoutBtn  = document.getElementById('checkoutBtn');
+
+            if (window.__isLoggedIn) {
+                const name = sessionStorage.getItem('user_name') || 'User';
+                notice.className = 'cart-auth-notice signed-in';
+                notice.innerHTML = `<i class="fa-solid fa-circle-check"></i> Signed in as <strong style="margin-left:4px;color:#fff;">${name}</strong>`;
+                notice.style.display = 'flex';
+                checkoutBtn.classList.remove('locked');
+            } else {
+                notice.className = 'cart-auth-notice signed-out';
+                notice.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Not signed in — <a href="account.html">log in</a> to place an order.`;
+                notice.style.display = 'flex';
+                checkoutBtn.classList.add('locked');
+            }
+        }
+
+        // Intercept checkout click — capture phase fires before menu.js
+        document.addEventListener('DOMContentLoaded', function () {
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            checkoutBtn.addEventListener('click', function (e) {
+                if (!window.__isLoggedIn) {
+                    e.stopImmediatePropagation();
+                    openAuthModal();
+                }
+            }, true); // capture: true — runs before menu.js listener
+        });
+
+        // Modal controls
+        function openAuthModal()  { document.getElementById('authModal').classList.add('open'); }
+        function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
+        function goToSignIn() {
+            sessionStorage.setItem('redirect_after_login', 'menu.html');
+            window.location.href = 'account.html';
+        }
+
+        // Close on overlay click
+        document.getElementById('authModal').addEventListener('click', function (e) {
+            if (e.target === this) closeAuthModal();
+        });
+
+        // Mobile nav toggle
         document.getElementById('mobile-menu').addEventListener('click', function () {
             document.getElementById('navMenu').classList.toggle('active');
         });
+
         // Sidebar active highlight on scroll
-        const sections = ['salad-section','fusion-section','a-la-carte-section','platters-section','bento-section'];
-        const sidebarItems = document.querySelectorAll('.sidebar-item');
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    sidebarItems.forEach(item => {
-                        item.classList.toggle('active', item.dataset.target === entry.target.id);
-                    });
-                }
-            });
-        }, { threshold: 0.3 });
-        sections.forEach(id => { const el = document.getElementById(id); if (el) observer.observe(el); });
+        document.addEventListener('DOMContentLoaded', function () {
+            const sections    = ['salad-section','fusion-section','a-la-carte-section','platters-section','bento-section'];
+            const sidebarItems = document.querySelectorAll('.sidebar-item');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        sidebarItems.forEach(item => {
+                            item.classList.toggle('active', item.dataset.target === entry.target.id);
+                        });
+                    }
+                });
+            }, { threshold: 0.3 });
+            sections.forEach(id => { const el = document.getElementById(id); if (el) observer.observe(el); });
+        });
     </script>
+
+    <!-- menu.js loads AFTER the capture listener is registered -->
+    <script src="menu.js"></script>
 </body>
 </html>
