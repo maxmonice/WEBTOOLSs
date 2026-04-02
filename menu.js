@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentItem       = null;
     let selectedVariation = null;
     let quantity          = 1;
+    let lastViewedItem    = null;
     const SHIPPING        = 50;
 
     // =====================================================
@@ -86,31 +87,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // =====================================================
-    //  VARIATION PRICE CALCULATION
-    //  Rules:
-    //   - Variations are weight-based (e.g. "150g", "300g")
-    //   - Extract grams from label, compute price proportionally
-    //     relative to the BASE variation (the first one listed)
-    //   - Non-gram variations keep the original price unchanged
-    // =====================================================
     function getVariationPrice(basePrice, baseVariation, targetVariation) {
         const baseGrams   = parseGrams(baseVariation);
         const targetGrams = parseGrams(targetVariation);
-
-        // If both are gram-based, scale price proportionally
         if (baseGrams && targetGrams) {
             return basePrice * (targetGrams / baseGrams);
         }
-
-        // Non-gram variation — return base price unchanged
+        
+        const basePieces  = parsePieces(baseVariation);
+        const targetPieces = parsePieces(targetVariation);
+        if (basePieces && targetPieces) {
+            return basePrice * (targetPieces / basePieces);
+        }
+        
         return basePrice;
     }
 
     function parseGrams(label) {
         if (!label) return null;
-        // Matches "150g", "300g", "150 g", "300 G" etc.
-        const match = String(label).match(/^(\d+(?:\.\d+)?)\s*g$/i);
+        const match = String(label).match(/^(\d+(?:\.\d+)?)\s*g(?:rams)?$/i);
+        return match ? parseFloat(match[1]) : null;
+    }
+
+    function parsePieces(label) {
+        if (!label) return null;
+        const match = String(label).match(/^(\d+(?:\.\d+)?)\s*pieces$/i);
         return match ? parseFloat(match[1]) : null;
     }
 
@@ -124,11 +125,125 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =====================================================
+    //  SEARCH BAR
+    // =====================================================
+    const searchInput    = document.getElementById('menuSearch');
+    const searchClear    = document.getElementById('searchClear');
+    const searchDropdown = document.getElementById('searchDropdown');
+
+    // Build index: map each menu item element to its data + category
+    const allMenuItems = Array.from(document.querySelectorAll('.menu-item')).map(el => {
+        const data = JSON.parse(el.getAttribute('data-item'));
+        // Walk backwards through siblings to find the category heading
+        let sibling = el.closest('.menu-grid')?.previousElementSibling;
+        while (sibling && !sibling.classList.contains('category-heading')) {
+            sibling = sibling.previousElementSibling;
+        }
+        return {
+            el,
+            name:     data.name,
+            price:    data.price,
+            image:    data.image,
+            category: sibling ? sibling.textContent.trim() : ''
+        };
+    });
+
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        searchClear.style.display = q ? 'block' : 'none';
+
+        if (!q) {
+            searchDropdown.classList.remove('open');
+            return;
+        }
+
+        const matches = allMenuItems.filter(i => i.name.toLowerCase().includes(q));
+
+        if (matches.length === 0) {
+            searchDropdown.innerHTML = '<div class="search-no-results">No items found</div>';
+        } else {
+            searchDropdown.innerHTML = matches.map((item, idx) => `
+                <div class="search-result-item" data-idx="${idx}">
+                    <img src="${item.image}" class="search-result-img" alt="${item.name}" onerror="this.style.background='#333'">
+                    <div class="search-result-info">
+                        <div class="search-result-name">${item.name}</div>
+                        <div class="search-result-price">${item.price}</div>
+                        <div class="search-result-category">${item.category}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            searchDropdown.querySelectorAll('.search-result-item').forEach((row, idx) => {
+                row.addEventListener('click', () => {
+                    scrollToItem(matches[idx]);
+                    searchInput.value = '';
+                    searchClear.style.display = 'none';
+                    searchDropdown.classList.remove('open');
+                });
+            });
+        }
+
+        searchDropdown.classList.add('open');
+    });
+
+    searchClear.addEventListener('click', () => {
+        searchInput.value = '';
+        searchClear.style.display = 'none';
+        searchDropdown.classList.remove('open');
+        searchInput.focus();
+    });
+
+    // Close dropdown when clicking outside the search wrapper
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-wrapper')) {
+            searchDropdown.classList.remove('open');
+        }
+    });
+
+    function scrollToItem(item) {
+        const HEADER      = 70;  // fixed header height
+        const SEARCH_BAR  = 74;  // sticky search wrapper height
+        const EXTRA       = 20;  // breathing room
+        const top = item.el.getBoundingClientRect().top + window.scrollY - HEADER - SEARCH_BAR - EXTRA;
+        window.scrollTo({ top, behavior: 'smooth' });
+
+        // Flash red highlight on the card
+        item.el.classList.add('search-highlight');
+        setTimeout(() => item.el.classList.remove('search-highlight'), 2000);
+    }
+
+    // =====================================================
     //  ITEM MODAL
     // =====================================================
     menuItems.forEach(item => {
-        item.addEventListener('click', () => openModal(JSON.parse(item.getAttribute('data-item'))));
+        item.addEventListener('click', () => {
+            lastViewedItem = item;
+            openModal(JSON.parse(item.getAttribute('data-item')));
+        });
     });
+
+    function addItemToCart(itemData, qty = 1) {
+        if (!itemData) return;
+        const variation = itemData.variations ? itemData.variations[0] : null;
+        const computedPrice = parseRawPrice(itemData.price);
+
+        const existing = cart.find(i => i.name === itemData.name && i.variation === variation);
+        if (existing) {
+            existing.quantity += qty;
+        } else {
+            cart.push({
+                name:      itemData.name,
+                price:     fmt(computedPrice),
+                rawPrice:  computedPrice,
+                pieces:    itemData.pieces || null,
+                variation: variation,
+                quantity:  qty,
+                image:     itemData.image,
+            });
+        }
+
+        updateCartCount();
+    }
 
     function openModal(itemData) {
         currentItem       = itemData;
@@ -140,43 +255,101 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('modalTitle').textContent    = itemData.name;
         document.getElementById('quantityValue').textContent = 1;
 
-        // Set initial price (with first variation if applicable)
         refreshModalPrice();
 
         const variationSection = document.getElementById('variationSection');
-        const variationOptions = document.getElementById('variationOptions');
+        const variationLabel   = document.querySelector('.modal-variation-label');
+        const dropdownBtn      = document.getElementById('dropdownBtn');
+        const dropdownList     = document.getElementById('dropdownList');
+        const variationInfo    = document.getElementById('variationInfo');
+        const dropdownWrapper  = document.querySelector('.modal-dropdown-wrapper');
 
-        if (itemData.variations?.length) {
-            variationSection.style.display = 'block';
-            variationOptions.innerHTML = '';
+        const comboDescriptions = {
+            'Combo U': 'Pork tonkatsu, 3 tempura, 50g kani mango salad & rice',
+            'Combo L': '2 Tempura, 50g kani mango salad & cali maki',
+            'Combo K': '3 Tempura, 50g kani mango salad & rice',
+            'Combo E': 'Pork tonkatsu, rice & kani mango salad'
+        };
+
+        // Reset state
+        dropdownBtn.style.display = '';
+        dropdownWrapper.style.display = '';
+        variationInfo.textContent = '';
+        variationLabel.textContent = 'Available Variation:';
+        variationLabel.style.display = 'block';
+        variationInfo.style.whiteSpace = 'pre-line';
+
+        const comboDescription = comboDescriptions[itemData.name];
+
+        if (comboDescription) {
+            variationSection.style.display = 'flex';
+            variationLabel.style.display = 'none';
+            variationInfo.textContent = comboDescription;
+            variationInfo.style.textAlign = 'right';
+            variationInfo.style.whiteSpace = 'nowrap';
+            variationInfo.style.overflow = 'hidden';
+            variationInfo.style.textOverflow = 'ellipsis';
+            variationInfo.style.maxWidth = '220px';
+            dropdownWrapper.style.display = 'none';
+
+        } else if (itemData.variations?.length) {
+            variationSection.style.display = 'flex';
+            variationLabel.textContent = 'Available Variation:';
+            dropdownWrapper.style.display = '';
+
+            // Build dropdown options
+            dropdownList.innerHTML = '';
             itemData.variations.forEach((v, i) => {
-                const btn = document.createElement('button');
-                btn.className = 'variation-btn' + (i === 0 ? ' active' : '');
-
-                // Show label with computed price for gram-based variations
-                const basePrice   = parseRawPrice(itemData.price);
-                const baseVar     = itemData.variations[0];
-                const varPrice    = getVariationPrice(basePrice, baseVar, v);
-                const isGramBased = parseGrams(v) !== null;
-                btn.textContent   = isGramBased ? `${v} — ${fmt(varPrice)}` : v;
-
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.variation-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+                const opt = document.createElement('div');
+                opt.className = 'modal-dropdown-option' + (i === 0 ? ' selected' : '');
+                opt.textContent = v;
+                opt.addEventListener('click', () => {
                     selectedVariation = v;
+                    dropdownBtn.innerHTML = `${v} <i class="fas fa-chevron-down"></i>`;
+                    dropdownBtn.classList.remove('open');
+                    dropdownList.classList.remove('open');
+                    dropdownList.querySelectorAll('.modal-dropdown-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
                     refreshModalPrice();
                 });
-                variationOptions.appendChild(btn);
+                dropdownList.appendChild(opt);
             });
+
+            // Set default dropdown label to "Select a variation"
+            dropdownBtn.innerHTML = `Select a variation <i class="fas fa-chevron-down"></i>`;
+            selectedVariation = null;
+
+            dropdownBtn.onclick = (e) => {
+                e.stopPropagation();
+                dropdownBtn.classList.toggle('open');
+                dropdownList.classList.toggle('open');
+            };
+
+        } else if (itemData.pieces) {
+            // No variations, but has pieces info — show it without dropdown
+            variationSection.style.display = 'flex';
+            variationInfo.textContent = itemData.pieces;
+            dropdownWrapper.style.display = 'none';
         } else {
             variationSection.style.display = 'none';
         }
 
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+
+        // Close dropdown on outside click
+        setTimeout(() => document.addEventListener('click', closeDropdownOutside), 0);
     }
 
-    // Update the price displayed in the modal based on current selection
+    function closeDropdownOutside(e) {
+        if (!e.target.closest('.modal-dropdown-wrapper')) {
+            const btn  = document.getElementById('dropdownBtn');
+            const list = document.getElementById('dropdownList');
+            if (btn)  btn.classList.remove('open');
+            if (list) list.classList.remove('open');
+        }
+    }
+
     function refreshModalPrice() {
         const price = getModalPrice();
         document.getElementById('modalPrice').textContent = fmt(price);
@@ -185,6 +358,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeModal() {
         modal.classList.remove('active');
         document.body.style.overflow = '';
+        document.removeEventListener('click', closeDropdownOutside);
+
+        if (lastViewedItem) {
+            lastViewedItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         currentItem = null; selectedVariation = null; quantity = 1;
     }
 
@@ -198,43 +377,27 @@ document.addEventListener('DOMContentLoaded', () => {
         quantity++; document.getElementById('quantityValue').textContent = quantity;
     });
 
-    // ── ADD TO CART ──
+    // ── ADD TO CART (cart icon) ──
     document.getElementById('addToCartBtn').addEventListener('click', () => {
         if (!currentItem) return;
 
-        const computedPrice = getModalPrice();
-        const existing = cart.find(i => i.name === currentItem.name && i.variation === selectedVariation);
-
-        if (existing) {
-            existing.quantity += quantity;
-        } else {
-            cart.push({
-                name:      currentItem.name,
-                price:     fmt(computedPrice),   // formatted price string for display
-                rawPrice:  computedPrice,         // exact number for calculations
-                pieces:    currentItem.pieces || null,
-                variation: selectedVariation,
-                quantity:  quantity,
-                image:     currentItem.image,
-            });
-        }
-
-        updateCartCount();
-
-        // Button feedback
         const btn = document.getElementById('addToCartBtn');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Added to Cart!';
-        btn.style.color = '#fff';
-        btn.style.background = 'rgba(76,175,80,0.35)';
+        if (btn.disabled) return; // prevent spam click
+
+        btn.disabled = true;
+        btn.classList.add('added');
+        btn.innerHTML = '<i class="fas fa-check" style="color: #7ed181;"></i>';
+
+        addItemToCart(currentItem, quantity);
+
         setTimeout(() => {
-            btn.innerHTML = orig;
-            btn.style.color = '';
-            btn.style.background = '';
-        }, 1800);
+            btn.innerHTML = '<i class="fas fa-cart-arrow-down" style="color: #fff;"></i>';
+            btn.classList.remove('added');
+            btn.disabled = false;
+        }, 1500);
     });
 
-    // ── GO TO CART (replaces Order Now) ──
+    // ── ORDER NOW ──
     document.getElementById('orderNowBtn').addEventListener('click', () => {
         closeModal();
         openCart();
@@ -388,7 +551,62 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => document.getElementById('cartAddress').style.boxShadow = '', 2000);
             return;
         }
-        window.open('https://www.foodpanda.ph/', '_blank');
+
+        window.__isLoggedIn = false;
+
+        (async function checkAuth() {
+            try {
+                const res = await fetch('auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check_session' })
+                });
+                const data = await res.json();
+                window.__isLoggedIn = !!data.success;
+
+                if (data.success) {
+                    sessionStorage.setItem('user_name',  data.name  || '');
+                    sessionStorage.setItem('user_email', data.email || '');
+                }
+            } catch (e) {
+                window.__isLoggedIn = false;
+            }
+            renderAuthUI();
+        })();
+
+        function renderAuthUI() {
+            const notice      = document.getElementById('cartAuthNotice');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            if (window.__isLoggedIn) {
+                const name = sessionStorage.getItem('user_name') || 'User';
+                notice.className = 'cart-auth-notice signed-in';
+                notice.innerHTML = `<i class="fa-solid fa-circle-check"></i> Signed in as <strong style="margin-left:4px;color:#fff;">${name}</strong>`;
+                notice.style.display = 'flex';
+                checkoutBtn.classList.remove('locked');
+            } else {
+                notice.className = 'cart-auth-notice signed-out';
+                notice.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Not signed in — <a href="account.html">log in</a> to place an order.`;
+                notice.style.display = 'flex';
+                checkoutBtn.classList.add('locked');
+            }
+        }
+    });
+
+    // =====================================================
+    //  AUTH MODAL
+    // =====================================================
+    document.getElementById('authModal')?.addEventListener('click', function (e) {
+        if (e.target === this) closeAuthModal();
     });
 
 });
+
+// Global auth modal helpers (called from inline onclick in HTML)
+function openAuthModal()  { document.getElementById('authModal').classList.add('open'); }
+function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
+function goToSignIn() {
+    sessionStorage.setItem('redirect_after_login', 'menu.html');
+    window.location.href = 'account.html';
+}
