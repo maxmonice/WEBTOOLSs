@@ -1,5 +1,5 @@
 // =====================================================
-//  menu.js — Luke's Seafood Trading
+//  menu.js
 // =====================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -93,13 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (baseGrams && targetGrams) {
             return basePrice * (targetGrams / baseGrams);
         }
-        
-        const basePieces  = parsePieces(baseVariation);
+
+        const basePieces   = parsePieces(baseVariation);
         const targetPieces = parsePieces(targetVariation);
         if (basePieces && targetPieces) {
             return basePrice * (targetPieces / basePieces);
         }
-        
+
         return basePrice;
     }
 
@@ -131,22 +131,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchClear    = document.getElementById('searchClear');
     const searchDropdown = document.getElementById('searchDropdown');
 
-    // Build index: map each menu item element to its data + category
-    const allMenuItems = Array.from(document.querySelectorAll('.menu-item')).map(el => {
-        const data = JSON.parse(el.getAttribute('data-item'));
-        // Walk backwards through siblings to find the category heading
-        let sibling = el.closest('.menu-grid')?.previousElementSibling;
-        while (sibling && !sibling.classList.contains('category-heading')) {
-            sibling = sibling.previousElementSibling;
-        }
-        return {
-            el,
-            name:     data.name,
-            price:    data.price,
-            image:    data.image,
-            category: sibling ? sibling.textContent.trim() : ''
-        };
-    });
+    const allMenuItems = Array.from(document.querySelectorAll('.menu-item')).map((el) => ({
+        el,
+        name:  JSON.parse(el.getAttribute('data-item')).name,
+        price: JSON.parse(el.getAttribute('data-item')).price,
+        image: JSON.parse(el.getAttribute('data-item')).image
+    }));
 
     searchInput.addEventListener('input', () => {
         const q = searchInput.value.trim().toLowerCase();
@@ -168,7 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="search-result-info">
                         <div class="search-result-name">${item.name}</div>
                         <div class="search-result-price">${item.price}</div>
-                        <div class="search-result-category">${item.category}</div>
                     </div>
                 </div>
             `).join('');
@@ -193,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.focus();
     });
 
-    // Close dropdown when clicking outside the search wrapper
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.search-wrapper')) {
             searchDropdown.classList.remove('open');
@@ -201,13 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function scrollToItem(item) {
-        const HEADER      = 70;  // fixed header height
-        const SEARCH_BAR  = 74;  // sticky search wrapper height
-        const EXTRA       = 20;  // breathing room
+        const HEADER     = 70;
+        const SEARCH_BAR = 74;
+        const EXTRA      = 20;
         const top = item.el.getBoundingClientRect().top + window.scrollY - HEADER - SEARCH_BAR - EXTRA;
         window.scrollTo({ top, behavior: 'smooth' });
 
-        // Flash red highlight on the card
         item.el.classList.add('search-highlight');
         setTimeout(() => item.el.classList.remove('search-highlight'), 2000);
     }
@@ -224,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addItemToCart(itemData, qty = 1) {
         if (!itemData) return;
-        const variation = itemData.variations ? itemData.variations[0] : null;
+        const variation     = itemData.variations ? itemData.variations[0] : null;
         const computedPrice = parseRawPrice(itemData.price);
 
         const existing = cart.find(i => i.name === itemData.name && i.variation === variation);
@@ -265,39 +252,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const dropdownWrapper  = document.querySelector('.modal-dropdown-wrapper');
 
         const comboDescriptions = {
-            'Combo U': 'Pork tonkatsu, 3 tempura, 50g kani mango salad & rice',
-            'Combo L': '2 Tempura, 50g kani mango salad & cali maki',
+            'Combo E': 'Pork tonkatsu, rice & kani mango salad',
             'Combo K': '3 Tempura, 50g kani mango salad & rice',
-            'Combo E': 'Pork tonkatsu, rice & kani mango salad'
+            'Combo L': '2 Tempura, 50g kani mango salad & cali maki',
+            'Combo U': 'Pork tonkatsu, 3 tempura, 50g kani mango salad & rice'
         };
 
-        // Reset state
-        dropdownBtn.style.display = '';
+        dropdownBtn.style.display     = '';
         dropdownWrapper.style.display = '';
-        variationInfo.textContent = '';
-        variationLabel.textContent = 'Available Variation:';
-        variationLabel.style.display = 'block';
-        variationInfo.style.whiteSpace = 'pre-line';
+        variationInfo.textContent     = '';
+        variationLabel.textContent    = '';
+        variationLabel.style.display  = '';
 
-        const comboDescription = comboDescriptions[itemData.name];
+        const comboDesc = comboDescriptions[itemData.name];
 
-        if (comboDescription) {
-            variationSection.style.display = 'flex';
-            variationLabel.style.display = 'none';
-            variationInfo.textContent = comboDescription;
-            variationInfo.style.textAlign = 'right';
-            variationInfo.style.whiteSpace = 'nowrap';
-            variationInfo.style.overflow = 'hidden';
-            variationInfo.style.textOverflow = 'ellipsis';
-            variationInfo.style.maxWidth = '220px';
-            dropdownWrapper.style.display = 'none';
-
+        if (comboDesc) {
+            variationSection.style.display    = 'flex';
+            variationLabel.style.display      = 'none';
+            variationInfo.textContent         = comboDesc;
+            variationInfo.style.whiteSpace    = 'normal';
+            variationInfo.style.textAlign     = 'right';
+            variationInfo.style.maxWidth      = '100%';
+            variationInfo.style.wordWrap      = 'break-word';
+            variationInfo.style.wordBreak     = 'break-word';
+            dropdownWrapper.style.display     = 'none';
         } else if (itemData.variations?.length) {
             variationSection.style.display = 'flex';
-            variationLabel.textContent = 'Available Variation:';
-            dropdownWrapper.style.display = '';
+            variationLabel.textContent     = 'Available Variation:';
+            dropdownWrapper.style.display  = '';
 
-            // Build dropdown options
             dropdownList.innerHTML = '';
             itemData.variations.forEach((v, i) => {
                 const opt = document.createElement('div');
@@ -315,7 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 dropdownList.appendChild(opt);
             });
 
-            // Set default dropdown label to "Select a variation"
             dropdownBtn.innerHTML = `Select a variation <i class="fas fa-chevron-down"></i>`;
             selectedVariation = null;
 
@@ -324,12 +306,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 dropdownBtn.classList.toggle('open');
                 dropdownList.classList.toggle('open');
             };
-
         } else if (itemData.pieces) {
-            // No variations, but has pieces info — show it without dropdown
             variationSection.style.display = 'flex';
-            variationInfo.textContent = itemData.pieces;
-            dropdownWrapper.style.display = 'none';
+            variationInfo.textContent      = itemData.pieces;
+            dropdownWrapper.style.display  = 'none';
         } else {
             variationSection.style.display = 'none';
         }
@@ -337,7 +317,6 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        // Close dropdown on outside click
         setTimeout(() => document.addEventListener('click', closeDropdownOutside), 0);
     }
 
@@ -382,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentItem) return;
 
         const btn = document.getElementById('addToCartBtn');
-        if (btn.disabled) return; // prevent spam click
+        if (btn.disabled) return;
 
         btn.disabled = true;
         btn.classList.add('added');
@@ -405,8 +384,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (modal.classList.contains('active'))         closeModal();
-            if (cartOverlay.classList.contains('active'))   closeCart();
+            if (modal.classList.contains('active'))       closeModal();
+            if (cartOverlay.classList.contains('active')) closeCart();
         }
     });
 
@@ -602,6 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
 
 // Global auth modal helpers (called from inline onclick in HTML)
 function openAuthModal()  { document.getElementById('authModal').classList.add('open'); }
