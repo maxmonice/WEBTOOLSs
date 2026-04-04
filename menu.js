@@ -211,8 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addItemToCart(itemData, qty = 1) {
         if (!itemData) return;
-        const variation     = itemData.variations ? itemData.variations[0] : null;
-        const computedPrice = parseRawPrice(itemData.price);
+        const variation     = selectedVariation || null;
+        const computedPrice = getModalPrice();
 
         const existing = cart.find(i => i.name === itemData.name && i.variation === variation);
         if (existing) {
@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openModal(itemData) {
         currentItem       = itemData;
-        selectedVariation = itemData.variations ? itemData.variations[0] : null;
+        selectedVariation = null;
         quantity          = 1;
 
         document.getElementById('modalImage').src            = itemData.image;
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshModalPrice();
 
         const variationSection = document.getElementById('variationSection');
-        const variationLabel   = document.querySelector('.modal-variation-label');
+        const variationLabel   = document.getElementById('variationLabel');
         const dropdownBtn      = document.getElementById('dropdownBtn');
         const dropdownList     = document.getElementById('dropdownList');
         const variationInfo    = document.getElementById('variationInfo');
@@ -258,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'Combo U': 'Pork tonkatsu, 3 tempura, 50g kani mango salad & rice'
         };
 
+        // Reset all
         dropdownBtn.style.display     = '';
         dropdownWrapper.style.display = '';
         variationInfo.textContent     = '';
@@ -267,19 +268,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const comboDesc = comboDescriptions[itemData.name];
 
         if (comboDesc) {
-            variationSection.style.display    = 'flex';
-            variationLabel.style.display      = 'none';
-            variationInfo.textContent         = comboDesc;
-            variationInfo.style.whiteSpace    = 'normal';
-            variationInfo.style.textAlign     = 'right';
-            variationInfo.style.maxWidth      = '100%';
-            variationInfo.style.wordWrap      = 'break-word';
-            variationInfo.style.wordBreak     = 'break-word';
-            dropdownWrapper.style.display     = 'none';
-        } else if (itemData.variations?.length) {
+            // ── Combo items: show description only ──
             variationSection.style.display = 'flex';
-            variationLabel.textContent     = 'Available Variation:';
-            dropdownWrapper.style.display  = '';
+            variationLabel.style.display   = 'none';
+            variationInfo.textContent      = comboDesc;
+            variationInfo.style.whiteSpace = 'normal';
+            variationInfo.style.textAlign  = 'right';
+            variationInfo.style.maxWidth   = '100%';
+            variationInfo.style.wordBreak  = 'break-word';
+            dropdownWrapper.style.display  = 'none';
+
+        } else if (itemData.variations?.length) {
+            // ── Items with variations ──
+            variationSection.style.display = 'flex';
+            variationLabel.style.display   = '';
+
+            variationLabel.textContent = itemData.variations.length === 1
+                ? 'Available Variation:'
+                : 'Available Variations:';
+
+            dropdownWrapper.style.display = '';
+
+            if (itemData.pieces) {
+                variationInfo.textContent      = itemData.pieces;
+                variationInfo.style.textAlign  = 'right';
+                variationInfo.style.whiteSpace = 'normal';
+            } else {
+                variationInfo.textContent = '';
+            }
 
             dropdownList.innerHTML = '';
             itemData.variations.forEach((v, i) => {
@@ -299,18 +315,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             dropdownBtn.innerHTML = `Select a variation <i class="fas fa-chevron-down"></i>`;
-            selectedVariation = null;
 
             dropdownBtn.onclick = (e) => {
                 e.stopPropagation();
                 dropdownBtn.classList.toggle('open');
                 dropdownList.classList.toggle('open');
             };
+
         } else if (itemData.pieces) {
+            // ── Items with pieces only (no variations) ──
             variationSection.style.display = 'flex';
+            variationLabel.textContent     = 'Available Variation:';  // ← ADDED
+            variationLabel.style.display   = '';                       // ← ADDED (was 'none')
             variationInfo.textContent      = itemData.pieces;
+            variationInfo.style.textAlign  = 'right';
+            variationInfo.style.whiteSpace = 'normal';
             dropdownWrapper.style.display  = 'none';
+
         } else {
+            // ── No info at all ──
             variationSection.style.display = 'none';
         }
 
@@ -356,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         quantity++; document.getElementById('quantityValue').textContent = quantity;
     });
 
-    // ── ADD TO CART (cart icon) ──
+    // ── ADD TO CART ──
     document.getElementById('addToCartBtn').addEventListener('click', () => {
         if (!currentItem) return;
 
@@ -376,8 +399,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     });
 
-    // ── ORDER NOW ──
+    // ── ORDER NOW ── (Fixed: Straight to cart, no animation)
     document.getElementById('orderNowBtn').addEventListener('click', () => {
+        if (!currentItem) return;
+        
+        addItemToCart(currentItem, quantity);
         closeModal();
         openCart();
     });
@@ -582,8 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
-
-// Global auth modal helpers (called from inline onclick in HTML)
+// Global auth modal helpers
 function openAuthModal()  { document.getElementById('authModal').classList.add('open'); }
 function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
 function goToSignIn() {
