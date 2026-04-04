@@ -1,0 +1,431 @@
+/* =====================================================
+   RESET & BASE
+   ===================================================== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --red:      #C22626;
+    --red-deep: #8B0A1E;
+    --red-dark: #1A0408;
+    --red-mid:  #2D0610;
+    --dark:     #191919;
+    --card:     #222222;
+    --white:    #FFFFFF;
+    --muted:    rgba(255,255,255,0.45);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    background-color: var(--dark);
+    color: white;
+    overflow-x: hidden;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* =====================================================
+   GRAIN OVERLAY
+   ===================================================== */
+.grain-overlay {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 9990; opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* =====================================================
+   CONTAINER
+   ===================================================== */
+.container { max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 20px; }
+
+/* =====================================================
+   HEADER / NAV
+   ===================================================== */
+header {
+    background: linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%);
+    height: 70px;
+    display: flex; align-items: center;
+    position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 1000;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06);
+}
+.header-container { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; }
+.logo { font-family: 'Aclonica', sans-serif; font-size: 1.4rem; color: white; white-space: nowrap; letter-spacing: 0.02em; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.menu-toggle { display: none; cursor: pointer; font-size: 1.5rem; color: white; }
+.nav-menu { display: flex; align-items: center; gap: 30px; }
+.nav-menu a { color: rgba(255,255,255,0.88); font-weight: 500; font-size: 0.95rem; letter-spacing: 0.03em; position: relative; transition: color 0.3s; }
+.nav-menu a:hover { color: #fff; }
+.nav-menu a.active { color: #fff; }
+
+/* Account icon in nav */
+.nav-account-icon {
+    display: flex !important;
+    align-items: center;
+    font-size: 1.35rem !important;
+    color: white !important;
+    transition: transform 0.2s, opacity 0.2s !important;
+    opacity: 0.9;
+}
+.nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
+.nav-account-icon.active { color: #fff !important; opacity: 1; }
+.nav-account-icon.active::after { display: none !important; }
+
+/* =====================================================
+   PAGE BACKGROUND
+   ===================================================== */
+.page-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 30% 20%, rgba(194,38,38,0.07) 0%, transparent 55%),
+                radial-gradient(ellipse at 80% 80%, rgba(139,10,30,0.08) 0%, transparent 50%),
+                var(--dark);
+}
+.page-bg-blob {
+    position: absolute; border-radius: 50%; filter: blur(100px);
+}
+.page-bg-blob--1 { width: 500px; height: 500px; background: rgba(194,38,38,0.09); top: 5%; left: -10%; }
+.page-bg-blob--2 { width: 350px; height: 350px; background: rgba(139,10,30,0.10); bottom: 10%; right: -5%; }
+
+/* =====================================================
+   MODAL OVERLAY
+   ===================================================== */
+.modal-overlay {
+    position: fixed; inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 90px 20px 20px;
+    background: rgba(10, 2, 4, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+/* =====================================================
+   MODAL CARD
+   ===================================================== */
+.modal {
+    background: linear-gradient(160deg, #6b0d18 0%, #8B0A1E 50%, #7a0c19 100%);
+    border-radius: 20px;
+    padding: 40px 36px 32px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow:
+        0 32px 80px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    position: relative;
+    animation: modalIn 0.4s cubic-bezier(.16,1,.3,1) both;
+}
+
+.modal.hidden { display: none; }
+
+@keyframes modalIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* =====================================================
+   MODAL HEADER
+   ===================================================== */
+.modal-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.modal-fish-icon {
+    width: 48px; height: 48px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.85);
+    margin: 0 auto 16px;
+}
+
+.modal-header h2 {
+    font-family: 'Aclonica', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    color: white;
+    margin-bottom: 6px;
+}
+
+.modal-sub {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.03em;
+}
+
+/* =====================================================
+   FORM
+   ===================================================== */
+.modal-form { display: flex; flex-direction: column; gap: 16px; }
+
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+
+.form-group label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.75);
+    letter-spacing: 0.04em;
+}
+
+.input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 14px;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.4);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.input-wrap input {
+    width: 100%;
+    background: rgba(255,255,255,0.92);
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    padding: 11px 42px 11px 38px;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.9rem;
+    color: #1a0408;
+    outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.input-wrap input::placeholder { color: rgba(100,30,30,0.4); }
+
+.input-wrap input:focus {
+    border-color: rgba(194,38,38,0.5);
+    box-shadow: 0 0 0 3px rgba(194,38,38,0.15);
+    background: #fff;
+}
+
+.toggle-pw {
+    position: absolute; right: 12px;
+    background: none; border: none; cursor: pointer;
+    color: rgba(100,30,30,0.5); font-size: 0.85rem;
+    transition: color 0.2s; padding: 4px;
+}
+.toggle-pw:hover { color: var(--red); }
+
+/* =====================================================
+   REMEMBER ME ROW
+   ===================================================== */
+.form-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: -4px;
+}
+
+.remember-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    user-select: none;
+}
+
+.remember-label input[type="checkbox"] { display: none; }
+
+.custom-check {
+    width: 16px; height: 16px;
+    border: 1.5px solid rgba(255,255,255,0.4);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.remember-label input:checked + .custom-check {
+    background: var(--red);
+    border-color: var(--red);
+}
+
+.remember-label input:checked + .custom-check::after {
+    content: '✓';
+    font-size: 10px;
+    color: white;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.forgot-link {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.65);
+    transition: color 0.2s;
+}
+.forgot-link:hover { color: white; }
+
+/* =====================================================
+   BUTTONS
+   ===================================================== */
+.btn-primary {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: linear-gradient(135deg, #C22626 0%, #9B0A1E 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 20px;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+    box-shadow: 0 4px 20px rgba(194,38,38,0.4);
+    margin-top: 4px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(194,38,38,0.55);
+    filter: brightness(1.08);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-primary i { font-size: 0.85rem; transition: transform 0.2s; }
+.btn-primary:hover i { transform: translateX(3px); }
+
+/* =====================================================
+   DIVIDER
+   ===================================================== */
+.divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 4px 0;
+}
+.divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px;
+    background: rgba(255,255,255,0.18);
+}
+.divider span {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* =====================================================
+   GOOGLE BUTTON
+   ===================================================== */
+.btn-google {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px;
+    padding: 11px 20px;
+    color: white;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.btn-google:hover {
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.28);
+    transform: translateY(-1px);
+}
+
+/* =====================================================
+   FACEBOOK BUTTON
+   ===================================================== */
+.btn-facebook {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: #1877F2;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 20px;
+    color: white;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+.btn-facebook:hover {
+    background: #0f5fcc;
+    transform: translateY(-1px);
+}
+.btn-facebook i { font-size: 1.1rem; }
+
+/* =====================================================
+   MODAL FOOTER SWITCH
+   ===================================================== */
+.modal-switch {
+    text-align: center;
+    font-size: 0.83rem;
+    color: rgba(255,255,255,0.55);
+    margin-top: 20px;
+}
+
+.modal-switch a {
+    color: #ff8080;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+.modal-switch a:hover { color: #ffaaaa; }
+
+/* =====================================================
+   RESPONSIVE — 768px
+   ===================================================== */
+@media (max-width: 768px) {
+    .container { padding: 0 24px; }
+    .logo { font-size: 1.1rem; }
+    .menu-toggle { display: block; }
+    .nav-menu {
+        display: none; position: absolute; top: 100%; right: 0; width: 200px;
+        background: #a31e1e; flex-direction: column; padding: 10px 0; gap: 0;
+        z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .nav-menu.active { display: flex; }
+    .nav-menu a { padding: 12px 20px; width: 100%; text-align: right; }
+    .nav-account-icon { justify-content: flex-end; }
+
+    .modal { padding: 32px 24px 28px; }
+    .modal-header h2 { font-size: 1.15rem; }
+}
+
+@media (max-width: 480px) {
+    .modal-overlay { padding: 80px 12px 12px; }
+    .modal { padding: 28px 18px 24px; border-radius: 16px; }
+}
+/* =====================================================
+   AUTH ERROR MESSAGE
+   ===================================================== */
+.auth-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(194,38,38,0.18);
+    border: 1px solid rgba(194,38,38,0.45);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: #ffaaaa;
+    animation: errorShake 0.35s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+.auth-error i { font-size: 0.9rem; flex-shrink: 0; }
+
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    20%       { transform: translateX(-6px); }
+    40%       { transform: translateX(6px); }
+    60%       { transform: translateX(-4px); }
+    80%       { transform: translateX(4px); }
+}
