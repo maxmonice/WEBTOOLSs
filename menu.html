@@ -12,6 +12,7 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="menu.css">
+    <link rel="stylesheet" href="carT.css">
 </head>
 <body>
 
@@ -76,7 +77,7 @@
             </div>
 
             <!-- ── FUSION ROLLS & SUSHI ── -->
-            <h2 class="category-heading" id="fusion-section">Fusion Rolls &amp; Sushi</h2>
+            <h2 class="category-heading" id="fusion-section">Fusion Rolls & Sushi</h2>
             <div class="menu-grid">
                 <div class="menu-item" data-item='{"name":"California Maki","price":"₱169","pieces":"6 Pcs","image":"images/california.webp","variations":["8 Pieces","16 Pieces","24 Pieces","50 Pieces"]}'>
                     <img src="images/california.webp" alt="California Maki" class="item-image-placeholder">
@@ -322,93 +323,10 @@
         </div>
     </div>
 
-    <!-- Cart Button -->
-    <div class="cart-btn" id="cartBtn">
+    <!-- Cart Button - Links to separate Cart.html -->
+    <div class="cart-btn" id="cartBtn" role="button" tabindex="0">
         <i class="fas fa-shopping-cart"></i>
         <span class="cart-count" id="cartCount">0</span>
-    </div>
-
-    <!-- Cart Overlay -->
-    <div class="cart-overlay" id="cartOverlay">
-        <div class="cart-panel">
-            <div class="cart-left">
-                <button class="cart-back-btn" id="cartBackBtn">
-                    <i class="fas fa-chevron-left"></i> Back to menu
-                </button>
-                <div class="cart-divider"></div>
-                <div class="cart-heading">
-                    Shopping cart
-                    <span class="cart-subheading" id="cartSubheading">You have 0 items in your cart</span>
-                </div>
-                <div class="cart-items-list" id="cartItemsList"></div>
-                <div class="cart-empty" id="cartEmpty">
-                    <i class="fas fa-shopping-basket"></i>
-                    <p>Your cart is empty</p>
-                    <small>Add some items from the menu!</small>
-                </div>
-            </div>
-
-            <div class="cart-right">
-                <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
-                <div class="cart-right-section">
-                    <h3 class="cart-right-title">Address</h3>
-                    <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
-                </div>
-                <div class="cart-right-section">
-                    <h3 class="cart-right-title">Payment Details</h3>
-                    <p class="cart-label">Type of payment</p>
-                    <div class="payment-methods">
-                        <button class="payment-method-btn active" data-method="mastercard">
-                            <img src="https://i0.wp.com/www.dafontfree.io/wp-content/uploads/2023/11/mastercard-logo.png?resize=2000%2C1311&ssl=1" alt="MasterCard">
-                        </button>
-                        <button class="payment-method-btn" data-method="visa">
-                            <img src="https://cdn.manilastandard.net/wp-content/uploads/2025/07/visa-logo-800x450-1.jpg" alt="VISA">
-                        </button>
-                        <button class="payment-method-btn" data-method="gcash">
-                            <img src="https://cdn.prod.website-files.com/64199d190fc7afa82666d89c/6491becbd0bc77d89f67fd22_gcash-1.webp" alt="GCash">
-                        </button>
-                    </div>
-                    <div id="cardFields">
-                        <p class="cart-label" style="margin-top:14px;">Name on card</p>
-                        <input type="text" class="cart-input dark" placeholder="Name" id="cardName">
-                        <p class="cart-label" style="margin-top:12px;">Card Number</p>
-                        <input type="text" class="cart-input dark" placeholder="1111 2222 3333 4444" id="cardNumber" maxlength="19">
-                        <div class="card-row">
-                            <div>
-                                <p class="cart-label">Expiration date</p>
-                                <input type="text" class="cart-input dark" placeholder="mm/yy" id="cardExpiry" maxlength="5">
-                            </div>
-                            <div>
-                                <p class="cart-label">CVV</p>
-                                <input type="text" class="cart-input dark" placeholder="123" id="cardCvv" maxlength="3">
-                            </div>
-                        </div>
-                    </div>
-                    <div id="gcashFields" style="display:none;">
-                        <p class="cart-label" style="margin-top:14px;">GCash Number</p>
-                        <input type="text" class="cart-input dark" placeholder="09XX XXX XXXX" id="gcashNumber" maxlength="13">
-                    </div>
-                </div>
-                <div class="cart-totals">
-                    <div class="cart-total-row">
-                        <span>Subtotal</span>
-                        <span id="cartSubtotal">₱0</span>
-                    </div>
-                    <div class="cart-total-row">
-                        <span>Shipping</span>
-                        <span>₱50</span>
-                    </div>
-                    <div class="cart-total-row total">
-                        <span>Total (Tax incl.)</span>
-                        <span id="cartTotal">₱50</span>
-                    </div>
-                </div>
-                <button class="checkout-btn" id="checkoutBtn">
-                    <span id="checkoutTotal">₱50</span>
-                    <span>Checkout <i class="fas fa-arrow-right"></i><i class="fas fa-lock lock-icon"></i></span>
-                </button>
-            </div>
-        </div>
     </div>
 
     <!-- Footer -->
@@ -466,6 +384,89 @@
         </div>
     </footer>
 
+    <!-- ══ CART OVERLAY ══ -->
+    <div class="cart-overlay" id="cartOverlay">
+        <div class="cart-panel">
+            <div class="cart-left">
+                <button type="button" class="cart-back-btn" id="cartBackBtn">
+                    <i class="fas fa-chevron-left"></i> Back to menu
+                </button>
+                <div class="cart-divider"></div>
+                <div class="cart-heading">
+                    Shopping cart
+                    <span class="cart-subheading" id="cartSubheading">You have 0 items in your cart</span>
+                </div>
+                <div class="cart-items-list" id="cartItemsList"></div>
+                <div class="cart-empty" id="cartEmpty">
+                    <i class="fas fa-shopping-basket"></i>
+                    <p>Your cart is empty</p>
+                    <small>Add some items from the menu!</small>
+                </div>
+            </div>
+
+            <div class="cart-right">
+                <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
+                <div class="cart-right-section">
+                    <h3 class="cart-right-title">Address</h3>
+                    <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
+                </div>
+                <div class="cart-right-section">
+                    <h3 class="cart-right-title">Payment Details</h3>
+                    <p class="cart-label">Type of payment</p>
+                    <div class="payment-methods">
+                        <button class="payment-method-btn active" data-method="mastercard">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/1280px-Mastercard-logo.svg.png" alt="MasterCard">
+                        </button>
+                        <button class="payment-method-btn" data-method="visa">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/512px-Visa_Inc._logo.svg.png" alt="VISA">
+                        </button>
+                        <button class="payment-method-btn" data-method="gcash">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/GCash_logo.png/512px-GCash_logo.png" alt="GCash">
+                        </button>
+                    </div>
+                    <div id="cardFields">
+                        <p class="cart-label" style="margin-top:14px;">Name on card</p>
+                        <input type="text" class="cart-input dark" placeholder="Name" id="cardName">
+                        <p class="cart-label" style="margin-top:12px;">Card Number</p>
+                        <input type="text" class="cart-input dark" placeholder="1111 2222 3333 4444" id="cardNumber" maxlength="19">
+                        <div class="card-row">
+                            <div>
+                                <p class="cart-label">Expiration date</p>
+                                <input type="text" class="cart-input dark" placeholder="mm/yy" id="cardExpiry" maxlength="5">
+                            </div>
+                            <div>
+                                <p class="cart-label">CVV</p>
+                                 <input type="text" class="cart-input dark" placeholder="123" id="cardCvv" maxlength="3">
+                             </div>
+                         </div>
+                     </div>
+                    <div id="gcashFields" style="display:none;">
+                        <p class="cart-label" style="margin-top:14px;">GCash Number</p>
+                        <input type="text" class="cart-input dark" placeholder="09XX XXX XXXX" id="gcashNumber" maxlength="13">
+                    </div>
+                </div>
+                <div class="cart-totals">
+                    <div class="cart-total-row">
+                        <span>Subtotal</span>
+                        <span id="cartSubtotal">₱0</span>
+                    </div>
+                    <div class="cart-total-row">
+                        <span>Shipping</span>
+                        <span>₱50</span>
+                    </div>
+                    <div class="cart-total-row total">
+                        <span>Total (Tax incl.)</span>
+                        <span id="cartTotal">₱50</span>
+                    </div>
+                </div>
+                <button class="checkout-btn" id="checkoutBtn">
+                    <span id="checkoutTotal">₱50</span>
+                    <span>Checkout <i class="fas fa-arrow-right"></i><i class="fas fa-lock lock-icon"></i></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ══ AUTH GUARD MODAL ══ -->
     <div class="auth-modal-overlay" id="authModal">
         <div class="auth-modal">
@@ -484,6 +485,7 @@
         </div>
     </div>
 
+    <script src="carT.js"></script>
     <script src="menu.js"></script>
 </body>
 </html>

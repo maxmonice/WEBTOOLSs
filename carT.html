@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>  
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luke's Seafood - Cart</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="menu.css">
+    <link rel="stylesheet" href="carT.css">
+</head>
+<body>
+
+    <!-- Grain overlay -->
+    <div class="grain-overlay"></div>
+
+    <!-- Header (simplified, back to menu) -->
+    <header>
+        <div class="container header-container">
+            <div class="logo">Luke's Seafood Trading</div>
+            <a href="menu.html" class="nav-menu" id="backToMenuLink">
+                <span>← Back to Menu</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Cart Overlay (now main content) -->
+    <div class="cart-overlay active" id="cartOverlay">
+        <div class="cart-panel">
+            <div class="cart-left">
+                <button type="button" class="cart-back-btn" id="cartBackBtn">
+                    <i class="fas fa-chevron-left"></i> Back to menu
+                </button>
+                <div class="cart-divider"></div>
+                <div class="cart-heading">
+                    Shopping cart
+                    <span class="cart-subheading" id="cartSubheading">You have 0 items in your cart</span>
+                </div>
+                <div class="cart-items-list" id="cartItemsList"></div>
+                <div class="cart-empty" id="cartEmpty">
+                    <i class="fas fa-shopping-basket"></i>
+                    <p>Your cart is empty</p>
+                    <small>Add some items from the menu!</small>
+                </div>
+            </div>
+
+            <div class="cart-right">
+                <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
+                <div class="cart-right-section">
+                    <h3 class="cart-right-title">Address</h3>
+                    <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
+                </div>
+                <div class="cart-right-section">
+                    <h3 class="cart-right-title">Payment details</h3>
+                    <p class="cart-label">Type of payment</p>
+                    <div class="payment-methods">
+                        <button class="payment-method-btn active" data-method="mastercard">
+                            <img src="https://i0.wp.com/www.dafontfree.io/wp-content/uploads/2023/11/mastercard-logo.png?resize=2000%2C1311&ssl=1" alt="MasterCard">
+                        </button>
+                        <button class="payment-method-btn" data-method="visa">
+                            <img src="https://cdn.manilastandard.net/wp-content/uploads/2025/07/visa-logo-800x450-1.jpg" alt="VISA">
+                        </button>
+                        <button class="payment-method-btn" data-method="gcash">
+                            <img src="https://cdn.prod.website-files.com/64199d190fc7afa82666d89c/6491becbd0bc77d89f67fd22_gcash-1.webp" alt="GCash">
+                        </button>
+                    </div>
+                    <div id="cardFields">
+                        <p class="cart-label" style="margin-top:14px;">Name on card</p>
+                        <input type="text" class="cart-input dark" placeholder="Name" id="cardName">
+                        <p class="cart-label" style="margin-top:12px;">Card Number</p>
+                        <input type="text" class="cart-input dark" placeholder="1111 2222 3333 4444" id="cardNumber" maxlength="19">
+                        <div class="card-row">
+                            <div>
+                                <p class="cart-label">Expiration date</p>
+                                <input type="text" class="cart-input dark" placeholder="mm/yy" id="cardExpiry" maxlength="5">
+                            </div>
+                            <div>
+                                <p class="cart-label">CVV</p>
+                                <input type="text" class="cart-input dark" placeholder="123" id="cardCvv" maxlength="3">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="gcashFields" style="display:none;">
+                        <p class="cart-label" style="margin-top:14px;">GCash Number</p>
+                        <input type="text" class="cart-input dark" placeholder="09XX XXX XXXX" id="gcashNumber" maxlength="13">
+                    </div>
+                </div>
+                <div class="cart-totals">
+                    <div class="cart-total-row">
+                        <span>Subtotal</span>
+                        <span id="cartSubtotal">₱0</span>
+                    </div>
+                    <div class="cart-total-row">
+                        <span>Shipping</span>
+                        <span>₱50</span>
+                    </div>
+                    <div class="cart-total-row total">
+                        <span>Total (Tax incl.)</span>
+                        <span id="cartTotal">₱50</span>
+                    </div>
+                </div>
+                <button class="checkout-btn" id="checkoutBtn">
+                    <span id="checkoutTotal">₱50</span>
+                    <span>Checkout <i class="fas fa-arrow-right"></i><i class="fas fa-lock lock-icon"></i></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Guard Modal -->
+    <div class="auth-modal-overlay" id="authModal">
+        <div class="auth-modal">
+            <div class="auth-modal-icon"><i class="fa-solid fa-lock"></i></div>
+            <div class="auth-modal-body">
+                <h3>Sign In Required</h3>
+                <p>You need to be signed in to place an order.<br>
+                <strong>Please log in to your account</strong> to continue.</p>
+            </div>
+            <div class="auth-modal-foot">
+                <button class="auth-btn-signin" onclick="goToSignIn()">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In to My Account
+                </button>
+                <button class="auth-btn-cancel" onclick="closeAuthModal()">Maybe Later</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="carT.js"></script>
+    <script src="menu.js"></script>
+</body>
+</html>
