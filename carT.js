@@ -95,7 +95,8 @@ function renderCart() {
   if (subEl) subEl.textContent = '₱' + Math.round(subtotal).toLocaleString('en-PH');
   if (totalEl) totalEl.textContent = '₱' + Math.round(total).toLocaleString('en-PH');
   if (checkEl) checkEl.textContent = '₱' + Math.round(total).toLocaleString('en-PH');
-  if (subhead) subhead.textContent = `You have ${cart.reduce((s, i) => s + i.quantity, 0)} item${cart.reduce((s, i) => s + i.quantity, 0) !== 1 ? 's' : ''} in your cart`;
+  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+  if (subhead) subhead.textContent = `You have ${totalItems} item${totalItems !== 1 ? 's' : ''} in your cart`;
 }
 
 function updateQty(idx, delta) {
@@ -153,7 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const isGcash = btn.dataset.method === 'gcash';
-      document.getElementById('cardFields').style.display = isGcash ? 'none' : 'block';
+      const isCod = btn.dataset.method === 'cod';
+      document.getElementById('cardFields').style.display = (isGcash || isCod) ? 'none' : 'block';
       document.getElementById('gcashFields').style.display = isGcash ? 'block' : 'none';
     });
   });

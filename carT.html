@@ -59,15 +59,17 @@
                     <p class="cart-label">Type of payment</p>
                     <div class="payment-methods">
                         <button class="payment-method-btn active" data-method="mastercard">
-                            <img src="https://i0.wp.com/www.dafontfree.io/wp-content/uploads/2023/11/mastercard-logo.png?resize=2000%2C1311&ssl=1" alt="MasterCard">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/1280px-Mastercard-logo.svg.png" alt="MasterCard">
                         </button>
-                        <button class="payment-method-btn" data-method="visa">
-                            <img src="https://cdn.manilastandard.net/wp-content/uploads/2025/07/visa-logo-800x450-1.jpg" alt="VISA">
+                        <button class="payment-method-btn" data-method="cod">
+                            <img src="https://github.com/maxmonice/WEBTOOLSs/raw/main/cashondeliveryLogo.png" alt="COD">
                         </button>
                         <button class="payment-method-btn" data-method="gcash">
-                            <img src="https://cdn.prod.website-files.com/64199d190fc7afa82666d89c/6491becbd0bc77d89f67fd22_gcash-1.webp" alt="GCash">
+                            <img src="https://github.com/maxmonice/WEBTOOLSs/raw/main/images/gcashLogo.png" alt="GCash">
                         </button>
                     </div>
+
+                    <!-- Card Fields -->
                     <div id="cardFields">
                         <p class="cart-label" style="margin-top:14px;">Name on card</p>
                         <input type="text" class="cart-input dark" placeholder="Name" id="cardName">
@@ -84,6 +86,8 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- GCash Fields -->
                     <div id="gcashFields" style="display:none;">
                         <p class="cart-label" style="margin-top:14px;">GCash Number</p>
                         <input type="text" class="cart-input dark" placeholder="09XX XXX XXXX" id="gcashNumber" maxlength="13">
@@ -108,6 +112,15 @@
                     <span>Checkout <i class="fas fa-arrow-right"></i><i class="fas fa-lock lock-icon"></i></span>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- QR Code Overlay -->
+    <div class="qr-overlay" id="qrOverlay">
+        <div class="qr-modal">
+            <button class="qr-close" id="qrClose"><i class="fas fa-times"></i></button>
+            <p class="qr-label">Scan to pay via GCash</p>
+            <img src="https://github.com/maxmonice/WEBTOOLSs/raw/main/Screenshot%202026-04-12%20164726.png" alt="GCash QR Code" class="qr-image">
         </div>
     </div>
 

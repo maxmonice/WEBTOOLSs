@@ -24,16 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let quantity          = 1;
     let lastViewedItem    = null;
 
-    function updateCartCountDisplay() {
-        if (window.updateCartCount) {
-            window.updateCartCount();
-        } else {
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
-            const total = cart.reduce((s, i) => s + i.quantity, 0);
-            cartCountEl.textContent = total;
-        }
-    }
-
     // =====================================================
     //  MOBILE NAV
     // =====================================================
@@ -69,10 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const target = document.getElementById(item.getAttribute('data-target'));
             if (target) {
-                const HEADER  = 70;
-                const SEARCH  = 50;
-                const PADDING = 10;
-                window.scrollTo(0, target.getBoundingClientRect().top + window.scrollY - HEADER - SEARCH - PADDING);
+                const headerOffset = 120; // header + search + padding
+                const targetPos = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+                window.scrollTo({
+                    top: targetPos,
+                    behavior: 'smooth'
+                });
             }
         });
     });
@@ -222,14 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function addItemToCart(itemData, qty = 1) {
-        if (!itemData) return;
-        
-        const variation = selectedVariation || null;
-        window.addItemToCart(itemData, qty, variation);
-        updateCartCountDisplay();
-    }
-
     function openModal(itemData) {
         window.currentItem       = itemData;
         selectedVariation = itemData.variations?.length ? itemData.variations[0] : null;
@@ -265,35 +249,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const comboDesc = comboDescriptions[itemData.name];
 
-        if (comboDesc) {
-            // ── Combo items: show description only ──
+        // Handle items with variations (like California Maki)
+        if (itemData.variations && itemData.variations.length > 0) {
             variationSection.style.display = 'flex';
-            variationLabel.style.display   = 'none';
-            variationInfo.textContent      = comboDesc;
-            variationInfo.style.whiteSpace = 'normal';
-            variationInfo.style.textAlign  = 'right';
-            variationInfo.style.maxWidth   = '100%';
-            variationInfo.style.wordBreak  = 'break-word';
-            dropdownWrapper.style.display  = 'none';
-
-        } else if (itemData.variations?.length) {
-            // ── Items with variations ──
-            variationSection.style.display = 'flex';
-            variationLabel.style.display   = '';
-
-            variationLabel.textContent = itemData.variations.length === 1
-                ? 'Available Variation:'
+            variationLabel.textContent = itemData.variations.length === 1 
+                ? 'Available Variation:' 
                 : 'Available Variations:';
-
+            variationLabel.style.display = '';
+            variationInfo.textContent = itemData.pieces || '';
+            variationInfo.style.textAlign = 'right';
+            variationInfo.style.whiteSpace = 'normal';
             dropdownWrapper.style.display = '';
-
-            if (itemData.pieces) {
-                variationInfo.textContent      = itemData.pieces;
-                variationInfo.style.textAlign  = 'right';
-                variationInfo.style.whiteSpace = 'normal';
-            } else {
-                variationInfo.textContent = '';
-            }
 
             dropdownList.innerHTML = '';
             itemData.variations.forEach((v, i) => {
@@ -303,8 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 opt.addEventListener('click', () => {
                     selectedVariation = v;
                     dropdownBtn.innerHTML = `${v} <i class="fas fa-chevron-down"></i>`;
-                    dropdownBtn.classList.remove('open');
-                    dropdownList.classList.remove('open');
                     dropdownList.querySelectorAll('.modal-dropdown-option').forEach(o => o.classList.remove('selected'));
                     opt.classList.add('selected');
                     refreshModalPrice();
@@ -315,30 +279,51 @@ document.addEventListener('DOMContentLoaded', () => {
             dropdownBtn.innerHTML = `${selectedVariation} <i class="fas fa-chevron-down"></i>`;
 
             dropdownBtn.onclick = (e) => {
+                e.preventDefault();
                 e.stopPropagation();
+                const isOpen = dropdownList.classList.contains('open');
                 dropdownBtn.classList.toggle('open');
                 dropdownList.classList.toggle('open');
+                
+                if (!isOpen) {
+                    const btnRect = dropdownBtn.getBoundingClientRect();
+                    dropdownList.style.position = 'fixed';
+                    dropdownList.style.left = btnRect.left + 'px';
+                    dropdownList.style.top = (btnRect.bottom) + 'px';
+                    dropdownList.style.width = btnRect.width + 'px';
+                }
             };
 
-        } else if (itemData.pieces) {
-            // ── Items with pieces only (no variations) ──
+        // Handle combo items (like Combo E, K, L, U)
+        } else if (comboDesc) {
             variationSection.style.display = 'flex';
-            variationLabel.textContent     = 'Available Variation:';  // ← ADDED
-            variationLabel.style.display   = '';                       // ← ADDED (was 'none')
-            variationInfo.textContent      = itemData.pieces;
-            variationInfo.style.textAlign  = 'right';
+            variationLabel.style.display = 'none';
+            variationInfo.textContent = comboDesc;
             variationInfo.style.whiteSpace = 'normal';
-            dropdownWrapper.style.display  = 'none';
+            variationInfo.style.textAlign = 'right';
+            variationInfo.style.maxWidth = '100%';
+            variationInfo.style.wordBreak = 'break-word';
+            dropdownWrapper.style.display = 'none';
 
+        // Handle items with pieces only (no variations)
+        } else if (itemData.pieces) {
+            variationSection.style.display = 'flex';
+            variationLabel.textContent = 'Available Variation:';
+            variationLabel.style.display = '';
+            variationInfo.textContent = itemData.pieces;
+            variationInfo.style.textAlign = 'right';
+            variationInfo.style.whiteSpace = 'normal';
+            dropdownWrapper.style.display = 'none';
+
+        // No info at all
         } else {
-            // ── No info at all ──
             variationSection.style.display = 'none';
         }
 
         modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
 
-        setTimeout(() => document.addEventListener('click', closeDropdownOutside), 0);
+        document.addEventListener('click', closeDropdownOutside);
+
     }
 
     function closeDropdownOutside(e) {
@@ -347,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const list = document.getElementById('dropdownList');
             if (btn)  btn.classList.remove('open');
             if (list) list.classList.remove('open');
+            document.removeEventListener('click', closeDropdownOutside);
         }
     }
 
@@ -357,11 +343,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeModal() {
         modal.classList.remove('active');
-        document.body.style.overflow = '';
+        
+        const btn  = document.getElementById('dropdownBtn');
+        const list = document.getElementById('dropdownList');
+        if (btn)  btn.classList.remove('open');
+        if (list) list.classList.remove('open');
         document.removeEventListener('click', closeDropdownOutside);
-
-        // REMOVED: lastViewedItem.scrollIntoView()
-        // (This was likely fighting with our scroll restoration logic)
 
         window.currentItem = null; selectedVariation = null; quantity = 1;
     }
@@ -387,7 +374,18 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.classList.add('added');
         btn.innerHTML = '<i class="fas fa-check" style="color: #7ed181;"></i>';
 
-        addItemToCart(window.currentItem, quantity);
+        if (window.addItemToCart) {
+            window.addItemToCart(window.currentItem, quantity, selectedVariation);
+        }
+        
+        // Pulse cart count animation
+        const cartCount = document.getElementById('cartCount');
+        if (cartCount) {
+            cartCount.classList.add('pulse');
+            setTimeout(() => cartCount.classList.remove('pulse'), 600);
+            // Update cart count display
+            if (window.updateCartCount) window.updateCartCount();
+        }
 
         setTimeout(() => {
             btn.innerHTML = '<i class="fas fa-cart-arrow-down" style="color: #fff;"></i>';
@@ -400,17 +398,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('orderNowBtn').addEventListener('click', () => {
         if (!window.currentItem) return;
 
-        addItemToCart(window.currentItem, quantity);
+        if (window.addItemToCart) {
+            window.addItemToCart(window.currentItem, quantity, selectedVariation);
+        }
+        
+        // Pulse cart count animation
+        const cartCount = document.getElementById('cartCount');
+        if (cartCount) {
+            cartCount.classList.add('pulse');
+            setTimeout(() => cartCount.classList.remove('pulse'), 600);
+            if (window.updateCartCount) window.updateCartCount();
+        }
+        
         closeModal();
         if (window.openCart) window.openCart();
     });
 
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (modal.classList.contains('active')) closeModal();
-            if (window.closeCart) window.closeCart();
+    function updateCartCountDisplay() {
+        if (window.updateCartCount) {
+            window.updateCartCount();
+        } else {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const total = cart.reduce((s, i) => s + i.quantity, 0);
+            cartCountEl.textContent = total;
         }
-    });
+    }
 
     // Initialize cart count on page load
     updateCartCountDisplay();

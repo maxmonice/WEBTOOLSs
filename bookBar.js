@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSummaryPopup();
         
         // Show success message
-        alert('Form submitted successfully! We will contact you soon.');
+        alert('Booking request sent successfully!');
         
         // Reset form
         bookingForm.reset();
