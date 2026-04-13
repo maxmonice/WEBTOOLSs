@@ -596,16 +596,16 @@ header {
    ABOUT
    ===================================================== */
 .about-section { background-color: var(--card); padding: clamp(3rem,7vw,5rem) clamp(1.5rem,6vw,4rem); position: relative; z-index: 1; }
-.about-header { text-align: left; margin-bottom: 3rem; padding-left: 0; }
-.about-title { font-size: clamp(1.7rem,4.5vw,2.8rem); font-weight: 400; color: #fff; margin-bottom: 0.6rem; }
-.about-header .sec-underline { width: 48px; height: 3px; background: linear-gradient(to right, var(--red), transparent); border-radius: 2px; margin-top: 0.6rem; }
+.about-header { text-align: left; margin-bottom: 1.5rem; padding-left: 0; }
+.about-title { font-size: clamp(1.7rem,4.5vw,2.8rem); font-weight: 400; color: #fff; margin-bottom: 0.3rem; }
+.sec-underline { width: 48px; height: 3px; background: linear-gradient(to right, var(--red), transparent); border-radius: 2px; margin-bottom: 0.5rem; }
 .redline-image { width: clamp(180px,30vw,300px); height: auto; display: block; }
-.about-content { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; max-width: 1100px; margin: 0 auto; }
+.about-content { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; max-width: 1200px; margin: 0 auto; }
+.about-text-col { display: flex; flex-direction: column; gap: 1.2rem; }
 .about-text { font-size: clamp(0.9rem,2.2vw,1.05rem); font-weight: 400; line-height: 1.78; color: rgba(255,255,255,0.65); }
-.about-image img { width: 100%; max-width: 500px; height: auto; display: block; margin: 0 auto; border-radius: 6px; transition: transform 0.4s, filter 0.4s; }
-.about-image img:hover { transform: scale(1.02); filter: brightness(1.08) drop-shadow(0 12px 32px rgba(194,38,38,0.2)); }
-.about-image-button { display: block; margin-top: 2rem; }
-.more-about-btn { width: clamp(140px,20vw,200px); height: auto; cursor: pointer; transition: transform 0.3s, filter 0.3s; }
+.about-image-col img { width: 100%; max-width: 500px; height: auto; display: block; margin: 0 auto; border-radius: 6px; }
+.about-image-button { display: block; width: clamp(140px,20vw,200px); margin-top: 1.5rem; }
+.more-about-btn { width: 100%; height: auto; cursor: pointer; transition: transform 0.3s, filter 0.3s; }
 .more-about-btn:hover { transform: scale(1.06) translateY(-2px); filter: brightness(1.15) drop-shadow(0 6px 20px var(--red-glow)); }
 
 /* =====================================================
@@ -815,12 +815,12 @@ footer a:hover { opacity: 0.85; }
     .bsb-body { margin: 0; }
     .bsb-image-wrap { width: clamp(200px, 55vw, 320px); bottom: 0; right: 0; }
 
-    .about-content { grid-template-columns: 1fr; }
-    .about-header { padding-left: 0; text-align: center; }
+    .about-content { grid-template-columns: 1fr; text-align: center; }
+    .about-text-col { align-items: center; }
     .about-title { text-align: center; }
-    .redline-image { margin: 0 auto; }
+    .sec-underline { margin: 0 auto 1rem; }
     .about-text { text-align: center; }
-    .about-image img { max-width: 380px; }
+    .about-image-col img { max-width: 380px; }
     .about-image-button { text-align: center; }
 
     .desktop-view { display: none; }
