@@ -599,14 +599,14 @@
                 const data = await res.json();
                 if (!data.success) {
                     sessionStorage.clear();
-                    window.location.href = 'account.html';
+                    window.location.href = 'account.php';
                     return;
                 }
                 sessionStorage.setItem('user_name',  data.name  || '');
                 sessionStorage.setItem('user_email', data.email || '');
             } catch (e) {
                 sessionStorage.clear();
-                window.location.href = 'account.html';
+                window.location.href = 'account.php';
             }
         })().then(() => { initDashboard(); });
 
@@ -670,7 +670,7 @@
             }
             sessionStorage.clear();
             localStorage.clear();
-            window.location.href = 'account.html';
+            window.location.href = 'account.php';
         }
 
         // ── Toast ──

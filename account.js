@@ -94,7 +94,7 @@ function signInWithGoogle() {
 function loadFacebookSDK() {
     window.fbAsyncInit = function () {
         FB.init({
-            appId:   'YOUR_FACEBOOK_APP_ID_HERE',
+            appId:   '1282425887392045',
             cookie:  true,
             xfbml:   true,
             version: 'v19.0',
@@ -107,32 +107,37 @@ function loadFacebookSDK() {
     document.head.appendChild(script);
 }
 
-async function signInWithFacebook() {
+// =====================================================
+//  FACEBOOK SIGN IN — fixed (no async in FB.login callback)
+// =====================================================
+function signInWithFacebook() {
     if (typeof FB === 'undefined') {
         showError('Facebook sign-in is not available. Please try again in a moment.');
         return;
     }
-    FB.login(async function (response) {
+    FB.login(function(response) {
         if (!response.authResponse) {
             showError('Facebook login was cancelled.');
             return;
         }
         showLoading(true);
-        try {
-            const result = await callAuth({
-                action:       'facebook_auth',
-                access_token: response.authResponse.accessToken,
-            });
+        callAuth({
+            action:       'facebook_auth',
+            access_token: response.authResponse.accessToken,
+        })
+        .then(function(result) {
             if (result.success) {
                 onLoginSuccess(result);
             } else {
                 showError(result.message || 'Facebook sign-in failed.');
             }
-        } catch (e) {
+        })
+        .catch(function() {
             showError('Facebook sign-in failed. Please try again.');
-        } finally {
+        })
+        .finally(function() {
             showLoading(false);
-        }
+        });
     }, { scope: 'public_profile,email' });
 }
 
@@ -156,7 +161,7 @@ async function callAuth(payload) {
 function onLoginSuccess(result) {
     sessionStorage.setItem('user_name',  result.name  || '');
     sessionStorage.setItem('user_email', result.email || '');
-    window.location.href = 'account-dashboard.html';
+    window.location.href = 'account-dashboard.php';
 }
 
 // =====================================================
@@ -252,7 +257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Wire Facebook buttons
     document.querySelectorAll('.btn-facebook').forEach(btn => {
-        btn.addEventListener('click', signInWithFacebook);
+        btn.addEventListener('click', () => signInWithFacebook());
     });
 
     // --- EMAIL LOGIN ---
@@ -312,7 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (session.success) {
             sessionStorage.setItem('user_name',  session.name  || '');
             sessionStorage.setItem('user_email', session.email || '');
-            window.location.href = 'account-dashboard.html';
+            window.location.href = 'account-dashboard.php';
         } else {
             sessionStorage.removeItem('user_name');
             sessionStorage.removeItem('user_email');

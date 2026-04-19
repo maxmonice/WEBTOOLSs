@@ -10,7 +10,7 @@ require_once 'db.php';
 // --- CORS & headers ---
 header('Content-Type: application/json');
 
-$allowed_origins = ['http://localhost', 'http://127.0.0.1'];
+$allowed_origins = ['http://localhost', 'http://127.0.0.1', 'http://webtoolss.test'];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $allowed_origins)) {
     header('Access-Control-Allow-Origin: ' . $origin);
@@ -160,8 +160,8 @@ function handleGoogleAuth(array $data): void {
 // =====================================================
 function handleFacebookAuth(array $data): void {
     $accessToken       = trim($data['access_token'] ?? '');
-    $facebookAppId     = 'YOUR_FACEBOOK_APP_ID_HERE';
-    $facebookAppSecret = 'YOUR_FACEBOOK_APP_SECRET_HERE';
+    $facebookAppId     = '1282425887392045';
+    $facebookAppSecret = '3914094653c7aa77bc2879c77f5d9fa3';
 
     if (!$accessToken) respond(false, 'Missing Facebook access token.');
 
