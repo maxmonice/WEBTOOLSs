@@ -22,7 +22,7 @@
     <header>
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
-            <a href="menu.html" class="nav-menu" id="backToMenuLink">
+            <a href="menu.php" class="nav-menu" id="backToMenuLink">
                 <span>← Back to Menu</span>
             </a>
         </div>

@@ -372,15 +372,15 @@
     <!-- HEADER -->
     <header>
         <div class="container header-container">
-            <a href="index.html" class="logo">Luke's Seafood Trading</a>
+            <a href="index.php" class="logo">Luke's Seafood Trading</a>
             <div class="menu-toggle" id="mobile-menu"><i class="fa-solid fa-bars"></i></div>
             <nav class="nav-menu" id="navMenu">
-                <a href="index.html">Home</a>
-                <a href="menu.html">Menu</a>
-                <a href="bookBar.html">Book Bar</a>
-                <a href="gallery.html">Gallery</a>
-                <a href="aboutUs.html">About Us</a>
-                <a href="account.html" class="nav-account-icon active" title="Account">
+                <a href="index.php">Home</a>
+                <a href="menu.php">Menu</a>
+                <a href="bookBar.php">Book Bar</a>
+                <a href="gallery.php">Gallery</a>
+                <a href="aboutUs.php">About Us</a>
+                <a href="account.php" class="nav-account-icon active" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
             </nav>
