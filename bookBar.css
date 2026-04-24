@@ -143,6 +143,7 @@ main { margin-top: 70px; }
     max-width: 900px;
     margin: 0 auto;
     padding: 0 20px;
+    border-left: none; /* ← ensure no left border on container */
 }
 
 /* Form heading area */
@@ -152,24 +153,14 @@ main { margin-top: 70px; }
 }
 
 .form-box {
-    background: var(--card);
-    border: 1px solid var(--line);
+    background: #7A1719; /* ← changed from var(--card) #222222 */
+    border: none;         /* ← removed red border line */
     padding: 48px;
     border-radius: 16px;
     box-shadow: 0 10px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(194,38,38,0.08);
     margin-top: 40px;
     margin-bottom: 60px;
     position: relative;
-}
-
-/* Subtle red left accent bar on form box */
-.form-box::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 3px; height: 100%;
-    background: linear-gradient(to bottom, var(--red), transparent);
-    border-radius: 16px 0 0 16px;
 }
 
 .form-title {

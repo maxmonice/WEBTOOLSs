@@ -195,29 +195,7 @@ header {
     cursor: pointer;
     border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.05);
-    transition: transform 0.35s cubic-bezier(.16,1,.3,1),
-                border-color 0.3s,
-                box-shadow 0.3s;
 }
-
-/* KEY FIX: pointer-events: none so the overlay NEVER blocks clicks */
-.gallery-item::after {
-    content: '';
-    position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(139,10,30,0.5) 0%, transparent 50%);
-    opacity: 0;
-    transition: opacity 0.3s;
-    z-index: 1;
-    pointer-events: none;
-}
-
-.gallery-item:hover {
-    transform: scale(1.03);
-    border-color: rgba(194,38,38,0.5);
-    box-shadow: 0 8px 32px rgba(194,38,38,0.25), 0 2px 8px rgba(0,0,0,0.5);
-}
-
-.gallery-item:hover::after { opacity: 1; }
 
 .gallery-img {
     width: 100%;
@@ -225,10 +203,7 @@ header {
     object-fit: cover;
     display: block;
     cursor: pointer;
-    transition: transform 0.5s cubic-bezier(.16,1,.3,1);
 }
-
-.gallery-item:hover .gallery-img { transform: scale(1.08); }
 
 /* =====================================================
    LIGHTBOX
