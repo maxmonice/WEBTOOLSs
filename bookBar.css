@@ -175,8 +175,8 @@ main { margin-top: 70px; }
 .form-title::after {
     content: '';
     display: block;
-    width: 36px; height: 2px;
-    background: linear-gradient(to right, var(--red), transparent);
+    width: 96px; height: 2px;
+    background: linear-gradient(to right, var(--white), transparent);
     border-radius: 2px;
     margin-top: 0.4rem;
 }

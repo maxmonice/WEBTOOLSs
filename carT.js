@@ -77,11 +77,11 @@ function renderCart() {
           <div class="cart-item-meta">${item.pieces || ''}${item.variation ? (item.pieces ? ' · ' : '') + item.variation : ''}</div>
         </div>
         <div class="cart-item-qty">
-          <span class="cart-qty-num">${item.quantity}</span>
           <div class="cart-qty-btn">
             <i class="fas fa-caret-up" onclick="updateQty(${idx}, 1)"></i>
             <i class="fas fa-caret-down" onclick="updateQty(${idx}, -1)"></i>
           </div>
+          <span class="cart-qty-num">${item.quantity}</span>
         </div>
         <div class="cart-item-price">₱${(item.rawPrice * item.quantity).toLocaleString('en-PH')}</div>
         <button class="cart-item-delete" onclick="removeItem(${idx})"><i class="far fa-trash-alt"></i></button>
