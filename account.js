@@ -129,24 +129,15 @@ async function callAuth(payload) {
     const runId = window.__debugRunId || `run_${Date.now()}`;
     window.__debugRunId = runId;
     const payloadWithRunId = { ...payload, runId };
-    // #region agent log
-    fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId,hypothesisId:'H5',location:'account.js:callAuth:beforeFetch',message:'Auth request starting',data:{action:payload?.action||null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const res = await fetch(AUTH_URL, {
         method:      'POST',
         headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
         body:        JSON.stringify(payloadWithRunId),
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId,hypothesisId:'H5',location:'account.js:callAuth:afterFetch',message:'Auth response received',data:{action:payload?.action||null,status:res.status,ok:res.ok},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!res.ok) {
         let bodyText = '';
         try { bodyText = await res.text(); } catch (_) {}
-        // #region agent log
-        fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId,hypothesisId:'H9',location:'account.js:callAuth:httpError',message:'Auth request returned non-OK status',data:{action:payload?.action||null,status:res.status,bodyPreview:bodyText.slice(0,180)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         throw new Error('Server error: ' + res.status + (bodyText ? ' ' + bodyText.slice(0, 120) : ''));
     }
 
@@ -159,35 +150,32 @@ async function callAuth(payload) {
         if (firstBrace !== -1 && lastBrace > firstBrace) {
             const jsonSlice = raw.slice(firstBrace, lastBrace + 1);
             try {
-                const recovered = JSON.parse(jsonSlice);
-                // #region agent log
-                fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId,hypothesisId:'H9',location:'account.js:callAuth:jsonRecovered',message:'Recovered JSON payload from noisy response',data:{action:payload?.action||null,rawPreview:raw.slice(0,180)},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
-                return recovered;
+                return JSON.parse(jsonSlice);
             } catch (_) {}
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId,hypothesisId:'H9',location:'account.js:callAuth:jsonParseError',message:'Auth response was not valid JSON',data:{action:payload?.action||null,rawPreview:raw.slice(0,180)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         throw e;
     }
 }
 
 // =====================================================
-//  ON LOGIN SUCCESS (no 2FA — social login)
+//  ON LOGIN SUCCESS
+//  Handles both regular users and the admin account.
+//  If auth.php returns a 'redirect' URL, we use it —
+//  this is how admin@gmail.com lands on admin-dashboard.
 // =====================================================
 function onLoginSuccess(result) {
-    // #region agent log
-    fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId:window.__debugRunId||'unknown',hypothesisId:'H4',location:'account.js:onLoginSuccess',message:'onLoginSuccess branch decision',data:{requires2fa:!!result?.requires_2fa,hasName:!!result?.name,hasEmail:!!result?.email},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    // Social logins skip 2FA; email login/signup returns requires_2fa
+    // Email login/signup routes to OTP first
     if (result.requires_2fa) {
         showOtpOverlay(result.email_hint || '');
         return;
     }
     sessionStorage.setItem('user_name',  result.name  || '');
     sessionStorage.setItem('user_email', result.email || '');
-    const redirect = sessionStorage.getItem('redirect_after_login') || 'account-dashboard.php';
+
+    // result.redirect is set by the server for special accounts (admin)
+    const redirect = result.redirect
+        || sessionStorage.getItem('redirect_after_login')
+        || 'account-dashboard.php';
     sessionStorage.removeItem('redirect_after_login');
     window.location.href = redirect;
 }
@@ -344,9 +332,6 @@ function clearOtpSuccess() {
 
 async function submitOtp() {
     const code = getOtpValue();
-    // #region agent log
-    fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId:window.__debugRunId||'unknown',hypothesisId:'H3',location:'account.js:submitOtp:start',message:'Submit OTP invoked',data:{codeLength:code.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (code.length < 6) {
         showOtpError('Please enter all 6 digits.');
         return;
@@ -359,14 +344,13 @@ async function submitOtp() {
 
     try {
         const result = await callAuth({ action: 'verify_otp', code });
-        // #region agent log
-        fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId:window.__debugRunId||'unknown',hypothesisId:'H4',location:'account.js:submitOtp:result',message:'Verify OTP response payload',data:{success:!!result?.success,message:result?.message||null},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         if (result.success) {
             showOtpSuccess('Verified! Redirecting…');
             sessionStorage.setItem('user_name',  result.name  || '');
             sessionStorage.setItem('user_email', result.email || '');
-            const redirect = sessionStorage.getItem('redirect_after_login') || 'account-dashboard.php';
+            const redirect = result.redirect
+                || sessionStorage.getItem('redirect_after_login')
+                || 'account-dashboard.php';
             sessionStorage.removeItem('redirect_after_login');
             setTimeout(() => { window.location.href = redirect; }, 700);
         } else {
@@ -498,9 +482,6 @@ function initOtpDigits() {
 // =====================================================
 document.addEventListener('DOMContentLoaded', async () => {
     window.__debugRunId = `run_${Date.now()}`;
-    // #region agent log
-    fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId:window.__debugRunId,hypothesisId:'H6',location:'account.js:DOMContentLoaded',message:'Account page initialized',data:{href:window.location.href},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     loadGoogleSDK();
     loadFacebookSDK();
@@ -537,7 +518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const result = await callAuth({ action: 'login', email, password, remember });
             if (result.success) {
-                onLoginSuccess(result); // routes to OTP overlay if requires_2fa
+                onLoginSuccess(result); // routes to OTP overlay OR redirect directly for admin
             } else {
                 showError(result.message);
             }
@@ -563,7 +544,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const result = await callAuth({ action: 'signup', name, email, password });
             if (result.success) {
-                onLoginSuccess(result); // routes to OTP overlay if requires_2fa
+                onLoginSuccess(result);
             } else {
                 showError(result.message);
             }
@@ -577,17 +558,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- CHECK SESSION ON PAGE LOAD ---
     try {
         const session = await callAuth({ action: 'check_session' });
-        // #region agent log
-        fetch('http://127.0.0.1:7771/ingest/7332a2ce-986f-46ce-a862-f14319a02bb0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'717d92'},body:JSON.stringify({sessionId:'717d92',runId:window.__debugRunId||'unknown',hypothesisId:'H6',location:'account.js:checkSession:result',message:'check_session payload processed in UI',data:{success:!!session?.success,logged_in:session?.logged_in??null,user_id:session?.user_id??null,message:session?.message??null},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        if (session.success && session.logged_in) {
+        if (session.success) {
             sessionStorage.setItem('user_name',  session.name  || '');
             sessionStorage.setItem('user_email', session.email || '');
-            const redirect = sessionStorage.getItem('redirect_after_login') || 'account-dashboard.php';
+            const redirect = session.redirect
+                || sessionStorage.getItem('redirect_after_login')
+                || 'account-dashboard.php';
             sessionStorage.removeItem('redirect_after_login');
-            if (session.user_id) {
-               window.location.href = redirect;
-           }
+            window.location.href = redirect;
         } else {
             sessionStorage.removeItem('user_name');
             sessionStorage.removeItem('user_email');

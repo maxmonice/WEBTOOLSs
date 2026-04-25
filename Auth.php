@@ -76,6 +76,28 @@ switch ($action) {
 }
 
 // =====================================================
+//  ADMIN ACCOUNT SEEDER
+//  Automatically creates admin@gmail.com if it doesn't
+//  exist yet. Called on every admin login attempt.
+// =====================================================
+function seedAdminAccount($db): void {
+    $adminEmail = 'admin@gmail.com';
+    $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
+    $stmt->execute([$adminEmail]);
+    if ($stmt->fetch()) {
+        return; // Already exists
+    }
+    $hash = password_hash('password123', PASSWORD_BCRYPT, ['cost' => 12]);
+    try {
+        $db->prepare(
+            'INSERT INTO users (name, email, password_hash, provider, email_verified) VALUES (?, ?, ?, ?, 1)'
+        )->execute(['Administrator', $adminEmail, $hash, 'email']);
+    } catch (\Throwable $e) {
+        // Silently fail if seeding fails (e.g. different schema)
+    }
+}
+
+// =====================================================
 //  SIGNUP — creates account, then requires OTP verify
 // =====================================================
 function handleSignup(array $data): void {
@@ -90,6 +112,11 @@ function handleSignup(array $data): void {
         'passwordLength' => strlen($password),
         'sessionId' => session_id(),
     ]);
+
+    // Block admin email from self-registering
+    if ($email === 'admin@gmail.com') {
+        respond(false, 'This email address is reserved.');
+    }
 
     if (!$name)                                          respond(false, 'Name is required.');
     if (!filter_var($email, FILTER_VALIDATE_EMAIL))      respond(false, 'Invalid email address.');
@@ -147,6 +174,7 @@ function handleSignup(array $data): void {
 
 // =====================================================
 //  LOGIN — validates credentials, then requires OTP
+//  Admin account (admin@gmail.com) bypasses OTP entirely.
 // =====================================================
 function handleLogin(array $data): void {
     $email    = strtolower(trim($data['email']    ?? ''));
@@ -162,7 +190,13 @@ function handleLogin(array $data): void {
 
     if (!$email || !$password) respond(false, 'Email and password are required.');
 
-    $db   = getDB();
+    $db = getDB();
+
+    // Auto-seed the admin account if it doesn't exist yet
+    if ($email === 'admin@gmail.com') {
+        seedAdminAccount($db);
+    }
+
     $stmt = $db->prepare(
         'SELECT id, name, email, password_hash, provider FROM users WHERE email = ?'
     );
@@ -175,6 +209,23 @@ function handleLogin(array $data): void {
 
     if (!password_verify($password, $user['password_hash'])) {
         respond(false, 'Incorrect password.');
+    }
+
+    // ── ADMIN BYPASS: skip OTP entirely for the special admin account ──
+    if ($email === 'admin@gmail.com') {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:admin', 'Admin login — bypassing OTP', [
+            'userId' => (int) $user['id'],
+        ]);
+        session_regenerate_id(true);
+        $_SESSION['user_id']    = (int) $user['id'];
+        $_SESSION['user_name']  = $user['name'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['is_admin']   = true;
+        respond(true, 'Welcome, Administrator!', [
+            'name'     => $user['name'],
+            'email'    => $user['email'],
+            'redirect' => 'admin-dashboard.php',
+        ]);
     }
 
     // Store pending data in session
