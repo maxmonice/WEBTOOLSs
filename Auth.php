@@ -34,8 +34,16 @@ session_start();
 // --- Read JSON body ---
 $body   = json_decode(file_get_contents('php://input'), true) ?? [];
 $action = trim($body['action'] ?? '');
+$email  = strtolower(trim($body['email'] ?? ''));  // NEW: Extract here for debugging
 $runId  = (string)($body['runId'] ?? 'unknown');
 $GLOBALS['DEBUG_RUN_ID'] = $runId;
+
+debugLog($runId, 'H6', 'Auth.php:input', 'Raw input received', [
+    'action' => $action,
+    'email' => $email,
+    'emailLength' => strlen($email),
+    'emailBytes' => bin2hex($email),
+]);
 
 register_shutdown_function(function () {
     $err = error_get_last();
@@ -203,16 +211,33 @@ function handleLogin(array $data): void {
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
-    if (!$user || $user['provider'] !== 'email') {
-        respond(false, 'No account found with this email.');
-    }
-
-    if (!password_verify($password, $user['password_hash'])) {
-        respond(false, 'Incorrect password.');
-    }
+    debugLog($runId, 'H1', 'Auth.php:handleLogin:userFetch', 'User fetched from DB', [
+        'email' => $email,
+        'userFound' => (bool)$user,
+        'userProvider' => $user['provider'] ?? null,
+    ]);
 
     // ── ADMIN BYPASS: skip OTP entirely for the special admin account ──
     if ($email === 'admin@gmail.com') {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:adminCheck', 'ADMIN CHECK PASSED - Email matches admin@gmail.com', [
+            'email' => $email,
+            'emailLength' => strlen($email),
+            'comparison' => ($email === 'admin@gmail.com'),
+            'userFound' => (bool)$user,
+        ]);
+        if (!$user) {
+            debugLog($runId, 'H1', 'Auth.php:handleLogin:adminNoUser', 'Admin email matched but user not found', []);
+            respond(false, 'No account found with this email.');
+        }
+        $passwordMatch = password_verify($password, $user['password_hash']);
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:adminPassword', 'Admin password verification', [
+            'passwordMatch' => $passwordMatch,
+            'passwordLength' => strlen($password),
+        ]);
+        if (!$passwordMatch) {
+            debugLog($runId, 'H1', 'Auth.php:handleLogin:adminWrongPassword', 'Admin password did not match', []);
+            respond(false, 'Incorrect password.');
+        }
         debugLog($runId, 'H1', 'Auth.php:handleLogin:admin', 'Admin login — bypassing OTP', [
             'userId' => (int) $user['id'],
         ]);
@@ -222,13 +247,27 @@ function handleLogin(array $data): void {
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['is_admin']   = true;
         respond(true, 'Welcome, Administrator!', [
+            'requires_2fa' => false,
             'name'     => $user['name'],
             'email'    => $user['email'],
             'redirect' => 'admin-dashboard.php',
         ]);
+    } else {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:notAdmin', 'Admin check FAILED - email does NOT match admin@gmail.com', [
+            'email' => $email,
+            'emailLength' => strlen($email),
+            'expected' => 'admin@gmail.com',
+        ]);
     }
 
-    // Store pending data in session
+    // For regular users, check if provider is email
+    if (!$user || $user['provider'] !== 'email') {
+        respond(false, 'No account found with this email.');
+    }
+
+    if (!password_verify($password, $user['password_hash'])) {
+        respond(false, 'Incorrect password.');
+    }
     $_SESSION['pending_user_id']    = $user['id'];
     $_SESSION['pending_user_name']  = $user['name'];
     $_SESSION['pending_user_email'] = $user['email'];
