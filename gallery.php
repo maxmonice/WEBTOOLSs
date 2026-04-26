@@ -24,7 +24,7 @@
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php" class="active">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                    <a href="account.php" class="nav-account-icon" title="Account">
+                                        <a href="account-dashboard.php" class="nav-account-icon" title="Account">
                         <i class="fas fa-user-circle"></i>
                     </a>
             </nav>
@@ -131,5 +131,7 @@
     </div>
 
     <script src="gallery.js"></script>
+    <script>
+            </script>
 </body>
 </html>

@@ -99,7 +99,8 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                                <a href="account-dashboard.php" class="nav-account-icon active" title="Account">
+                <a href="admin-dashboard.php" id="adminPortalBtn" style="display:none;padding:7px 12px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;">Go to Admin Server</a>
+                <a href="account.php" class="nav-account-icon active" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
             </nav>
@@ -242,87 +243,22 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
     <script src="account-new.js"></script>
     
     <script>
-        // Show/hide admin server button based on user role
-        (async function checkAdminStatus() {
+        (async function renderAdminPortalButton() {
+            const adminBtn = document.getElementById('adminPortalBtn');
+            if (!adminBtn) return;
             try {
-                const res = await fetch('Auth.php', {
+                const res = await fetch('Auth-new.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({ action: 'check_session' })
                 });
                 const data = await res.json();
-                
-                if (data.success && data.is_admin) {
-                    // Add admin server button to login/signup area
-                    const modalOverlay = document.getElementById('modalOverlay');
-                    if (modalOverlay) {
-                        const adminBtn = document.createElement('div');
-                        adminBtn.className = 'admin-server-btn';
-                        adminBtn.innerHTML = `
-                            <button onclick="window.location.href='admin-dashboard.php'" class="btn-admin-server">
-                                <i class="fas fa-server"></i>
-                                <span>Go to Admin Server</span>
-                            </button>
-                        `;
-                        modalOverlay.appendChild(adminBtn);
-                    }
-                }
-            } catch (e) {
-                // Silent fail if auth check fails
+                adminBtn.style.display = (data.success && data.is_admin) ? 'inline-flex' : 'none';
+            } catch (_) {
+                adminBtn.style.display = 'none';
             }
         })();
     </script>
-    
-    <style>
-        .admin-server-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-        
-        .btn-admin-server {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-        
-        .btn-admin-server:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn-admin-server i {
-            font-size: 16px;
-        }
-        
-        @media (max-width: 768px) {
-            .admin-server-btn {
-                top: 10px;
-                right: 10px;
-            }
-            
-            .btn-admin-server {
-                padding: 10px 16px;
-                font-size: 12px;
-            }
-            
-            .btn-admin-server i {
-                font-size: 14px;
-            }
-        }
-    </style>
-    
-    </body>
+</body>
 </html>

@@ -167,7 +167,7 @@
                 <a href="bookBar.php" class="active">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon" title="Account">
+                                <a href="account-dashboard.php" class="nav-account-icon" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
             </nav>
@@ -387,7 +387,7 @@
         // Check session from PHP on page load
         (async function checkAuth() {
             try {
-                const res = await fetch('auth.php', {
+                const res = await fetch('Auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -396,16 +396,22 @@
                 const data = await res.json();
                 window.__isLoggedIn = !!data.success;
 
+                
                 if (data.success) {
                     // Sync latest session data locally
                     sessionStorage.setItem('user_name',  data.name  || '');
                     sessionStorage.setItem('user_email', data.email || '');
+                    sessionStorage.setItem('is_admin', data.is_admin ? '1' : '0');
                 }
             } catch (e) {
                 window.__isLoggedIn = false;
             }
 
             renderAuthUI();
+            const adminBtn = document.getElementById('adminPortalBtn');
+            if (adminBtn) {
+                adminBtn.style.display = (window.__isLoggedIn && sessionStorage.getItem('is_admin') === '1') ? 'inline-flex' : 'none';
+            }
         })();
 
         function renderAuthUI() {
@@ -420,7 +426,7 @@
                 btn.classList.remove('locked');
             } else {
                 bar.className  = 'auth-status-bar signed-out';
-                bar.innerHTML  = `<i class="fa-solid fa-triangle-exclamation"></i> You're not signed in — you must <a href="account.html">log in</a> to submit a booking.`;
+                bar.innerHTML  = `<i class="fa-solid fa-triangle-exclamation"></i> You're not signed in — you must <a href="account.php">log in</a> to submit a booking.`;
                 bar.style.display = 'flex';
                 btn.classList.add('locked');
             }
@@ -449,8 +455,8 @@
         }
         function goToSignIn() {
             // Store intended destination so account page can redirect back
-            sessionStorage.setItem('redirect_after_login', 'bookBar.html');
-            window.location.href = 'account.html';
+            sessionStorage.setItem('redirect_after_login', 'bookbar.php');
+            window.location.href = 'account.php';
         }
 
         // Close modal on overlay click

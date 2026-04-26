@@ -154,5 +154,53 @@
 
     <script src="carT.js"></script>
     <script src="menu.js"></script>
+    
+    <script>
+        // Auth status notification logic for cart page
+        (async function renderCartAuthNotice() {
+            const notice = document.getElementById('cartAuthNotice');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            // Check login status when page loads and when checkout is clicked
+            async function checkLoginStatus() {
+                try {
+                    const res = await fetch('Auth.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ action: 'check_session' })
+                    });
+                    const data = await res.json();
+                    window.__isLoggedIn = data.success;
+                    return data.success;
+                } catch (e) {
+                    window.__isLoggedIn = false;
+                    return false;
+                }
+            }
+
+            // Initial check
+            await checkLoginStatus();
+
+            // Show notice only when user tries to checkout but isn't logged in
+            if (checkoutBtn) {
+                checkoutBtn.addEventListener('click', async function(e) {
+                    const isLoggedIn = await checkLoginStatus();
+                    
+                    if (!isLoggedIn) {
+                        e.preventDefault();
+                        notice.className = 'cart-auth-notice signed-out';
+                        notice.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> You must <a href="account.php">log in</a> to place orders.`;
+                        notice.style.display = 'flex';
+                        
+                        // Hide notice after 5 seconds
+                        setTimeout(() => {
+                            notice.style.display = 'none';
+                        }, 5000);
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

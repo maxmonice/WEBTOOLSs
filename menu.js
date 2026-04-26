@@ -364,11 +364,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── ADD TO CART ──
-    document.getElementById('addToCartBtn').addEventListener('click', () => {
+    document.getElementById('addToCartBtn').addEventListener('click', async () => {
         if (!window.currentItem) return;
 
         const btn = document.getElementById('addToCartBtn');
         if (btn.disabled) return;
+
+        // Check if user is logged in before adding to cart
+        try {
+            const res = await fetch('Auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'check_session' })
+            });
+            const data = await res.json();
+            
+            if (!data.success) {
+                // Show auth modal instead of adding to cart
+                openAuthModal();
+                return;
+            }
+        } catch (e) {
+            // If auth check fails, show auth modal
+            openAuthModal();
+            return;
+        }
 
         btn.disabled = true;
         btn.classList.add('added');
@@ -444,6 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function openAuthModal()  { document.getElementById('authModal').classList.add('open'); }
 function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
 function goToSignIn() {
-    sessionStorage.setItem('redirect_after_login', 'menu.html');
-    window.location.href = 'account.html';
+    sessionStorage.setItem('redirect_after_login', 'menu.php');
+    window.location.href = 'account.php';
 }

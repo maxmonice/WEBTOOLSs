@@ -13,6 +13,103 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="menu.css">
     <link rel="stylesheet" href="carT.css">
+    <style>
+        /* Auth Status Banner */
+        .auth-status-bar {
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            padding: 12px 20px; 
+            border-radius: 8px;
+            font-size: 0.85rem; 
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            margin: 0 0 20px 0;
+            max-width: 100%;
+        }
+        .auth-status-bar.signed-in {
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.25);
+            color: #86efac;
+        }
+        .auth-status-bar.signed-out {
+            background: rgba(194,38,38,0.1);
+            border: 1px solid rgba(194,38,38,0.3);
+            color: #fca5a5;
+        }
+        .auth-status-bar i { font-size: 0.9rem; }
+        .auth-status-bar a {
+            color: #fff; 
+            font-weight: 700;
+            text-decoration: underline; 
+            text-underline-offset: 2px;
+            margin-left: 4px;
+        }
+        .auth-status-bar a:hover { opacity: 0.8; }
+        
+        .cart-btn.locked {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(100%);
+        }
+        
+        .cart-auth-notice {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .cart-auth-notice.signed-out {
+            background: rgba(194,38,38,0.1);
+            border: 1px solid rgba(194,38,38,0.3);
+            color: #fca5a5;
+        }
+        .cart-auth-notice a {
+            color: #fff;
+            font-weight: 700;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            margin-left: 4px;
+        }
+        .cart-auth-notice a:hover { opacity: 0.8; }
+        
+        /* Balanced banner size fix - override original menu.css */
+        .menu-section .hero-banner {
+            height: 120px !important;
+            margin-bottom: 25px !important;
+            max-height: 180px !important;
+        }
+        .menu-section .hero-banner .banner-image-placeholder {
+            height: 120px !important;
+            max-height: 180px !important;
+        }
+        .menu-section .hero-banner .banner-text {
+            font-size: 1.4rem !important;
+        }
+        
+        @media (max-width: 768px) {
+            .cart-auth-notice {
+                font-size: 0.8rem;
+                padding: 10px 12px;
+            }
+            .menu-section .hero-banner {
+                height: 80px !important;
+                margin-bottom: 20px !important;
+                max-height: 120px !important;
+            }
+            .menu-section .hero-banner .banner-image-placeholder {
+                height: 80px !important;
+                max-height: 120px !important;
+            }
+            .menu-section .hero-banner .banner-text {
+                font-size: 1.2rem !important;
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -29,7 +126,7 @@
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon" title="Account">
+                                <a href="account-dashboard.php" class="nav-account-icon" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
             </nav>
@@ -405,7 +502,9 @@
             </div>
 
             <div class="cart-right">
+                <!-- Auth Status Notification for Checkout -->
                 <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
+                
                 <div class="cart-right-section">
                     <h3 class="cart-right-title">Address</h3>
                     <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
@@ -498,5 +597,53 @@
 
     <script src="carT.js"></script>
     <script src="menu.js"></script>
+    <script>
+        
+        // Auth status notification logic - only show in cart when trying to checkout
+        (async function renderCartAuthNotice() {
+            const notice = document.getElementById('cartAuthNotice');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            // Check login status when page loads and when checkout is clicked
+            async function checkLoginStatus() {
+                try {
+                    const res = await fetch('Auth.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ action: 'check_session' })
+                    });
+                    const data = await res.json();
+                    window.__isLoggedIn = data.success;
+                    return data.success;
+                } catch (e) {
+                    window.__isLoggedIn = false;
+                    return false;
+                }
+            }
+
+            // Initial check
+            await checkLoginStatus();
+
+            // Show notice only when user tries to checkout but isn't logged in
+            if (checkoutBtn) {
+                checkoutBtn.addEventListener('click', async function(e) {
+                    const isLoggedIn = await checkLoginStatus();
+                    
+                    if (!isLoggedIn) {
+                        e.preventDefault();
+                        notice.className = 'cart-auth-notice signed-out';
+                        notice.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> You must <a href="account.php">log in</a> to place orders.`;
+                        notice.style.display = 'flex';
+                        
+                        // Hide notice after 5 seconds
+                        setTimeout(() => {
+                            notice.style.display = 'none';
+                        }, 5000);
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

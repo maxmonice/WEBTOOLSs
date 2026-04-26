@@ -5,6 +5,7 @@ requireAdmin();  // 🔒 redirects to account.php if not admin
 $stats    = getAdminStats($pdo);
 $activity = getRecentActivity($pdo, 6);
 $orders   = getRecentOrders($pdo, 5);
+$topNotifications = getTopNotifications($pdo, 8);
 $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 ?>
 <!DOCTYPE html>
@@ -66,8 +67,13 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
     </nav>
-    <div class="sidebar-footer">
-      <a href="admin-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    
+    <!-- Customer Side Button -->
+    <div class="sidebar-customer-btn">
+      <a href="index.php" class="nav-item customer-return-btn">
+        <i class="fa-solid fa-arrow-left"></i> 
+        <span>Go back to customer side</span>
+      </a>
     </div>
   </aside>
 
@@ -82,14 +88,47 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i>
-          <?php if ($stats['pending_orders'] > 0): ?>
-          <span class="badge-dot"></span>
-          <?php endif; ?>
+        <div class="notif-wrap">
+          <button type="button" class="topbar-badge" id="notifToggleBtn" title="Notifications">
+            <i class="fa-regular fa-bell"></i>
+            <?php if (!empty($topNotifications)): ?><span class="badge-dot"></span><?php endif; ?>
+          </button>
+          <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-head">
+              <h4>Notifications</h4>
+              <div class="notif-tools">
+                <button type="button" title="Mark all as read"><i class="fa-solid fa-check"></i></button>
+                <button type="button" title="Settings"><i class="fa-solid fa-gear"></i></button>
+              </div>
+            </div>
+            <div class="notif-list">
+              <?php if (empty($topNotifications)): ?>
+                <div class="notif-item">
+                  <i class="fa-regular fa-bell"></i>
+                  <div class="notif-main">
+                    <p class="notif-title">No notifications yet</p>
+                    <div class="notif-detail">New activity will appear here.</div>
+                  </div>
+                  <div class="notif-time">—</div>
+                </div>
+              <?php else: ?>
+                <?php foreach ($topNotifications as $n): ?>
+                <div class="notif-item">
+                  <i class="fa-solid <?= htmlspecialchars($n['icon']) ?>"></i>
+                  <div class="notif-main">
+                    <p class="notif-title"><?= htmlspecialchars($n['title']) ?></p>
+                    <div class="notif-detail"><?= htmlspecialchars($n['detail']) ?></div>
+                    <a class="notif-link" href="#" data-type="<?= htmlspecialchars($n['type'] ?? 'logs') ?>">View full notification</a>
+                  </div>
+                  <div class="notif-time" data-datetime="<?= !empty($n['time']) ? htmlspecialchars($n['time']) : '' ?>"><?= !empty($n['time']) ? timeAgo($n['time']) : '—' ?></div>
+                </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </div>
+            <div class="notif-footer"><a href="admin-logs.php">See all</a></div>
+          </div>
         </div>
-        <div class="admin-avatar" title="<?= $adminName ?>">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?>
-        </div>
+        <a href="admin-account.php" class="admin-avatar" title="Open account profile"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></a>
       </div>
     </header>
 
@@ -243,6 +282,114 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
 }
+
+function initNotifDropdown() {
+  const toggle = document.getElementById('notifToggleBtn');
+  const drop = document.getElementById('notifDropdown');
+  if (!toggle || !drop) return;
+
+  toggle.addEventListener('click', function (e) {
+    e.stopPropagation();
+    drop.classList.toggle('open');
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!drop.contains(e.target) && !toggle.contains(e.target)) {
+      drop.classList.remove('open');
+    }
+  });
+}
+
+initNotifDropdown();
+
+// Add styles for customer return button
+const customerBtnStyle = document.createElement('style');
+customerBtnStyle.textContent = `
+    .sidebar-customer-btn {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        right: 20px;
+    }
+    
+    .customer-return-btn {
+        background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+        border: 1px solid rgba(34, 197, 94, 0.3) !important;
+        color: white !important;
+        border-radius: 8px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
+    }
+    
+    .customer-return-btn:hover {
+        background: linear-gradient(135deg, #16a34a, #15803d) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        color: white !important;
+    }
+    
+    .customer-return-btn i {
+        font-size: 0.9rem;
+    }
+    
+    .customer-return-btn span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* Sidebar collapsed state */
+    .sidebar:not(.open) .customer-return-btn span {
+        display: none;
+    }
+    
+    .sidebar:not(.open) .customer-return-btn {
+        justify-content: center;
+        padding: 12px;
+    }
+    
+    .sidebar:not(.open) .customer-return-btn i {
+        font-size: 1rem;
+    }
+`;
+document.head.appendChild(customerBtnStyle);
+
+// Handle notification link clicks
+function initNotificationLinks() {
+  // Handle "View full notification" links
+  document.querySelectorAll('.notif-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const type = this.getAttribute('data-type');
+      let redirectUrl = 'admin-logs.php'; // default
+      
+      switch(type) {
+        case 'order':
+          redirectUrl = 'admin-orders.php';
+          break;
+        case 'booking':
+          redirectUrl = 'admin-bookings.php';
+          break;
+        case 'user':
+          redirectUrl = 'admin-users.php';
+          break;
+        default:
+          redirectUrl = 'admin-logs.php';
+      }
+      
+      window.location.href = redirectUrl;
+    });
+  });
+}
+
+initNotificationLinks();
 </script>
 </body>
 </html>

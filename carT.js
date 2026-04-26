@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Checkout
   const checkoutBtn = document.getElementById('checkoutBtn');
   if (checkoutBtn) {
-    checkoutBtn.addEventListener('click', () => {
+    checkoutBtn.addEventListener('click', async () => {
       if (cart.length === 0) {
         alert('Your cart is empty!');
         return;
@@ -191,12 +191,40 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('cartAddress').focus();
         return;
       }
-      alert('Order placed! (Demo)');
-      // Clear cart
-      cart = [];
-      window.updateCartCount();
-      renderCart();
-      window.closeCart();
+      const activePayment = document.querySelector('.payment-method-btn.active');
+      const paymentMethod = activePayment ? activePayment.dataset.method : 'cod';
+      const subtotal = cart.reduce((s, i) => s + i.rawPrice * i.quantity, 0);
+      const total = subtotal + SHIPPING;
+
+      try {
+        const res = await fetch('order-handler.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            items: cart,
+            address,
+            payment: paymentMethod,
+            subtotal,
+            shipping: SHIPPING,
+            total
+          })
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+          alert(data.message || 'Failed to place order.');
+          return;
+        }
+
+        alert(`${data.message || 'Order placed successfully!'} ${data.order_id ? '(' + data.order_id + ')' : ''}`);
+        cart = [];
+        window.updateCartCount();
+        renderCart();
+        window.closeCart();
+      } catch (error) {
+        alert('Network error while placing order. Please try again.');
+      }
     });
   }
 
@@ -210,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function goToSignIn() {
-  window.location.href = 'account.html';
+  window.location.href = 'account.php';
 }
 
 function closeAuthModal() {

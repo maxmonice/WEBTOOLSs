@@ -185,7 +185,8 @@
                 <a href="bookBar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon active" title="Account">
+                <a href="admin-dashboard.php" id="adminPortalBtn" style="display:none;padding:7px 12px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;">Go to Admin Server</a>
+                <a href="account-dashboard.php" class="nav-account-icon active" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
             </nav>
@@ -241,7 +242,7 @@
             <div class="section-block">
                 <div class="section-label"><i class="fa-solid fa-circle-question"></i> Help &amp; Support</div>
                 <div class="menu-rows">
-                    <a class="menu-row" href="#" onclick="return false;">
+                    <a class="menu-row" href="mailto:lukeseafoods28@gmail.com?subject=Help%20Center%20Inquiry">
                         <div class="mr-left">
                             <div class="mr-icon"><i class="fa-solid fa-book-open"></i></div>
                             <div class="mr-text"><div class="mr-title">Help Center</div><div class="mr-sub">Browse FAQs and guides</div></div>
@@ -406,21 +407,28 @@
         // ── Session guard ──
         (async function guardSession() {
             try {
-                const res  = await fetch('auth.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({action:'check_session'}) });
+                const res  = await fetch('Auth.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({action:'check_session'}) });
                 const data = await res.json();
                 if (!data.success) { sessionStorage.clear(); window.location.href = 'account.php'; return; }
                 sessionStorage.setItem('user_name',  data.name  || '');
                 sessionStorage.setItem('user_email', data.email || '');
+                sessionStorage.setItem('user_created_at', data.created_at || '');
+                sessionStorage.setItem('is_admin', data.is_admin ? '1' : '0');
             } catch (e) { sessionStorage.clear(); window.location.href = 'account.php'; }
         })().then(() => initDashboard());
 
         function initDashboard() {
             userData.name  = sessionStorage.getItem('user_name')  || 'Guest';
             userData.email = sessionStorage.getItem('user_email') || '';
+            userData.createdAt = sessionStorage.getItem('user_created_at') || '';
+            const adminBtn = document.getElementById('adminPortalBtn');
+            if (adminBtn) {
+                adminBtn.style.display = sessionStorage.getItem('is_admin') === '1' ? 'inline-flex' : 'none';
+            }
             updateUI();
         }
 
-        let userData = { name:'', email:'' };
+        let userData = { name:'', email:'', createdAt:'' };
 
         function updateUI() {
             const initial = userData.name.trim().charAt(0).toUpperCase() || '?';
@@ -430,21 +438,48 @@
             document.getElementById('detailName').textContent    = userData.name;
             document.getElementById('detailEmail').textContent   = userData.email;
             document.getElementById('logoutEmail').textContent   = userData.email;
-            const now = new Date();
-            document.getElementById('memberSince').textContent =
-                now.toLocaleString('default', { month:'long', year:'numeric' });
+            const memberSinceEl = document.getElementById('memberSince');
+            const created = userData.createdAt ? new Date(userData.createdAt) : null;
+            if (created && !isNaN(created.getTime())) {
+                memberSinceEl.textContent = created.toLocaleString('default', { month:'long', year:'numeric' });
+            } else {
+                memberSinceEl.textContent = '—';
+            }
         }
 
         // ── Edit Profile ──
         function openEdit() { document.getElementById('inputName').value = userData.name; document.getElementById('inputEmail').value = userData.email; document.getElementById('editModal').classList.add('open'); }
         function closeEdit() { document.getElementById('editModal').classList.remove('open'); }
-        function saveProfile() {
+        async function saveProfile() {
             const n = document.getElementById('inputName').value.trim();
             const e = document.getElementById('inputEmail').value.trim();
             if (!n || !e) { showToast('Please fill in all fields.', true); return; }
-            userData.name = n; userData.email = e;
-            sessionStorage.setItem('user_name', n); sessionStorage.setItem('user_email', e);
-            updateUI(); closeEdit(); showToast('Profile updated successfully!');
+
+            try {
+                const res = await fetch('Auth.php', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'update_profile', name: n, email: e })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    showToast(data.message || 'Failed to update profile.', true);
+                    return;
+                }
+
+                userData.name = data.name || n;
+                userData.email = data.email || e;
+                userData.createdAt = data.created_at || userData.createdAt || '';
+                sessionStorage.setItem('user_name', userData.name);
+                sessionStorage.setItem('user_email', userData.email);
+                sessionStorage.setItem('user_created_at', userData.createdAt);
+                updateUI();
+                closeEdit();
+                showToast(data.message || 'Profile updated successfully!');
+            } catch (error) {
+                showToast('Network error. Please try again.', true);
+            }
         }
 
         // ── Change Password ──
