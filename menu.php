@@ -323,11 +323,7 @@
         </div>
     </div>
 
-    <!-- Cart Button - Links to separate Cart.html -->
-    <div class="cart-btn" id="cartBtn" role="button" tabindex="0">
-        <i class="fas fa-shopping-cart"></i>
-        <span class="cart-count" id="cartCount">0</span>
-    </div>
+
 
     <!-- Footer -->
     <footer>
@@ -384,116 +380,8 @@
         </div>
     </footer>
 
-    <!-- ══ CART OVERLAY ══ -->
-    <div class="cart-overlay" id="cartOverlay">
-        <div class="cart-panel">
-            <div class="cart-left">
-                <button type="button" class="cart-back-btn" id="cartBackBtn">
-                    <i class="fas fa-chevron-left"></i> Back to menu
-                </button>
-                <div class="cart-divider"></div>
-                <div class="cart-heading">
-                    Shopping cart
-                    <span class="cart-subheading" id="cartSubheading">You have 0 items in your cart</span>
-                </div>
-                <div class="cart-items-list" id="cartItemsList"></div>
-                <div class="cart-empty" id="cartEmpty">
-                    <i class="fas fa-shopping-basket"></i>
-                    <p>Your cart is empty</p>
-                    <small>Add some items from the menu!</small>
-                </div>
-            </div>
-
-            <div class="cart-right">
-                <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
-                <div class="cart-right-section">
-                    <h3 class="cart-right-title">Address</h3>
-                    <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
-                </div>
-                <div class="cart-right-section">
-                    <h3 class="cart-right-title">Payment Details</h3>
-                    <p class="cart-label">Type of payment</p>
-                    <div class="payment-methods">
-                        <button class="payment-method-btn active" data-method="mastercard">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/1280px-Mastercard-logo.svg.png" alt="MasterCard">
-                        </button>
-                        <button class="payment-method-btn" data-method="cod">
-                            <img src="https://github.com/maxmonice/WEBTOOLSs/raw/main/cashondeliveryLogo.png" alt="COD">
-                        </button>
-                        <button class="payment-method-btn" data-method="gcash">
-                            <img src="https://github.com/maxmonice/WEBTOOLSs/raw/main/images/gcashLogo.png" alt="GCash">
-                        </button>
-                    </div>
-                    <div id="cardFields">
-                        <p class="cart-label" style="margin-top:14px;">Name on card</p>
-                        <input type="text" class="cart-input dark" placeholder="Name" id="cardName">
-                        <p class="cart-label" style="margin-top:12px;">Card Number</p>
-                        <input type="text" class="cart-input dark" placeholder="1111 2222 3333 4444" id="cardNumber" maxlength="19">
-                        <div class="card-row">
-                            <div>
-                                <p class="cart-label">Expiration date</p>
-                                <input type="text" class="cart-input dark" placeholder="mm/yy" id="cardExpiry" maxlength="5">
-                            </div>
-                            <div>
-                                <p class="cart-label">CVV</p>
-                                 <input type="text" class="cart-input dark" placeholder="123" id="cardCvv" maxlength="3">
-                             </div>
-                         </div>
-                     </div>
-                    <div id="gcashFields" style="display:none;">
-                        <p class="cart-label" style="margin-top:14px;">Send to this number:</p>
-                        <input type="text" class="cart-input dark" value="0966 173 8269" readonly style="background:rgba(255,255,255,0.08);">
-                        <div class="gcash-qr-section" style="margin-top:14px; text-align:center;">
-                            <p class="cart-label">Scan to pay</p>
-                            <div style="background:white; padding:10px; border-radius:8px; display:inline-block;">
-                                <img src="https://github.com/maxmonice/WEBTOOLSs/raw/main/images/gcashQR.png" alt="GCash QR" style="width:120px; height:120px;">
-                            </div>
-                        </div>
-                        <p class="cart-label" style="margin-top:14px;">GCash Reference Number</p>
-                        <input type="text" class="cart-input dark" placeholder="09XX XXX XXXX" id="gcashNumber" maxlength="13">
-                        <p class="cart-label" style="margin-top:12px;">Account Name</p>
-                        <input type="text" class="cart-input dark" placeholder="Name on GCash" id="gcashName">
-                    </div>
-                </div>
-                <div class="cart-totals">
-                    <div class="cart-total-row">
-                        <span>Subtotal</span>
-                        <span id="cartSubtotal">₱0</span>
-                    </div>
-                    <div class="cart-total-row">
-                        <span>Shipping</span>
-                        <span>₱50</span>
-                    </div>
-                    <div class="cart-total-row total">
-                        <span>Total (Tax incl.)</span>
-                        <span id="cartTotal">₱50</span>
-                    </div>
-                </div>
-                <button class="checkout-btn" id="checkoutBtn">
-                    <span id="checkoutTotal">₱50</span>
-                    <span>Checkout <i class="fas fa-arrow-right"></i><i class="fas fa-lock lock-icon"></i></span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══ AUTH GUARD MODAL ══ -->
-    <div class="auth-modal-overlay" id="authModal">
-        <div class="auth-modal">
-            <div class="auth-modal-icon"><i class="fa-solid fa-lock"></i></div>
-            <div class="auth-modal-body">
-                <h3>Sign In Required</h3>
-                <p>You need to be signed in to place an order.<br>
-                <strong>Please log in to your account</strong> to continue.</p>
-            </div>
-            <div class="auth-modal-foot">
-                <button class="auth-btn-signin" onclick="goToSignIn()">
-              `      <i class="fa-solid fa-right-to-bracket"></i> Sign In to My Account
-                </button>
-                <button class="auth-btn-cancel" onclick="closeAuthModal()">Maybe Later</button>
-            </div>
-        </div>
-    </div>
+    <!-- ══ CART OVERLAY & MODALS ══ -->
+    <?php include 'carT.php'; ?>
 
 
     <script src="carT.js"></script>

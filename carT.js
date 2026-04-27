@@ -157,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const isCod = btn.dataset.method === 'cod';
       document.getElementById('cardFields').style.display = (isGcash || isCod) ? 'none' : 'block';
       document.getElementById('gcashFields').style.display = isGcash ? 'block' : 'none';
+      document.getElementById('codFields').style.display = isCod ? 'block' : 'none';
     });
   });
 
@@ -176,6 +177,56 @@ document.addEventListener('DOMContentLoaded', () => {
       if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
       this.value = v;
     });
+  }
+
+  // QR modal open/close — use delegation so it works even when gcashFields is hidden
+  const qrOverlay = document.getElementById('qrOverlay');
+  const qrClose = document.getElementById('qrClose');
+
+  document.body.addEventListener('click', (e) => {
+    if (e.target.closest('#viewQrBtn')) {
+      if (qrOverlay) qrOverlay.classList.add('open');
+    }
+    if (e.target.closest('#qrClose') || e.target === qrOverlay) {
+      if (qrOverlay) qrOverlay.classList.remove('open');
+    }
+  });
+
+  // GCash number copy-to-clipboard
+  const gcashCopyNumber = document.getElementById('gcashCopyNumber');
+  if (gcashCopyNumber) {
+    gcashCopyNumber.addEventListener('click', async () => {
+      const number = gcashCopyNumber.textContent.trim();
+      try {
+        await navigator.clipboard.writeText(number);
+        showCopyTooltip(gcashCopyNumber, 'Copied!');
+      } catch (err) {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = number;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showCopyTooltip(gcashCopyNumber, 'Copied!');
+      }
+    });
+  }
+
+  function showCopyTooltip(element, message) {
+    let tooltip = element.querySelector('.gcash-copy-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('span');
+      tooltip.className = 'gcash-copy-tooltip';
+      element.appendChild(tooltip);
+    }
+    tooltip.textContent = message;
+    tooltip.classList.add('show');
+    setTimeout(() => {
+      tooltip.classList.remove('show');
+    }, 1500);
   }
 
   // Checkout
@@ -215,4 +266,4 @@ function goToSignIn() {
 
 function closeAuthModal() {
   document.getElementById('authModal').classList.remove('open');
-}
+} 
