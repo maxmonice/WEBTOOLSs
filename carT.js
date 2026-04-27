@@ -77,13 +77,16 @@ function renderCart() {
           <div class="cart-item-meta">${item.pieces || ''}${item.variation ? (item.pieces ? ' · ' : '') + item.variation : ''}</div>
         </div>
         <div class="cart-item-qty">
+          <span class="cart-qty-num">${item.quantity}</span>
           <div class="cart-qty-btn">
             <i class="fas fa-caret-up" onclick="updateQty(${idx}, 1)"></i>
             <i class="fas fa-caret-down" onclick="updateQty(${idx}, -1)"></i>
           </div>
-          <span class="cart-qty-num">${item.quantity}</span>
         </div>
-        <div class="cart-item-price">₱${(item.rawPrice * item.quantity).toLocaleString('en-PH')}</div>
+        <div class="cart-item-prices">
+          <div class="cart-item-price">₱${(item.rawPrice * item.quantity).toLocaleString('en-PH')}</div>
+          <div class="cart-item-unit-price">₱${item.rawPrice.toLocaleString('en-PH')}</div>
+        </div>
         <button class="cart-item-delete" onclick="removeItem(${idx})"><i class="far fa-trash-alt"></i></button>
       `;
       list.appendChild(row);
@@ -99,17 +102,39 @@ function renderCart() {
   if (subhead) subhead.textContent = `You have ${totalItems} item${totalItems !== 1 ? 's' : ''} in your cart`;
 }
 
+let pendingRemoveIdx = null;
+
+function showRemoveConfirm(idx) {
+  pendingRemoveIdx = idx;
+  document.getElementById('confirmRemoveOverlay').classList.add('open');
+}
+
+function hideRemoveConfirm() {
+  pendingRemoveIdx = null;
+  document.getElementById('confirmRemoveOverlay').classList.remove('open');
+}
+
+function confirmRemoveItem() {
+  if (pendingRemoveIdx !== null) {
+    cart.splice(pendingRemoveIdx, 1);
+    renderCart();
+    window.updateCartCount();
+  }
+  hideRemoveConfirm();
+}
+
 function updateQty(idx, delta) {
+  if (delta === -1 && cart[idx].quantity === 1) {
+    showRemoveConfirm(idx);
+    return;
+  }
   cart[idx].quantity += delta;
-  if (cart[idx].quantity <= 0) cart.splice(idx, 1);
   renderCart();
   window.updateCartCount();
 }
 
 function removeItem(idx) {
-  cart.splice(idx, 1);
-  renderCart();
-  window.updateCartCount();
+  showRemoveConfirm(idx);
 }
 
 window.openCart = function() {
@@ -132,6 +157,13 @@ window.closeCart = function() {
 document.addEventListener('DOMContentLoaded', () => {
   renderCart();
   window.updateCartCount();
+
+  // Confirm remove modal
+  document.getElementById('confirmRemoveYes').addEventListener('click', confirmRemoveItem);
+  document.getElementById('confirmRemoveNo').addEventListener('click', hideRemoveConfirm);
+  document.getElementById('confirmRemoveOverlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) hideRemoveConfirm();
+  });
 
   const cartBackBtn = document.getElementById('cartBackBtn');
   const backToMenuLink = document.getElementById('backToMenuLink');

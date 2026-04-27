@@ -136,6 +136,19 @@
     </div>
 </div>
 
+<!-- Remove Item Confirmation Modal -->
+<div class="confirm-remove-overlay" id="confirmRemoveOverlay">
+    <div class="confirm-remove-modal">
+        <div class="confirm-remove-icon"><i class="fas fa-trash-alt"></i></div>
+        <h3 class="confirm-remove-title">Remove Item</h3>
+        <p class="confirm-remove-text">Do you want to remove this item from your cart?</p>
+        <div class="confirm-remove-actions">
+            <button class="confirm-remove-yes" id="confirmRemoveYes">Yes, Remove</button>
+            <button class="confirm-remove-no" id="confirmRemoveNo">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <!-- QR Code Overlay -->
 <div class="qr-overlay" id="qrOverlay">
     <div class="qr-modal">
