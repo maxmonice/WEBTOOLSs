@@ -34,8 +34,16 @@ session_start();
 // --- Read JSON body ---
 $body   = json_decode(file_get_contents('php://input'), true) ?? [];
 $action = trim($body['action'] ?? '');
+$email  = strtolower(trim($body['email'] ?? ''));  // NEW: Extract here for debugging
 $runId  = (string)($body['runId'] ?? 'unknown');
 $GLOBALS['DEBUG_RUN_ID'] = $runId;
+
+debugLog($runId, 'H6', 'Auth.php:input', 'Raw input received', [
+    'action' => $action,
+    'email' => $email,
+    'emailLength' => strlen($email),
+    'emailBytes' => bin2hex($email),
+]);
 
 register_shutdown_function(function () {
     $err = error_get_last();
@@ -76,6 +84,28 @@ switch ($action) {
 }
 
 // =====================================================
+//  ADMIN ACCOUNT SEEDER
+//  Automatically creates admin@gmail.com if it doesn't
+//  exist yet. Called on every admin login attempt.
+// =====================================================
+function seedAdminAccount($db): void {
+    $adminEmail = 'admin@gmail.com';
+    $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
+    $stmt->execute([$adminEmail]);
+    if ($stmt->fetch()) {
+        return; // Already exists
+    }
+    $hash = password_hash('password123', PASSWORD_BCRYPT, ['cost' => 12]);
+    try {
+        $db->prepare(
+            'INSERT INTO users (name, email, password_hash, provider, email_verified) VALUES (?, ?, ?, ?, 1)'
+        )->execute(['Administrator', $adminEmail, $hash, 'email']);
+    } catch (\Throwable $e) {
+        // Silently fail if seeding fails (e.g. different schema)
+    }
+}
+
+// =====================================================
 //  SIGNUP — creates account, then requires OTP verify
 // =====================================================
 function handleSignup(array $data): void {
@@ -90,6 +120,11 @@ function handleSignup(array $data): void {
         'passwordLength' => strlen($password),
         'sessionId' => session_id(),
     ]);
+
+    // Block admin email from self-registering
+    if ($email === 'admin@gmail.com') {
+        respond(false, 'This email address is reserved.');
+    }
 
     if (!$name)                                          respond(false, 'Name is required.');
     if (!filter_var($email, FILTER_VALIDATE_EMAIL))      respond(false, 'Invalid email address.');
@@ -147,6 +182,7 @@ function handleSignup(array $data): void {
 
 // =====================================================
 //  LOGIN — validates credentials, then requires OTP
+//  Admin account (admin@gmail.com) bypasses OTP entirely.
 // =====================================================
 function handleLogin(array $data): void {
     $email    = strtolower(trim($data['email']    ?? ''));
@@ -162,13 +198,69 @@ function handleLogin(array $data): void {
 
     if (!$email || !$password) respond(false, 'Email and password are required.');
 
-    $db   = getDB();
+    $db = getDB();
+
+    // Auto-seed the admin account if it doesn't exist yet
+    if ($email === 'admin@gmail.com') {
+        seedAdminAccount($db);
+    }
+
     $stmt = $db->prepare(
         'SELECT id, name, email, password_hash, provider FROM users WHERE email = ?'
     );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
+    debugLog($runId, 'H1', 'Auth.php:handleLogin:userFetch', 'User fetched from DB', [
+        'email' => $email,
+        'userFound' => (bool)$user,
+        'userProvider' => $user['provider'] ?? null,
+    ]);
+
+    // ── ADMIN BYPASS: skip OTP entirely for the special admin account ──
+    if ($email === 'admin@gmail.com') {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:adminCheck', 'ADMIN CHECK PASSED - Email matches admin@gmail.com', [
+            'email' => $email,
+            'emailLength' => strlen($email),
+            'comparison' => ($email === 'admin@gmail.com'),
+            'userFound' => (bool)$user,
+        ]);
+        if (!$user) {
+            debugLog($runId, 'H1', 'Auth.php:handleLogin:adminNoUser', 'Admin email matched but user not found', []);
+            respond(false, 'No account found with this email.');
+        }
+        $passwordMatch = password_verify($password, $user['password_hash']);
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:adminPassword', 'Admin password verification', [
+            'passwordMatch' => $passwordMatch,
+            'passwordLength' => strlen($password),
+        ]);
+        if (!$passwordMatch) {
+            debugLog($runId, 'H1', 'Auth.php:handleLogin:adminWrongPassword', 'Admin password did not match', []);
+            respond(false, 'Incorrect password.');
+        }
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:admin', 'Admin login — bypassing OTP', [
+            'userId' => (int) $user['id'],
+        ]);
+        session_regenerate_id(true);
+        $_SESSION['user_id']    = (int) $user['id'];
+        $_SESSION['user_name']  = $user['name'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['is_admin']   = true;
+        respond(true, 'Welcome, Administrator!', [
+            'requires_2fa' => false,
+            'name'     => $user['name'],
+            'email'    => $user['email'],
+            'redirect' => 'admin-dashboard.php',
+        ]);
+    } else {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:notAdmin', 'Admin check FAILED - email does NOT match admin@gmail.com', [
+            'email' => $email,
+            'emailLength' => strlen($email),
+            'expected' => 'admin@gmail.com',
+        ]);
+    }
+
+    // For regular users, check if provider is email
     if (!$user || $user['provider'] !== 'email') {
         respond(false, 'No account found with this email.');
     }
@@ -176,8 +268,6 @@ function handleLogin(array $data): void {
     if (!password_verify($password, $user['password_hash'])) {
         respond(false, 'Incorrect password.');
     }
-
-    // Store pending data in session
     $_SESSION['pending_user_id']    = $user['id'];
     $_SESSION['pending_user_name']  = $user['name'];
     $_SESSION['pending_user_email'] = $user['email'];

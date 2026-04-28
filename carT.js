@@ -77,13 +77,16 @@ function renderCart() {
           <div class="cart-item-meta">${item.pieces || ''}${item.variation ? (item.pieces ? ' · ' : '') + item.variation : ''}</div>
         </div>
         <div class="cart-item-qty">
+          <span class="cart-qty-num">${item.quantity}</span>
           <div class="cart-qty-btn">
             <i class="fas fa-caret-up" onclick="updateQty(${idx}, 1)"></i>
             <i class="fas fa-caret-down" onclick="updateQty(${idx}, -1)"></i>
           </div>
-          <span class="cart-qty-num">${item.quantity}</span>
         </div>
-        <div class="cart-item-price">₱${(item.rawPrice * item.quantity).toLocaleString('en-PH')}</div>
+        <div class="cart-item-prices">
+          <div class="cart-item-price">₱${(item.rawPrice * item.quantity).toLocaleString('en-PH')}</div>
+          <div class="cart-item-unit-price">₱${item.rawPrice.toLocaleString('en-PH')}</div>
+        </div>
         <button class="cart-item-delete" onclick="removeItem(${idx})"><i class="far fa-trash-alt"></i></button>
       `;
       list.appendChild(row);
@@ -99,17 +102,39 @@ function renderCart() {
   if (subhead) subhead.textContent = `You have ${totalItems} item${totalItems !== 1 ? 's' : ''} in your cart`;
 }
 
+let pendingRemoveIdx = null;
+
+function showRemoveConfirm(idx) {
+  pendingRemoveIdx = idx;
+  document.getElementById('confirmRemoveOverlay').classList.add('open');
+}
+
+function hideRemoveConfirm() {
+  pendingRemoveIdx = null;
+  document.getElementById('confirmRemoveOverlay').classList.remove('open');
+}
+
+function confirmRemoveItem() {
+  if (pendingRemoveIdx !== null) {
+    cart.splice(pendingRemoveIdx, 1);
+    renderCart();
+    window.updateCartCount();
+  }
+  hideRemoveConfirm();
+}
+
 function updateQty(idx, delta) {
+  if (delta === -1 && cart[idx].quantity === 1) {
+    showRemoveConfirm(idx);
+    return;
+  }
   cart[idx].quantity += delta;
-  if (cart[idx].quantity <= 0) cart.splice(idx, 1);
   renderCart();
   window.updateCartCount();
 }
 
 function removeItem(idx) {
-  cart.splice(idx, 1);
-  renderCart();
-  window.updateCartCount();
+  showRemoveConfirm(idx);
 }
 
 window.openCart = function() {
@@ -132,6 +157,13 @@ window.closeCart = function() {
 document.addEventListener('DOMContentLoaded', () => {
   renderCart();
   window.updateCartCount();
+
+  // Confirm remove modal
+  document.getElementById('confirmRemoveYes').addEventListener('click', confirmRemoveItem);
+  document.getElementById('confirmRemoveNo').addEventListener('click', hideRemoveConfirm);
+  document.getElementById('confirmRemoveOverlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) hideRemoveConfirm();
+  });
 
   const cartBackBtn = document.getElementById('cartBackBtn');
   const backToMenuLink = document.getElementById('backToMenuLink');
@@ -157,6 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const isCod = btn.dataset.method === 'cod';
       document.getElementById('cardFields').style.display = (isGcash || isCod) ? 'none' : 'block';
       document.getElementById('gcashFields').style.display = isGcash ? 'block' : 'none';
+      document.getElementById('codFields').style.display = isCod ? 'block' : 'none';
     });
   });
 
@@ -176,6 +209,56 @@ document.addEventListener('DOMContentLoaded', () => {
       if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
       this.value = v;
     });
+  }
+
+  // QR modal open/close — use delegation so it works even when gcashFields is hidden
+  const qrOverlay = document.getElementById('qrOverlay');
+  const qrClose = document.getElementById('qrClose');
+
+  document.body.addEventListener('click', (e) => {
+    if (e.target.closest('#viewQrBtn')) {
+      if (qrOverlay) qrOverlay.classList.add('open');
+    }
+    if (e.target.closest('#qrClose') || e.target === qrOverlay) {
+      if (qrOverlay) qrOverlay.classList.remove('open');
+    }
+  });
+
+  // GCash number copy-to-clipboard
+  const gcashCopyNumber = document.getElementById('gcashCopyNumber');
+  if (gcashCopyNumber) {
+    gcashCopyNumber.addEventListener('click', async () => {
+      const number = gcashCopyNumber.textContent.trim();
+      try {
+        await navigator.clipboard.writeText(number);
+        showCopyTooltip(gcashCopyNumber, 'Copied!');
+      } catch (err) {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = number;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showCopyTooltip(gcashCopyNumber, 'Copied!');
+      }
+    });
+  }
+
+  function showCopyTooltip(element, message) {
+    let tooltip = element.querySelector('.gcash-copy-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('span');
+      tooltip.className = 'gcash-copy-tooltip';
+      element.appendChild(tooltip);
+    }
+    tooltip.textContent = message;
+    tooltip.classList.add('show');
+    setTimeout(() => {
+      tooltip.classList.remove('show');
+    }, 1500);
   }
 
   // Checkout
@@ -215,4 +298,4 @@ function goToSignIn() {
 
 function closeAuthModal() {
   document.getElementById('authModal').classList.remove('open');
-}
+} 

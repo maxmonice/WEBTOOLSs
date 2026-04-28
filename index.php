@@ -233,7 +233,7 @@
             <button class="carousel-arrow next" id="nextBtn">›</button>
         </div>
         <div class="carousel-dots" id="carouselDots"></div>
-        <a href="gallery.html" class="view-all-btn">View All Gallery</a>
+        <a href="gallery.php" class="view-all-btn">View All Gallery</a>
     </section>
 
     <!-- FOOTER -->
