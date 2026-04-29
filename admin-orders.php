@@ -1,6 +1,96 @@
 <?php
-session_start();
-// Orders logic here
+require_once 'admin-config.php';
+requireAdmin();
+
+// Handle order creation from frontend
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if ($data['action'] === 'create_order') {
+        // Create orders table if it doesn't exist
+        $createTableSQL = "
+            CREATE TABLE IF NOT EXISTS orders (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                items JSON NOT NULL,
+                address TEXT NOT NULL,
+                payment_method VARCHAR(50) NOT NULL,
+                payment_details JSON,
+                subtotal DECIMAL(10,2) NOT NULL,
+                shipping DECIMAL(10,2) NOT NULL,
+                total DECIMAL(10,2) NOT NULL,
+                user_email VARCHAR(255),
+                user_name VARCHAR(255),
+                status ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ";
+        $pdo->exec($createTableSQL);
+        
+        $items = $data['items'] ?? [];
+        $address = $data['address'] ?? '';
+        $paymentMethod = $data['paymentMethod'] ?? '';
+        $paymentDetails = $data['paymentDetails'] ?? [];
+        $subtotal = $data['subtotal'] ?? 0;
+        $shipping = $data['shipping'] ?? 0;
+        $total = $data['total'] ?? 0;
+        $userEmail = $data['userEmail'] ?? '';
+        $userName = $data['userName'] ?? '';
+        
+        // Validate required fields
+        if (empty($items) || empty($address) || empty($paymentMethod)) {
+            echo json_encode(['success' => false, 'message' => 'Missing required order information']);
+            exit;
+        }
+        
+        // Insert order into database
+        $stmt = $pdo->prepare("
+            INSERT INTO orders (
+                items, address, payment_method, payment_details, 
+                subtotal, shipping, total, user_email, user_name, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+        ");
+        
+        try {
+            $stmt->execute([
+                json_encode($items), $address, $paymentMethod, json_encode($paymentDetails),
+                $subtotal, $shipping, $total, $userEmail, $userName
+            ]);
+            
+            echo json_encode(['success' => true, 'message' => 'Order created successfully']);
+            exit;
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+}
+
+// Get orders for display
+$orders = [];
+try {
+    $stmt = $pdo->prepare("SELECT * FROM orders ORDER BY created_at DESC");
+    $stmt->execute();
+    $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Table might not exist, create it
+    $createTableSQL = "
+        CREATE TABLE IF NOT EXISTS orders (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            items JSON NOT NULL,
+            address TEXT NOT NULL,
+            payment_method VARCHAR(50) NOT NULL,
+            payment_details JSON,
+            subtotal DECIMAL(10,2) NOT NULL,
+            shipping DECIMAL(10,2) NOT NULL,
+            total DECIMAL(10,2) NOT NULL,
+            user_email VARCHAR(255),
+            user_name VARCHAR(255),
+            status ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ";
+    $pdo->exec($createTableSQL);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -89,14 +179,41 @@ session_start();
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td style="color:var(--red);font-weight:700;">#ORD-0091</td>
-                <td><div class="flex-gap"><div class="user-avatar">MS</div>Maria Santos</div></td>
-                <td>Salmon Sashimi x2</td>
-                <td>₱1,200</td>
-                <td><span class="badge badge-blue">Shipped</span></td>
-                <td>Jun 10, 2025</td>
-              </tr>
+              <?php if (!empty($orders)): ?>
+                <?php foreach ($orders as $order): ?>
+                  <?php 
+                    $items = json_decode($order['items'], true);
+                    $itemsList = array_map(function($item) {
+                        return $item['name'] . ($item['quantity'] > 1 ? ' x' . $item['quantity'] : '');
+                    }, $items);
+                    $itemsText = implode(', ', $itemsList);
+                  ?>
+                  <tr>
+                    <td style="color:var(--red);font-weight:700;">#ORD-<?= str_pad($order['id'], 4, '0', STR_PAD_LEFT) ?></td>
+                    <td>
+                      <div class="flex-gap">
+                        <div class="user-avatar"><?= strtoupper(substr($order['user_name'], 0, 2)) ?></div>
+                        <?= htmlspecialchars($order['user_name']) ?>
+                      </div>
+                    </td>
+                    <td><?= htmlspecialchars($itemsText) ?></td>
+                    <td><?= '₱' . number_format($order['total'], 2) ?></td>
+                    <td>
+                      <span class="badge badge-<?= $order['status'] === 'delivered' ? 'green' : ($order['status'] === 'cancelled' ? 'red' : ($order['status'] === 'shipped' ? 'blue' : 'yellow')) ?>">
+                        <?= ucfirst($order['status']) ?>
+                      </span>
+                    </td>
+                    <td><?= date('M d, Y', strtotime($order['created_at'])) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 40px; color: var(--muted);">
+                    <i class="fa-solid fa-bag-shopping" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                    No orders yet. Orders will appear here once customers place them.
+                  </td>
+                </tr>
+              <?php endif; ?>
             </tbody>
           </table>
         </div>

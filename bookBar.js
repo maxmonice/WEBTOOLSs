@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Mobile menu toggle
     const mobileMenuBtn = document.getElementById('mobile-menu');
-    const navMenu = document.getElementById('nav-menu');
+    const navMenu = document.getElementById('navMenu');
     const navLinks = document.querySelectorAll('.nav-menu a');
 
     mobileMenuBtn.addEventListener('click', (e) => {
@@ -313,13 +313,245 @@ document.addEventListener('DOMContentLoaded', () => {
         // Close popup
         closeSummaryPopup();
         
-        // Show success message
-        alert('Booking request sent successfully!');
+        // Check if user is logged in
+        if (!window.__isLoggedIn) {
+            showNotification('Please log in to submit a booking', 'error');
+            return;
+        }
         
-        // Reset form
-        bookingForm.reset();
+        // Get form data
+        const formData = {
+            eventName: document.getElementById('eventName').value,
+            address: document.getElementById('address').value,
+            eventDate: document.getElementById('eventDate').value,
+            eventTime: document.getElementById('eventTime').value,
+            eventType: document.getElementById('eventType').value,
+            numGuests: document.getElementById('numGuests').value,
+            fullName: document.getElementById('fullName').value,
+            contactNumber: document.getElementById('contactNumber').value,
+            emailAddress: document.getElementById('emailAddress').value,
+            notes: document.getElementById('notes').value || 'N/A',
+            userEmail: sessionStorage.getItem('user_email') || 'guest@example.com',
+            userName: sessionStorage.getItem('user_name') || 'Guest User'
+        };
         
-        // Here you would normally send the form data to your server
-        // bookingForm.submit();
+        // Validate required fields
+        if (!formData.eventName || !formData.fullName || !formData.contactNumber || !formData.emailAddress || !formData.eventDate || !formData.eventTime || !formData.eventType || !formData.numGuests || !formData.address) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        // Format date for database (convert from display format to Y-m-d)
+        const formatDateForDB = (dateStr) => {
+            if (!dateStr) return '';
+            // Handle format like "April 15, 2025" or "2025-04-15"
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) {
+                // Try parsing as Y-m-d
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                    return dateStr; // Already in Y-m-d format
+                }
+                return '';
+            }
+            return date.toISOString().split('T')[0]; // Returns Y-m-d
+        };
+        
+        // Prepare data for submission
+        const submissionData = {
+            action: 'create_booking',
+            eventName: formData.eventName,
+            fullName: formData.fullName,
+            contactNumber: formData.contactNumber,
+            emailAddress: formData.emailAddress,
+            eventDate: formatDateForDB(formData.eventDate),
+            eventTime: formData.eventTime,
+            eventType: formData.eventType,
+            numGuests: formData.numGuests,
+            address: formData.address,
+            notes: formData.notes,
+            userEmail: formData.userEmail,
+            userName: formData.userName
+        };
+        
+        console.log('Submitting booking data:', submissionData);
+        
+        // Send booking data to server
+        fetch('admin-bookings.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(submissionData)
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+                // Show success message
+                showNotification('Booking request sent successfully!', 'success');
+                
+                // Reset form
+                bookingForm.reset();
+                
+                // Update admin dashboard stats
+                updateAdminStats();
+                
+                // Redirect to confirmation page after delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showNotification(data.message || 'Failed to submit booking', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Failed to submit booking. Please try again.', 'error');
+        });
     };
+
+    // Notification function
+    function showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            ${message}
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#22c55e' : '#ef4444'};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
+    // Update admin stats function
+    function updateAdminStats() {
+        // This would typically fetch updated stats from the server
+        console.log('Updating admin dashboard stats...');
+    }
+
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .popup-content {
+            background: #222;
+            border: 1px solid rgba(194,38,38,0.4);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .popup-title {
+            color: #fff;
+            font-family: 'Aclonica', sans-serif;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .summary-section {
+            margin-bottom: 20px;
+        }
+        .summary-section h3 {
+            color: #C22626;
+            font-family: 'Aclonica', sans-serif;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .summary-label {
+            color: rgba(255,255,255,0.7);
+            font-weight: 500;
+        }
+        .summary-value {
+            color: #fff;
+            font-weight: 600;
+        }
+        .popup-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        .popup-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .cancel-btn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .cancel-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .confirm-btn {
+            background: linear-gradient(135deg, #C22626, #8B0A1E);
+            color: #fff;
+        }
+        .confirm-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+    `;
+    document.head.appendChild(style);
 });
