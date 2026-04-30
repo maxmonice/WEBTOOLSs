@@ -24,8 +24,11 @@
             </div>
         </div>
 
-        <div class="cart-right">
+<div class="cart-right">
             <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
+            <div class="cart-notif" id="cartNotif">
+                <span class="cart-notif-text" id="cartNotifText">Cart is empty - add items from the menu!</span>
+            </div>
             <div class="cart-right-section">
                 <h3 class="cart-right-title">Address</h3>
                 <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
@@ -167,11 +170,44 @@
             <p>You need to be signed in to place an order.<br>
             <strong>Please log in to your account</strong> to continue.</p>
         </div>
-        <div class="auth-modal-foot">
+<div class="auth-modal-foot">
             <button class="auth-btn-signin" onclick="goToSignIn()">
                 <i class="fa-solid fa-right-to-bracket"></i> Sign In to My Account
             </button>
             <button class="auth-btn-cancel" onclick="closeAuthModal()">Maybe Later</button>
+        </div>
+    </div>
+</div>
+
+<!-- Order Confirmation Modal -->
+<div class="order-confirm-overlay" id="orderConfirmOverlay">
+    <div class="order-confirm-modal">
+        <div class="order-confirm-icon"><i class="fas fa-check-circle"></i></div>
+        <h3 class="order-confirm-title">Order Confirmed!</h3>
+        <p class="order-confirm-text">Thank you for your order. Here's your summary:</p>
+        
+        <div class="order-confirm-summary" id="orderConfirmSummary"></div>
+        
+        <div class="order-confirm-divider"></div>
+        
+        <div class="order-confirm-breakdown">
+            <div class="order-confirm-row">
+                <span>Subtotal</span>
+                <span id="orderSubtotal">₱0</span>
+            </div>
+            <div class="order-confirm-row">
+                <span>Shipping</span>
+                <span>₱50</span>
+            </div>
+            <div class="order-confirm-row total">
+                <span>Total</span>
+                <span id="orderTotal">₱50</span>
+            </div>
+        </div>
+        
+<div class="order-confirm-actions">
+            <button class="order-confirm-close" id="orderConfirmClose">Place Order</button>
+            <button class="order-confirm-cancel" id="orderConfirmCancelBtn">Cancel</button>
         </div>
     </div>
 </div>
