@@ -36,9 +36,17 @@
         .nav-menu { display: flex; align-items: center; gap: 30px; }
         .nav-menu a { color: rgba(255,255,255,0.88); text-decoration: none; font-weight: 500; font-size: 0.95rem; letter-spacing: 0.03em; position: relative; transition: color 0.3s; }
         .nav-menu a:hover { color: #fff; }
-        .nav-account-icon { display: flex !important; align-items: center; font-size: 1.35rem !important; color: white !important; transition: transform 0.2s, opacity 0.2s !important; opacity: 0.9; }
+.nav-account-icon { display: flex !important; align-items: center; font-size: 1.35rem !important; color: white !important; transition: transform 0.2s, opacity 0.2s !important; opacity: 0.9; }
         .nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
         .nav-account-icon.active::after { display: none !important; }
+        
+/* Speech bubble for "track your order" - shows after placing order */
+        .account-bubble { position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--surface); border: 1px solid var(--border-red); border-radius: 10px; padding: 8px 14px; font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 1100; opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0.25s ease; }
+        .account-bubble::before { content: ''; position: absolute; top: -6px; right: 18px; width: 12px; height: 12px; background: var(--surface); border-left: 1px solid var(--border-red); border-top: 1px solid var(--border-red); transform: rotate(45deg); }
+        
+        /* Show bubble when order is placed (after pressing place order) */
+        .account-bubble.show { opacity: 1; visibility: visible; animation: bubbleFadeIn 0.25s ease; }
+        @keyframes bubbleFadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
         main { margin-top: 70px; flex: 1; }
 
@@ -185,8 +193,9 @@
                 <a href="bookBar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon active" title="Account">
+<a href="account.php" class="nav-account-icon active" title="Account" id="accountIconLink">
                     <i class="fas fa-user-circle"></i>
+                    <span class="account-bubble" id="orderTrackBubble">track your order here</span>
                 </a>
             </nav>
         </div>
