@@ -389,15 +389,26 @@ const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
       }, 200);
     }, 2000);
   };
-
-  // Checkout
+// Checkout
   const checkoutBtn = document.getElementById('checkoutBtn');
   if (checkoutBtn) {
     checkoutBtn.addEventListener('click', () => {
-if (cart.length === 0) {
-window.showTopNotif('Cart is empty!', 'info');
-                return;
-              }
+      if (cart.length === 0) {
+        window.showTopNotif('Cart is empty!', 'info');
+        return;
+      }
+// Check if user is logged in
+      const userEmail = sessionStorage.getItem('user_email');
+      if (!userEmail) {
+        // Set redirect to return to menu after login
+        sessionStorage.setItem('redirect_after_login', 'menu.php');
+        // Show auth modal if not logged in
+        const authModal = document.getElementById('authModal');
+        if (authModal) {
+          authModal.classList.add('open');
+        }
+        return;
+      }
       const address = document.getElementById('cartAddress').value.trim();
       if (!address) {
         document.getElementById('cartAddress').focus();
@@ -416,8 +427,8 @@ window.showTopNotif('Cart is empty!', 'info');
     
     // Build summary items
     summaryEl.innerHTML = '';
-    cart.forEach(item => {
-      const itemEl = document.createElement('div/');
+cart.forEach(item => {
+      const itemEl = document.createElement('div');
       itemEl.className = 'order-confirm-item';
       itemEl.innerHTML = `
         <div class="order-confirm-item-info">

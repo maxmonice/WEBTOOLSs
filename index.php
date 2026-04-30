@@ -26,12 +26,11 @@
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
 <a href="account.php" class="nav-account-icon" title="Account"><i class="fas fa-user-circle"></i></a>
-                <div class="order-track-bubble" id="orderTrackBubble" onclick="window.location.href='account.php'">Track Your Order Here</div>
             </nav>
         </div>
     </header>
 
-    <!-- HERO -->
+<!-- HERO -->
     <section class="hero-section">
         <img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/banner.png?raw=true" class="banner" alt="Banner" />
         <div class="hero-overlay"></div>

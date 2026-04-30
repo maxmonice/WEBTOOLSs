@@ -220,6 +220,16 @@
                 </div>
             </div>
 
+<!-- Track Your Order -->
+            <div class="section-block">
+                <div class="section-label"><i class="fa-solid fa-box-open"></i> Track Your Order</div>
+                <div id="orderTrackingSection">
+                    <div class="menu-rows" id="orderTrackingRows">
+                        <!-- Order tracking info will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Security -->
             <div class="section-block">
                 <div class="section-label"><i class="fa-solid fa-shield-halved"></i> Security</div>
@@ -531,9 +541,64 @@
             el.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
         });
 
-        document.getElementById('mobile-menu').addEventListener('click', () => {
+document.getElementById('mobile-menu').addEventListener('click', () => {
             document.getElementById('navMenu').classList.toggle('active');
         });
+
+        // ── Order Tracking ──
+        function loadOrderTracking() {
+            const rowsContainer = document.getElementById('orderTrackingRows');
+            const hasPendingOrder = localStorage.getItem('order_pending') === 'true';
+            
+            if (hasPendingOrder) {
+                // Show pending order info
+                rowsContainer.innerHTML = `
+                    <a class="menu-row" href="#">
+                        <div class="mr-left">
+                            <div class="mr-icon" style="background: var(--red); color: #fff;"><i class="fa-solid fa-clock"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">Order Pending</div>
+                                <div class="mr-sub">Your order is being processed</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
+                    </a>
+                    <hr class="menu-divider">
+                    <a class="menu-row" href="#" onclick="clearOrderTracking(); return false;">
+                        <div class="mr-left">
+                            <div class="mr-icon"><i class="fa-solid fa-check-circle"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">Mark as Received</div>
+                                <div class="mr-sub">Confirm you received your order</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
+                    </a>
+                `;
+            } else {
+                // No pending orders
+                rowsContainer.innerHTML = `
+                    <div class="menu-row" style="cursor: default;">
+                        <div class="mr-left">
+                            <div class="mr-icon"><i class="fa-solid fa-box-open"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">No Active Orders</div>
+                                <div class="mr-sub">Place an order to track it here</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function clearOrderTracking() {
+            localStorage.removeItem('order_pending');
+            loadOrderTracking();
+            showToast('Order marked as received!');
+        }
+
+        // Load order tracking on page load
+        loadOrderTracking();
     </script>
 </body>
 </html>
