@@ -1149,13 +1149,13 @@
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    background: rgba(34, 197, 94, 0.12);
-    border: 1px solid rgba(34, 197, 94, 0.35);
+    background: rgba(194, 38, 38, 0.12);
+    border: 1px solid rgba(194, 38, 38, 0.35);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.8rem;
-    color: #22c55e;
+    color: #C22626;
     margin: 0 auto 18px;
 }
 
@@ -1268,7 +1268,7 @@
 .order-confirm-close {
     width: 100%;
     padding: 13px;
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+    background: linear-gradient(135deg, #C22626, #8B0A1E);
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -1283,7 +1283,7 @@
 .order-confirm-close:hover {
     opacity: 0.92;
     transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(34, 197, 94, 0.45);
+    box-shadow: 0 6px 24px rgba(194, 38, 38, 0.45);
 }
 
 .order-confirm-cancel {
@@ -1517,6 +1517,7 @@
     flex-direction: row;
     gap: 10px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    text-align: center;
 }
 
 @keyframes topNotifSlideIn {
@@ -1554,19 +1555,20 @@
 }
 
 .top-notif.success {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+    background: #22c55e;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .top-notif.error {
-    background: linear-gradient(135deg, #C22626, #8B0A1E);
+    background: #ef4444;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .top-notif.info {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    background: #000;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.15);
+    text-align: center;
 }

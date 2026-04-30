@@ -18,7 +18,7 @@
 
 <!-- Top Notification Bar -->
 <div class="top-notif" id="topNotif">
-    <span class="top-notif-icon"><i class="fas fa-check-circle"></i></span>
+<span class="top-notif-icon"></span>
     <span class="top-notif-text" id="topNotifText">Order Successful!</span>
 </div>
 
@@ -205,7 +205,7 @@
 <!-- Order Confirmation Modal -->
 <div class="order-confirm-overlay" id="orderConfirmOverlay">
     <div class="order-confirm-modal">
-        <div class="order-confirm-icon"><i class="fas fa-check-circle"></i></div>
+<div class="order-confirm-icon"></div>
         <h3 class="order-confirm-title">Order Confirmed!</h3>
         <p class="order-confirm-text">Thank you for your order. Here's your summary:</p>
         

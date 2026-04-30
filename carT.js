@@ -158,9 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCart();
   window.updateCartCount();
 
-  // Show delivery area notice on first visit to menu
+// Show delivery area notice only when NOT logged in
   const deliveryNoticeKey = 'lukes_delivery_notice_shown';
-  if (!localStorage.getItem(deliveryNoticeKey)) {
+  const userEmail = sessionStorage.getItem('user_email');
+  if (!userEmail && !localStorage.getItem(deliveryNoticeKey)) {
     const deliveryNotice = document.getElementById('deliveryNoticeOverlay');
     if (deliveryNotice) {
       deliveryNotice.classList.add('show');
@@ -342,6 +343,34 @@ const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
     }, 3000);
   };
 
+// Order Track Bubble Functions
+  window.showOrderTrackBubble = function() {
+    const bubble = document.getElementById('orderTrackBubble');
+    if (!bubble) return;
+    localStorage.setItem('order_pending', 'true');
+    bubble.classList.add('show');
+  };
+
+  window.hideOrderTrackBubble = function() {
+    const bubble = document.getElementById('orderTrackBubble');
+    if (!bubble) return;
+    localStorage.removeItem('order_pending');
+    bubble.classList.remove('show');
+  };
+
+  // Check and show bubble on page load if there's a pending order
+  if (localStorage.getItem('order_pending') === 'true') {
+    const bubble = document.getElementById('orderTrackBubble');
+    if (bubble) bubble.classList.add('show');
+  }
+
+  // Hide bubble when clicking account icon
+  document.querySelectorAll('.nav-account-icon').forEach(icon => {
+    icon.addEventListener('click', () => {
+      window.hideOrderTrackBubble();
+    });
+  });
+
 // Top notification bar functions (outside cart)
   window.showTopNotif = function(message, type = 'success') {
     const topNotif = document.getElementById('topNotif');
@@ -366,8 +395,7 @@ const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
   if (checkoutBtn) {
     checkoutBtn.addEventListener('click', () => {
 if (cart.length === 0) {
-                window.showCartEmptyToast();
-                window.showCartNotif('Your cart is empty - add items from the menu!', 'info');
+window.showTopNotif('Cart is empty!', 'info');
                 return;
               }
       const address = document.getElementById('cartAddress').value.trim();
@@ -389,7 +417,7 @@ if (cart.length === 0) {
     // Build summary items
     summaryEl.innerHTML = '';
     cart.forEach(item => {
-      const itemEl = document.createElement('div');
+      const itemEl = document.createElement('div/');
       itemEl.className = 'order-confirm-item';
       itemEl.innerHTML = `
         <div class="order-confirm-item-info">
@@ -426,6 +454,9 @@ if (subtotalEl) subtotalEl.textContent = '₱' + Math.round(subtotal).toLocaleSt
     
     // Close cart immediately
     window.closeCart();
+    
+    // Show the order tracking bubble
+    window.showOrderTrackBubble();
     
     // Then show top notification bar (outside cart)
     window.showTopNotif('Order Successful!', 'success');

@@ -25,7 +25,8 @@
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon" title="Account"><i class="fas fa-user-circle"></i></a>
+<a href="account.php" class="nav-account-icon" title="Account"><i class="fas fa-user-circle"></i></a>
+                <div class="order-track-bubble" id="orderTrackBubble" onclick="window.location.href='account.php'">Track Your Order Here</div>
             </nav>
         </div>
     </header>
