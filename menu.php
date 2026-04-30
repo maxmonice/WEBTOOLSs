@@ -8,7 +8,7 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="menu.css">
@@ -161,43 +161,43 @@
             <!-- ── PLATTERS ── -->
             <h2 class="category-heading" id="platters-section">Platters</h2>
             <div class="menu-grid">
-                <div class="menu-item" data-item='{"name":"Square Platter A","price":"₱539.50","pieces":"14 Pcs","image":"images/a.webp"}'>
+                <div class="menu-item" data-item='{"name":"Square Platter A","price":"₱539","pieces":"14 Pcs","image":"images/a.webp"}'>
                     <img src="images/a.webp" alt="Square Platter A" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Square Platter A</div>
-                        <div class="item-price">₱539.50</div>
+                        <div class="item-price">₱539</div>
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
-                <div class="menu-item" data-item='{"name":"Square Platter B","price":"₱487.50","pieces":"18 Pcs","image":"images/b.webp"}'>
+                <div class="menu-item" data-item='{"name":"Square Platter B","price":"₱487","pieces":"18 Pcs","image":"images/b.webp"}'>
                     <img src="images/b.webp" alt="Square Platter B" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Square Platter B</div>
-                        <div class="item-price">₱487.50</div>
+                        <div class="item-price">₱487</div>
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
-                <div class="menu-item" data-item='{"name":"Sushi Boat A","price":"₱1,558.70","pieces":"58 Pcs","image":"images/boata.webp"}'>
+                <div class="menu-item" data-item='{"name":"Sushi Boat A","price":"₱1,558","pieces":"58 Pcs","image":"images/boata.webp"}'>
                     <img src="images/boata.webp" alt="Sushi Boat A" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Sushi Boat A</div>
-                        <div class="item-price">₱1,558.70</div>
+                        <div class="item-price">₱1,558</div>
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
-                <div class="menu-item" data-item='{"name":"Sushi Boat B","price":"₱2,078.70","pieces":"57 Pcs","image":"images/boatb.webp"}'>
+                <div class="menu-item" data-item='{"name":"Sushi Boat B","price":"₱2,078","pieces":"57 Pcs","image":"images/boatb.webp"}'>
                     <img src="images/boatb.webp" alt="Sushi Boat B" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Sushi Boat B</div>
-                        <div class="item-price">₱2,078.70</div>
+                        <div class="item-price">₱2,078</div>
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
-                <div class="menu-item" data-item='{"name":"Tempura Boat","price":"₱1,168.70","pieces":"20 Pcs","image":"images/tempuraboat.webp"}'>
+                <div class="menu-item" data-item='{"name":"Tempura Boat","price":"₱1,168","pieces":"20 Pcs","image":"images/tempuraboat.webp"}'>
                     <img src="images/tempuraboat.webp" alt="Tempura Boat" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Tempura Boat</div>
-                        <div class="item-price">₱1,168.70</div>
+                        <div class="item-price">₱1,168</div>
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
@@ -209,11 +209,11 @@
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
-                <div class="menu-item" data-item='{"name":"Mixed Maki Platter","price":"₱1,168.70","pieces":"48 Pcs","image":"images/mixedmaki.webp"}'>
+                <div class="menu-item" data-item='{"name":"Mixed Maki Platter","price":"₱1,168","pieces":"48 Pcs","image":"images/mixedmaki.webp"}'>
                     <img src="images/mixedmaki.webp" alt="Mixed Maki Platter" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Mixed Maki Platter</div>
-                        <div class="item-price">₱1,168.70</div>
+                        <div class="item-price">₱1,168</div>
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>

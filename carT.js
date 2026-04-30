@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
+const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
   if (deliveryNoticeOverlay) {
     deliveryNoticeOverlay.addEventListener('click', (e) => {
       if (e.target === deliveryNoticeOverlay) {
@@ -415,11 +415,11 @@ if (subtotalEl) subtotalEl.textContent = '₱' + Math.round(subtotal).toLocaleSt
     document.getElementById('orderConfirmOverlay').classList.add('open');
   };
 
-// Close order confirmation - Place Order button
+// Place Order button
   document.getElementById('orderConfirmClose').addEventListener('click', () => {
     document.getElementById('orderConfirmOverlay').classList.remove('open');
     
-    // Clear cart first
+    // Clear cart after successful order
     cart = [];
     window.updateCartCount();
     renderCart();
