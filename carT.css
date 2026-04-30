@@ -1,4 +1,4 @@
-/* Cart-specific styles — updated cart panel design from menu.css */
+    /* Cart-specific styles — updated cart panel design from menu.css */
 
 /* =====================================================
    CART BUTTON & OVERLAY
@@ -321,6 +321,37 @@
 }
 
 .cart-right-section { margin-bottom: 10px; }
+
+.cart-address-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cart-address-field .cart-input {
+    flex: 1;
+}
+
+.cart-address-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.cart-address-icon:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.35);
+}
 
 .cart-right-title {
     font-family: 'Aclonica', sans-serif;
@@ -1062,20 +1093,20 @@
 }
 
 .cart-notif.error {
-    background: rgba(194, 38, 38, 0.12);
-    border: 1px solid rgba(194, 38, 38, 0.3);
+    background: rgba(194, 38, 38, 0.25);
+    border: 1px solid rgba(194, 38, 38, 0.5);
     color: #fca5a5;
 }
 
 .cart-notif.success {
-    background: rgba(34, 197, 94, 0.12);
-    border: 1px solid rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.25);
+    border: 1px solid rgba(34, 197, 94, 0.5);
     color: #86efac;
 }
 
 .cart-notif.info {
-    background: rgba(59, 130, 246, 0.12);
-    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.25);
+    border: 1px solid rgba(59, 130, 246, 0.5);
     color: #93c5fd;
 }
 
@@ -1375,4 +1406,79 @@
 .cart-toast-overlay.show {
     opacity: 1;
     pointer-events: auto;
+}
+
+/* =====================================================
+   TOP NOTIFICATION BAR (Outside Cart)
+   ===================================================== */
+.top-notif {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    z-index: 10010;
+    animation: topNotifSlideIn 0.25s cubic-bezier(.16, 1, .3, 1);
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    gap: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes topNotifSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes topNotifSlideOut {
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+}
+
+.top-notif.show {
+    display: flex;
+}
+
+.top-notif.hiding {
+    animation: topNotifSlideOut 0.2s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+
+.top-notif .top-notif-icon {
+    font-size: 1.1rem;
+}
+
+.top-notif.success {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.top-notif.error {
+    background: linear-gradient(135deg, #C22626, #8B0A1E);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.top-notif.info {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
 }

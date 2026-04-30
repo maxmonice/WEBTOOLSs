@@ -280,6 +280,15 @@ document.addEventListener('DOMContentLoaded', () => {
       window.closeCart();
     });
   }
+
+  // Address map selector button
+  const cartAddressIcon = document.getElementById('cartAddressIcon');
+  if (cartAddressIcon) {
+    cartAddressIcon.addEventListener('click', () => {
+      // Open Google Maps location picker in a new tab
+      window.open('https://www.google.com/maps', '_blank');
+    });
+  }
   // Also close toast when clicking overlay
   const cartToastOverlay = document.getElementById('cartToastOverlay');
   if (cartToastOverlay) {
@@ -288,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Cart notification bar functions
+// Cart notification bar functions
   window.showCartNotif = function(message, type = 'error') {
     const notif = document.getElementById('cartNotif');
     const notifText = document.getElementById('cartNotifText');
@@ -302,6 +311,25 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       notif.classList.remove('show');
     }, 3000);
+  };
+
+// Top notification bar functions (outside cart)
+  window.showTopNotif = function(message, type = 'success') {
+    const topNotif = document.getElementById('topNotif');
+    const topNotifText = document.getElementById('topNotifText');
+    if (!topNotif || !topNotifText) return;
+    
+    topNotif.classList.remove('show', 'error', 'success', 'info', 'hiding');
+    topNotif.classList.add('show', type);
+    topNotifText.textContent = message;
+    
+    // Auto hide after 2 seconds with slide-out animation
+    setTimeout(() => {
+      topNotif.classList.add('hiding');
+      setTimeout(() => {
+        topNotif.classList.remove('show', 'hiding');
+      }, 200);
+    }, 2000);
   };
 
   // Checkout
@@ -351,22 +379,27 @@ if (cart.length === 0) {
     const subtotal = cart.reduce((s, i) => s + i.rawPrice * i.quantity, 0);
     const total = subtotal + SHIPPING;
     
-    if (subtotalEl) subtotalEl.textContent = '₱' + Math.round(subtotal).toLocaleString('en-PH');
+if (subtotalEl) subtotalEl.textContent = '₱' + Math.round(subtotal).toLocaleString('en-PH');
     if (totalEl) totalEl.textContent = '₱' + Math.round(total).toLocaleString('en-PH');
     
-    // Show modal
+    // Show modal - keep cart items preserved until order is actually placed
     document.getElementById('orderConfirmOverlay').classList.add('open');
+  };
+
+// Close order confirmation - Place Order button
+  document.getElementById('orderConfirmClose').addEventListener('click', () => {
+    document.getElementById('orderConfirmOverlay').classList.remove('open');
     
-    // Clear cart after confirmation
+    // Clear cart first
     cart = [];
     window.updateCartCount();
     renderCart();
+    
+    // Close cart immediately
     window.closeCart();
-  };
-
-// Close order confirmation
-  document.getElementById('orderConfirmClose').addEventListener('click', () => {
-    document.getElementById('orderConfirmOverlay').classList.remove('open');
+    
+    // Then show top notification bar (outside cart)
+    window.showTopNotif('Order Successful!', 'success');
   });
   
   document.getElementById('orderConfirmCancelBtn').addEventListener('click', () => {

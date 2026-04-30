@@ -4,6 +4,12 @@
     <span class="cart-count" id="cartCount">0</span>
 </div>
 
+<!-- Top Notification Bar -->
+<div class="top-notif" id="topNotif">
+    <span class="top-notif-icon"><i class="fas fa-check-circle"></i></span>
+    <span class="top-notif-text" id="topNotifText">Order Successful!</span>
+</div>
+
 <!-- Cart Overlay -->
 <div class="cart-overlay" id="cartOverlay">
     <div class="cart-panel">
@@ -29,9 +35,14 @@
             <div class="cart-notif" id="cartNotif">
                 <span class="cart-notif-text" id="cartNotifText">Cart is empty - add items from the menu!</span>
             </div>
-            <div class="cart-right-section">
+<div class="cart-right-section">
                 <h3 class="cart-right-title">Address</h3>
-                <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
+                <div class="cart-address-field">
+                    <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
+                    <button type="button" class="cart-address-icon" id="cartAddressIcon" title="Select from Map">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </button>
+                </div>
             </div>
             <div class="cart-right-section">
                 <h3 class="cart-right-title">Payment details</h3>
