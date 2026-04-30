@@ -158,6 +158,35 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCart();
   window.updateCartCount();
 
+  // Show delivery area notice on first visit to menu
+  const deliveryNoticeKey = 'lukes_delivery_notice_shown';
+  if (!localStorage.getItem(deliveryNoticeKey)) {
+    const deliveryNotice = document.getElementById('deliveryNoticeOverlay');
+    if (deliveryNotice) {
+      deliveryNotice.classList.add('show');
+    }
+  }
+
+  // Close delivery notice and save preference
+  const deliveryNoticeClose = document.getElementById('deliveryNoticeClose');
+  if (deliveryNoticeClose) {
+    deliveryNoticeClose.addEventListener('click', () => {
+      localStorage.setItem(deliveryNoticeKey, 'true');
+      const deliveryNotice = document.getElementById('deliveryNoticeOverlay');
+      if (deliveryNotice) deliveryNotice.classList.remove('show');
+    });
+  }
+
+  const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
+  if (deliveryNoticeOverlay) {
+    deliveryNoticeOverlay.addEventListener('click', (e) => {
+      if (e.target === deliveryNoticeOverlay) {
+        localStorage.setItem(deliveryNoticeKey, 'true');
+        deliveryNoticeOverlay.classList.remove('show');
+      }
+    });
+  }
+
   // Confirm remove modal
   document.getElementById('confirmRemoveYes').addEventListener('click', confirmRemoveItem);
   document.getElementById('confirmRemoveNo').addEventListener('click', hideRemoveConfirm);

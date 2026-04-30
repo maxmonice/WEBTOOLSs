@@ -4,6 +4,18 @@
     <span class="cart-count" id="cartCount">0</span>
 </div>
 
+<!-- Delivery Notice Overlay -->
+<div class="delivery-notice-overlay" id="deliveryNoticeOverlay">
+    <div class="delivery-notice-modal">
+        <div class="delivery-notice-icon"><i class="fas fa-truck"></i></div>
+        <div class="delivery-notice-title">Local Delivery Only</div>
+        <div class="delivery-notice-text">
+            To ensure your food arrives hot and fresh, we currently focus on serving our local community within Taguig City and its neighboring areas. By keeping our delivery radius close to home, we can guarantee the quality and taste you expect from Luke's Seafood. Thank you for supporting local!
+        </div>
+        <button class="delivery-notice-btn" id="deliveryNoticeClose">Continue to Menu</button>
+    </div>
+</div>
+
 <!-- Top Notification Bar -->
 <div class="top-notif" id="topNotif">
     <span class="top-notif-icon"><i class="fas fa-check-circle"></i></span>
