@@ -1,3 +1,27 @@
+<?php
+require_once __DIR__ . '/menuDb.php';
+$pdo = getDBConnection();
+
+// Fetch categories for sidebar
+$categories = $pdo->query("SELECT * FROM categories ORDER BY display_order ASC")->fetchAll();
+
+// Fetch menu items
+$stmt = $pdo->prepare("
+    SELECT m.*, c.slug as category_slug 
+    FROM menu_items m 
+    LEFT JOIN categories c ON m.category_id = c.id 
+    WHERE m.is_available = 1 
+    ORDER BY c.display_order ASC, m.name ASC
+");
+$stmt->execute();
+$allItems = $stmt->fetchAll();
+
+// Group items by category
+$menuByCategory = [];
+foreach ($allItems as $item) {
+    $menuByCategory[$item['category_id']][] = $item;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>  
@@ -8,15 +32,13 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap">
-    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="menu.css">
     <link rel="stylesheet" href="carT.css">
 </head>
 <body>
 
-    <!-- Grain overlay -->
     <div class="grain-overlay"></div>
 
     <header>
@@ -29,21 +51,22 @@
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-<a href="account.php" class="nav-account-icon" id="navAccountIcon" title="Account">
+                <a href="account.php" class="nav-account-icon" id="navAccountIcon" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
-            <div class="order-speech-bubble" id="orderSpeechBubble" onclick="window.location.href='account.php'">Track your order here</div>
+                <div class="order-speech-bubble" id="orderSpeechBubble" onclick="window.location.href='account.php'">Track your order here</div>
             </nav>
         </div>
     </header>
 
     <main class="content-wrapper">
+        <!-- Dynamic Sidebar -->
         <aside class="left-sidebar" role="navigation" aria-label="Menu Categories">
-            <div class="sidebar-item" data-target="salad-section">Salad</div>
-            <div class="sidebar-item" data-target="fusion-section">Fusion</div>
-            <div class="sidebar-item" data-target="a-la-carte-section">A La Carte</div>
-            <div class="sidebar-item" data-target="platters-section">Platters</div>
-            <div class="sidebar-item" data-target="bento-section">Bento</div>
+            <?php foreach($categories as $cat): ?>
+                <div class="sidebar-item" data-target="<?= htmlspecialchars($cat['slug']) ?>">
+                    <?= htmlspecialchars($cat['name']) ?>
+                </div>
+            <?php endforeach; ?>
         </aside>
 
         <section class="menu-section">
@@ -54,7 +77,6 @@
 
             <h1 class="main-menu-heading">Menu</h1>
 
-            <!-- ── SEARCH BAR ── -->
             <div class="search-wrapper">
                 <div class="search-bar">
                     <i class="fas fa-search search-icon"></i>
@@ -64,224 +86,54 @@
                 <div class="search-dropdown" id="searchDropdown"></div>
             </div>
 
-            <!-- ── SALAD ── -->
-            <h2 class="category-heading" id="salad-section">Salad</h2>
-            <div class="menu-grid single-column"> 
-                <div class="menu-item" data-item='{"name":"Kani Mango Salad","price":"₱175","image":"images/kani.webp","variations":["150 Grams","300 Grams"]}'>
-                    <img src="images/kani.webp" alt="Kani Mango Salad" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Kani Mango Salad</div>
-                        <div class="item-price">₱175</div>
-                    </div>
-                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
+            <!-- Dynamic Menu Grids -->
+            <?php foreach($categories as $cat): 
+                $items = $menuByCategory[$cat['id']] ?? [];
+                if (empty($items)) continue;
+                
+                $gridClass = count($items) === 1 ? 'single-column' : (count($items) <= 3 ? 'three-columns' : '');
+            ?>
+                <h2 class="category-heading" id="<?= htmlspecialchars($cat['slug']) ?>">
+                    <?= htmlspecialchars($cat['name']) ?>
+                </h2>
+                
+                <div class="menu-grid <?= $gridClass ?>">
+                    <?php foreach($items as $item): 
+                        // Build EXACT JSON format your existing menu.js expects
+                        $data = [
+                            'name' => $item['name'],
+                            'price' => '₱' . number_format($item['price'], 2),
+                            'image' => $item['image_path']
+                        ];
+                        if ($item['pieces']) $data['pieces'] = $item['pieces'];
+                        if ($item['variations']) $data['variations'] = json_decode($item['variations'], true);
+                        
+                        $jsonAttr = htmlspecialchars(json_encode($data, JSON_UNESCAPED_UNICODE), ENT_QUOTES);
+                    ?>
+                        <div class="menu-item" data-item='<?= $jsonAttr ?>'>
+                            <img src="<?= htmlspecialchars($item['image_path']) ?>" 
+                                 alt="<?= htmlspecialchars($item['name']) ?>" 
+                                 class="item-image-placeholder">
+                            <div class="item-details">
+                                <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
+                                <div class="item-price">₱<?= number_format($item['price'], 2) ?></div>
+                            </div>
+                            <div class="item-rating" aria-label="<?= $item['rating'] ?> stars">
+                                <?= str_repeat('★', round($item['rating'])) ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
-            </div>
-
-            <!-- ── FUSION ROLLS & SUSHI ── -->
-            <h2 class="category-heading" id="fusion-section">Fusion Rolls & Sushi</h2>
-            <div class="menu-grid">
-                <div class="menu-item" data-item='{"name":"California Maki","price":"₱169","image":"images/california.webp","variations":["8 Pieces","16 Pieces","24 Pieces","50 Pieces"]}'>
-                    <img src="images/california.webp" alt="California Maki" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">California Maki</div>
-                        <div class="item-price">₱169</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Crazy Maki","price":"₱195","pieces":"8 Pcs","image":"images/crazy.webp"}'>
-                    <img src="images/crazy.webp" alt="Crazy Maki" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Crazy Maki</div>
-                        <div class="item-price">₱195</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Mango Roll","price":"₱195","pieces":"8 Pcs","image":"images/mango.webp"}'>
-                    <img src="images/mango.webp" alt="Mango Roll" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Mango Roll</div>
-                        <div class="item-price">₱195</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Spicy Salmon","price":"₱195","pieces":"8 Pcs","image":"images/spicysalmon.webp"}'>
-                    <img src="images/spicysalmon.webp" alt="Spicy Salmon Roll" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Spicy Salmon</div>
-                        <div class="item-price">₱195</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Ebi Tempura Maki","price":"₱150","pieces":"8 Pcs","image":"images/ebi.webp"}'>
-                    <img src="images/ebi.webp" alt="Ebi Tempura Maki" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Ebi Tempura Maki</div>
-                        <div class="item-price">₱150</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Avocado Dragon Roll","price":"₱312","pieces":"8 Pcs","image":"images/avocado.webp"}'>
-                    <img src="images/avocado.webp" alt="Avocado Dragon Roll" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Avocado Dragon Roll</div>
-                        <div class="item-price">₱312</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Ebi Sushi","price":"₱208","pieces":"4 Pcs","image":"images/ebisushi.webp"}'>
-                    <img src="images/ebisushi.webp" alt="Ebi Sushi" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Ebi Sushi</div>
-                        <div class="item-price">₱208</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Tamago Sushi","price":"₱169","pieces":"6 Pcs","image":"images/tamago.webp"}'>
-                    <img src="images/tamago.webp" alt="Tamago Sushi" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Tamago Sushi</div>
-                        <div class="item-price">₱169</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-            </div>
-
-            <!-- ── A LA CARTE ── -->
-            <h2 class="category-heading" id="a-la-carte-section">A La Carte</h2>
-            <div class="menu-grid single-column">
-                <div class="menu-item" data-item='{"name":"Tempura","price":"₱221","image":"images/tempura.webp","variations":["150 Grams","300 Grams"]}'>
-                    <img src="images/tempura.webp" alt="Tempura" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Tempura</div>
-                        <div class="item-price">₱221</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-            </div>
-
-            <!-- ── PLATTERS ── -->
-            <h2 class="category-heading" id="platters-section">Platters</h2>
-            <div class="menu-grid">
-                <div class="menu-item" data-item='{"name":"Square Platter A","price":"₱539","pieces":"14 Pcs","image":"images/a.webp"}'>
-                    <img src="images/a.webp" alt="Square Platter A" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Square Platter A</div>
-                        <div class="item-price">₱539</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Square Platter B","price":"₱487","pieces":"18 Pcs","image":"images/b.webp"}'>
-                    <img src="images/b.webp" alt="Square Platter B" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Square Platter B</div>
-                        <div class="item-price">₱487</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Sushi Boat A","price":"₱1,558","pieces":"58 Pcs","image":"images/boata.webp"}'>
-                    <img src="images/boata.webp" alt="Sushi Boat A" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Sushi Boat A</div>
-                        <div class="item-price">₱1,558</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Sushi Boat B","price":"₱2,078","pieces":"57 Pcs","image":"images/boatb.webp"}'>
-                    <img src="images/boatb.webp" alt="Sushi Boat B" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Sushi Boat B</div>
-                        <div class="item-price">₱2,078</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Tempura Boat","price":"₱1,168","pieces":"20 Pcs","image":"images/tempuraboat.webp"}'>
-                    <img src="images/tempuraboat.webp" alt="Tempura Boat" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Tempura Boat</div>
-                        <div class="item-price">₱1,168</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Cali Maki","price":"₱312","image":"images/calimaki.png","variations":["16 Pieces","24 Pieces","50 Pieces"]}'>
-                    <img src="images/calimaki.png" alt="Cali Maki Platter" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Cali Maki</div>
-                        <div class="item-price">₱312</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Mixed Maki Platter","price":"₱1,168","pieces":"48 Pcs","image":"images/mixedmaki.webp"}'>
-                    <img src="images/mixedmaki.webp" alt="Mixed Maki Platter" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Mixed Maki Platter</div>
-                        <div class="item-price">₱1,168</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-            </div>
-
-            <!-- ── BENTO BOXES ── -->
-            <h2 class="category-heading" id="bento-section">Bento Boxes</h2>
-            <div class="menu-grid three-columns">
-                <div class="menu-item" data-item='{"name":"Tuna Steak in Oyster Sauce","price":"₱379","image":"images/tunasteak.webp"}'>
-                    <img src="images/tunasteak.webp" alt="Tuna Steak in Oyster Sauce Bento" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Tuna Steak in Oyster Sauce</div>
-                        <div class="item-price">₱379</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Garlic Buttered Salmon","price":"₱239","image":"images/garlic.webp"}'>
-                    <img src="images/garlic.webp" alt="Garlic Buttered Salmon Bento" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Garlic Buttered Salmon</div>
-                        <div class="item-price">₱239</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Combo E","price":"₱125","image":"images/e.webp"}'>
-                    <img src="images/e.webp" alt="Combo E Bento Box" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Combo E</div>
-                        <div class="item-price">₱125</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Combo K","price":"₱199","image":"images/k.webp"}'>
-                    <img src="images/k.webp" alt="Combo K Bento Box" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Combo K</div>
-                        <div class="item-price">₱199</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Combo L","price":"₱269","image":"images/l.webp"}'>
-                    <img src="images/l.webp" alt="Combo L Bento Box" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Combo L</div>
-                        <div class="item-price">₱269</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Combo U","price":"₱245","image":"images/u.webp"}'>
-                    <img src="images/u.webp" alt="Combo U Bento Box" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Combo U</div>
-                        <div class="item-price">₱245</div>
-                    </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </section>
     </main>
 
-    <!-- Item Modal Popup -->
+    <!-- Item Modal Popup (UNCHANGED) -->
     <div class="modal" id="itemModal">
         <div class="modal-content">
             <button class="modal-close" id="modalClose">&#x2715;</button>
             <img src="" alt="" class="modal-image" id="modalImage">
             <div class="modal-body">
-
                 <div class="modal-top-row">
                     <div class="modal-name-block">
                         <h2 class="modal-title" id="modalTitle"></h2>
@@ -298,46 +150,30 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="modal-rating-row">
                     <span class="modal-ratings-label">Ratings:</span>
                     <span class="modal-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
                 </div>
-
                 <div class="modal-actions-row">
                     <div class="modal-qty-controls">
-                        <button class="modal-qty-btn" id="decreaseQty">
-                            <i class="fa-solid fa-circle-minus" style="color: rgb(255, 255, 255);"></i>
-                        </button>
+                        <button class="modal-qty-btn" id="decreaseQty"><i class="fa-solid fa-circle-minus" style="color:#fff;"></i></button>
                         <span class="modal-qty-value" id="quantityValue">1</span>
-                        <button class="modal-qty-btn" id="increaseQty">
-                            <i class="fa-solid fa-circle-plus" style="color: rgb(255, 255, 255);"></i>
-                        </button>
+                        <button class="modal-qty-btn" id="increaseQty"><i class="fa-solid fa-circle-plus" style="color:#fff;"></i></button>
                     </div>
-                    <button class="modal-cart-icon-btn" id="addToCartBtn" title="Add to Cart">
-                        <i class="fa-solid fa-cart-arrow-down" style="color: rgb(255, 255, 255);"></i>
-                    </button>
+                    <button class="modal-cart-icon-btn" id="addToCartBtn" title="Add to Cart"><i class="fa-solid fa-cart-arrow-down" style="color:#fff;"></i></button>
                     <button class="modal-order-btn" id="orderNowBtn">Order Now</button>
                 </div>
-
             </div>
         </div>
     </div>
 
-
-
-    <!-- Footer -->
     <footer>
         <div class="container">
             <div class="footer-grid desktop-view">
                 <div class="footer-col">
                     <h4>Socials</h4>
-                    <a href="https://www.facebook.com/lukeseafoodtrading" target="_blank" class="social-item">
-                        <i class="fab fa-facebook"></i> Luke's Seafood Taguig
-                    </a>
-                    <a href="https://www.instagram.com/luke_seafoods/" target="_blank" class="social-item">
-                        <i class="fab fa-instagram"></i> luke_seafoods
-                    </a>
+                    <a href="https://www.facebook.com/lukeseafoodtrading" target="_blank" class="social-item"><i class="fab fa-facebook"></i> Luke's Seafood Taguig</a>
+                    <a href="https://www.instagram.com/luke_seafoods/" target="_blank" class="social-item"><i class="fab fa-instagram"></i> luke_seafoods</a>
                 </div>
                 <div class="footer-col">
                     <h4>About Us</h4>
@@ -345,19 +181,12 @@
                 </div>
                 <div class="footer-col">
                     <h4>Location</h4>
-                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank" class="social-item location-text">
-                        <i class="fa-solid fa-location-pin"></i>
-                        <span>vulcan st. cor c5 road, Taguig, Philippines</span>
-                    </a>
+                    <a href="https://maps.google.com/?q=Vulcan+St+cor+C5+Road+Taguig" target="_blank" class="social-item location-text"><i class="fa-solid fa-location-pin"></i><span>vulcan st. cor c5 road, Taguig, Philippines</span></a>
                 </div>
                 <div class="footer-col">
                     <h4>Contact Us</h4>
-                    <a href="mailto:lukeseafoods28@gmail.com" class="social-item">
-                        <i class="fas fa-envelope"></i> lukeseafoods28@gmail.com
-                    </a>
-                    <a href="tel:09392999912" class="social-item">
-                        <i class="fa-solid fa-phone"></i> 09392999912
-                    </a>
+                    <a href="mailto:lukeseafoods28@gmail.com" class="social-item"><i class="fas fa-envelope"></i> lukeseafoods28@gmail.com</a>
+                    <a href="tel:09392999912" class="social-item"><i class="fa-solid fa-phone"></i> 09392999912</a>
                 </div>
             </div>
             <div class="mobile-footer-view">
@@ -381,10 +210,7 @@
         </div>
     </footer>
 
-    <!-- ══ CART OVERLAY & MODALS ══ -->
     <?php include 'carT.php'; ?>
-
-
     <script src="carT.js"></script>
     <script src="menu.js"></script>
 </body>
