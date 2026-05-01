@@ -532,7 +532,7 @@ function handleGoogleAuth(array $data): void {
 function handleFacebookAuth(array $data): void {
     $accessToken       = trim($data['access_token'] ?? '');
     $facebookAppId     = getenv('FACEBOOK_APP_ID') ?: '1282425887392045';
-    $facebookAppSecret = getenv('FACEBOOK_APP_SECRET') ?: '';
+    $facebookAppSecret = getenv('FACEBOOK_APP_SECRET') ?: '3914094653c7aa77bc2879c77f5d9fa3';
     $runId             = (string)($GLOBALS['DEBUG_RUN_ID'] ?? 'unknown');
 
     debugLog($runId, 'H12', 'Auth.php:handleFacebookAuth:config', 'Facebook auth config loaded', [

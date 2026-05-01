@@ -4,6 +4,24 @@
     <span class="cart-count" id="cartCount">0</span>
 </div>
 
+<!-- Delivery Notice Overlay -->
+<div class="delivery-notice-overlay" id="deliveryNoticeOverlay">
+    <div class="delivery-notice-modal">
+        <div class="delivery-notice-icon"><i class="fas fa-truck"></i></div>
+        <div class="delivery-notice-title">Local Delivery Only</div>
+        <div class="delivery-notice-text">
+            To ensure your food arrives hot and fresh, we currently focus on serving our local community within Taguig City and its neighboring areas. By keeping our delivery radius close to home, we can guarantee the quality and taste you expect from Luke's Seafood. Thank you for supporting local!
+        </div>
+        <button class="delivery-notice-btn" id="deliveryNoticeClose">Continue to Menu</button>
+    </div>
+</div>
+
+<!-- Top Notification Bar -->
+<div class="top-notif" id="topNotif">
+<span class="top-notif-icon"></span>
+    <span class="top-notif-text" id="topNotifText">Order Successful!</span>
+</div>
+
 <!-- Cart Overlay -->
 <div class="cart-overlay" id="cartOverlay">
     <div class="cart-panel">
@@ -24,11 +42,19 @@
             </div>
         </div>
 
-        <div class="cart-right">
+<div class="cart-right">
             <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
-            <div class="cart-right-section">
+            <div class="cart-notif" id="cartNotif">
+                <span class="cart-notif-text" id="cartNotifText">Cart is empty - add items from the menu!</span>
+            </div>
+<div class="cart-right-section">
                 <h3 class="cart-right-title">Address</h3>
-                <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
+                <div class="cart-address-field">
+                    <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
+                    <button type="button" class="cart-address-icon" id="cartAddressIcon" title="Select from Map">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </button>
+                </div>
             </div>
             <div class="cart-right-section">
                 <h3 class="cart-right-title">Payment details</h3>
@@ -167,11 +193,44 @@
             <p>You need to be signed in to place an order.<br>
             <strong>Please log in to your account</strong> to continue.</p>
         </div>
-        <div class="auth-modal-foot">
+<div class="auth-modal-foot">
             <button class="auth-btn-signin" onclick="goToSignIn()">
                 <i class="fa-solid fa-right-to-bracket"></i> Sign In to My Account
             </button>
             <button class="auth-btn-cancel" onclick="closeAuthModal()">Maybe Later</button>
+        </div>
+    </div>
+</div>
+
+<!-- Order Confirmation Modal -->
+<div class="order-confirm-overlay" id="orderConfirmOverlay">
+    <div class="order-confirm-modal">
+<div class="order-confirm-icon"><i class="fas fa-check"></i></div>
+        <h3 class="order-confirm-title">Order Confirmed!</h3>
+        <p class="order-confirm-text">Thank you for your order. Here's your summary:</p>
+        
+        <div class="order-confirm-summary" id="orderConfirmSummary"></div>
+        
+        <div class="order-confirm-divider"></div>
+        
+        <div class="order-confirm-breakdown">
+            <div class="order-confirm-row">
+                <span>Subtotal</span>
+                <span id="orderSubtotal">₱0</span>
+            </div>
+            <div class="order-confirm-row">
+                <span>Shipping</span>
+                <span>₱50</span>
+            </div>
+            <div class="order-confirm-row total">
+                <span>Total</span>
+                <span id="orderTotal">₱50</span>
+            </div>
+        </div>
+        
+<div class="order-confirm-actions">
+            <button class="order-confirm-close" id="orderConfirmClose">Place Order</button>
+            <button class="order-confirm-cancel" id="orderConfirmCancelBtn">Cancel</button>
         </div>
     </div>
 </div>

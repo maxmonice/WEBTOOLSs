@@ -36,9 +36,17 @@
         .nav-menu { display: flex; align-items: center; gap: 30px; }
         .nav-menu a { color: rgba(255,255,255,0.88); text-decoration: none; font-weight: 500; font-size: 0.95rem; letter-spacing: 0.03em; position: relative; transition: color 0.3s; }
         .nav-menu a:hover { color: #fff; }
-        .nav-account-icon { display: flex !important; align-items: center; font-size: 1.35rem !important; color: white !important; transition: transform 0.2s, opacity 0.2s !important; opacity: 0.9; }
+.nav-account-icon { display: flex !important; align-items: center; font-size: 1.35rem !important; color: white !important; transition: transform 0.2s, opacity 0.2s !important; opacity: 0.9; }
         .nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
         .nav-account-icon.active::after { display: none !important; }
+        
+/* Speech bubble for "track your order" - shows after placing order */
+        .account-bubble { position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--surface); border: 1px solid var(--border-red); border-radius: 10px; padding: 8px 14px; font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 1100; opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0.25s ease; }
+        .account-bubble::before { content: ''; position: absolute; top: -6px; right: 18px; width: 12px; height: 12px; background: var(--surface); border-left: 1px solid var(--border-red); border-top: 1px solid var(--border-red); transform: rotate(45deg); }
+        
+        /* Show bubble when order is placed (after pressing place order) */
+        .account-bubble.show { opacity: 1; visibility: visible; animation: bubbleFadeIn 0.25s ease; }
+        @keyframes bubbleFadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
         main { margin-top: 70px; flex: 1; }
 
@@ -185,8 +193,9 @@
                 <a href="bookBar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon active" title="Account">
+<a href="account.php" class="nav-account-icon active" title="Account" id="accountIconLink">
                     <i class="fas fa-user-circle"></i>
+                    <span class="account-bubble" id="orderTrackBubble">track your order here</span>
                 </a>
             </nav>
         </div>
@@ -217,6 +226,16 @@
                     <div class="detail-row"><span class="dr-label">Full Name</span><span class="dr-value" id="detailName">—</span></div>
                     <div class="detail-row"><span class="dr-label">Email Address</span><span class="dr-value" id="detailEmail">—</span></div>
                     <div class="detail-row"><span class="dr-label">Member Since</span><span class="dr-value" id="memberSince">—</span></div>
+                </div>
+            </div>
+
+<!-- Track Your Order -->
+            <div class="section-block">
+                <div class="section-label"><i class="fa-solid fa-box-open"></i> Track Your Order</div>
+                <div id="orderTrackingSection">
+                    <div class="menu-rows" id="orderTrackingRows">
+                        <!-- Order tracking info will be loaded here -->
+                    </div>
                 </div>
             </div>
 
@@ -354,7 +373,7 @@
                     <div class="pw-wrap">
                         <input type="password" id="newPw" placeholder="At least 8 characters" />
                         <button type="button" class="pw-toggle" onclick="togglePwField('newPw',this)"><i class="fas fa-eye"></i></button>
-                    </div>
+                          </div>
                     <div class="pw-strength" id="pwStrengthWrap" style="display:none;">
                         <div class="pw-strength-bars">
                             <div class="pw-strength-bar" id="psb1"></div>
@@ -531,9 +550,64 @@
             el.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
         });
 
-        document.getElementById('mobile-menu').addEventListener('click', () => {
+document.getElementById('mobile-menu').addEventListener('click', () => {
             document.getElementById('navMenu').classList.toggle('active');
         });
+
+        // ── Order Tracking ──
+        function loadOrderTracking() {
+            const rowsContainer = document.getElementById('orderTrackingRows');
+            const hasPendingOrder = localStorage.getItem('order_pending') === 'true';
+            
+            if (hasPendingOrder) {
+                // Show pending order info
+                rowsContainer.innerHTML = `
+                    <a class="menu-row" href="#">
+                        <div class="mr-left">
+                            <div class="mr-icon" style="background: var(--red); color: #fff;"><i class="fa-solid fa-clock"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">Order Pending</div>
+                                <div class="mr-sub">Your order is being processed</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
+                    </a>
+                    <hr class="menu-divider">
+                    <a class="menu-row" href="#" onclick="clearOrderTracking(); return false;">
+                        <div class="mr-left">
+                            <div class="mr-icon"><i class="fa-solid fa-check-circle"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">Mark as Received</div>
+                                <div class="mr-sub">Confirm you received your order</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
+                    </a>
+                `;
+            } else {
+                // No pending orders
+                rowsContainer.innerHTML = `
+                    <div class="menu-row" style="cursor: default;">
+                        <div class="mr-left">
+                            <div class="mr-icon"><i class="fa-solid fa-box-open"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title">No Active Orders</div>
+                                <div class="mr-sub">Place an order to track it here</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function clearOrderTracking() {
+            localStorage.removeItem('order_pending');
+            loadOrderTracking();
+            showToast('Order marked as received!');
+        }
+
+        // Load order tracking on page load
+        loadOrderTracking();
     </script>
 </body>
 </html>

@@ -1,0 +1,138 @@
+/* =====================================================
+   SHARED STYLES — used by all rider pages
+   ===================================================== */
+
+*, *::before, *::after {
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+  --red:      #C22626;
+  --red-deep: #8B0A1E;
+  --red-dark: #1A0408;
+  --red-mid:  #2D0610;
+  --red-dim:  rgba(194,38,38,0.15);
+  --white:    #FFFFFF;
+  --muted:    rgba(255,255,255,0.55);
+  --line:     rgba(255,255,255,0.1);
+  --card-bg:  rgba(255,255,255,0.06);
+  --green:    #22c55e;
+  --amber:    #f59e0b;
+  --panel:    #1f0509;
+}
+
+html, body {
+  height: 100%; width: 100%;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  background: var(--red-dark);
+  color: #fff;
+  overflow: hidden;
+}
+
+/* Phone shell */
+.phone-shell {
+  width: 100%; max-width: 420px; height: 100vh;
+  margin: 0 auto;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+  background: var(--red-dark);
+}
+
+/* Status bar */
+.status-bar {
+  background: var(--red-deep);
+  padding: 10px 20px 8px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .72rem; font-weight: 700; flex-shrink: 0;
+}
+.status-bar .time { font-size: .85rem; font-weight: 800; }
+.status-icons { display: flex; gap: 6px; align-items: center; }
+
+/* App header */
+.app-header {
+  background: linear-gradient(135deg, var(--red-deep), var(--red));
+  padding: 14px 20px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; box-shadow: 0 4px 20px rgba(0,0,0,.3);
+}
+.header-left { display: flex; flex-direction: column; gap: 1px; }
+.app-logo { font-family: 'Aclonica', sans-serif; font-size: 1rem; color: #fff; }
+.app-subtitle { font-size: .7rem; color: var(--muted); font-weight: 500; }
+
+.rider-badge {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 20px; padding: 5px 12px;
+  font-size: .72rem; font-weight: 700;
+  display: flex; align-items: center; gap: 6px;
+}
+.rider-badge .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 6px var(--green);
+  animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .6; transform: scale(.85); }
+}
+
+/* Page content area */
+.page-content {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  display: flex; flex-direction: column;
+}
+.page-content::-webkit-scrollbar { display: none; }
+
+/* Bottom navigation */
+.bottom-nav {
+  background: linear-gradient(180deg, #1a0408 0%, #0d0204 100%);
+  border-top: 1px solid rgba(194,38,38,.3);
+  display: flex; flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 10px 0 8px; cursor: pointer; position: relative;
+  transition: all .2s; border: none; background: none;
+  color: rgba(255,255,255,.4); gap: 4px;
+}
+.nav-item i { font-size: 1.1rem; transition: all .2s; }
+.nav-item span { font-size: .62rem; font-weight: 600; letter-spacing: .03em; }
+.nav-item.active { color: #fff; }
+.nav-item.active i {
+  color: var(--red);
+  filter: drop-shadow(0 0 6px rgba(194,38,38,.6));
+}
+.nav-item::after {
+  content: '';
+  position: absolute; top: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--red);
+  border-radius: 0 0 4px 4px;
+  transform: scaleX(0); transition: transform .25s;
+}
+.nav-item.active::after { transform: scaleX(1); }
+.nav-badge {
+  position: absolute; top: 6px; right: calc(50% - 18px);
+  background: var(--red); color: #fff;
+  font-size: .58rem; font-weight: 800;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--red-dark);
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #22c55e; color: #fff;
+  padding: 10px 20px; border-radius: 20px;
+  font-size: .82rem; font-weight: 700;
+  opacity: 0; transition: all .3s; z-index: 2000;
+  white-space: nowrap; box-shadow: 0 6px 20px rgba(34,197,94,.4);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

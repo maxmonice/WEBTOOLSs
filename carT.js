@@ -158,6 +158,36 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCart();
   window.updateCartCount();
 
+// Show delivery area notice only when NOT logged in
+  const deliveryNoticeKey = 'lukes_delivery_notice_shown';
+  const userEmail = sessionStorage.getItem('user_email');
+  if (!userEmail && !localStorage.getItem(deliveryNoticeKey)) {
+    const deliveryNotice = document.getElementById('deliveryNoticeOverlay');
+    if (deliveryNotice) {
+      deliveryNotice.classList.add('show');
+    }
+  }
+
+  // Close delivery notice and save preference
+  const deliveryNoticeClose = document.getElementById('deliveryNoticeClose');
+  if (deliveryNoticeClose) {
+    deliveryNoticeClose.addEventListener('click', () => {
+      localStorage.setItem(deliveryNoticeKey, 'true');
+      const deliveryNotice = document.getElementById('deliveryNoticeOverlay');
+      if (deliveryNotice) deliveryNotice.classList.remove('show');
+    });
+  }
+
+const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
+  if (deliveryNoticeOverlay) {
+    deliveryNoticeOverlay.addEventListener('click', (e) => {
+      if (e.target === deliveryNoticeOverlay) {
+        localStorage.setItem(deliveryNoticeKey, 'true');
+        deliveryNoticeOverlay.classList.remove('show');
+      }
+    });
+  }
+
   // Confirm remove modal
   document.getElementById('confirmRemoveYes').addEventListener('click', confirmRemoveItem);
   document.getElementById('confirmRemoveNo').addEventListener('click', hideRemoveConfirm);
@@ -261,12 +291,122 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1500);
   }
 
-  // Checkout
+// Toast show/hide functions
+  window.showCartEmptyToast = function() {
+    document.getElementById('cartToastOverlay').classList.add('show');
+    document.getElementById('cartToast').classList.add('show');
+  };
+  
+  window.hideCartEmptyToast = function() {
+    document.getElementById('cartToastOverlay').classList.remove('show');
+    document.getElementById('cartToast').classList.remove('show');
+  };
+
+// Cart toast button - browse menu
+  const cartToastBtn = document.getElementById('cartToastBtn');
+  if (cartToastBtn) {
+    cartToastBtn.addEventListener('click', () => {
+      window.hideCartEmptyToast();
+      window.closeCart();
+    });
+  }
+
+  // Address map selector button
+  const cartAddressIcon = document.getElementById('cartAddressIcon');
+  if (cartAddressIcon) {
+    cartAddressIcon.addEventListener('click', () => {
+      // Open Google Maps location picker in a new tab
+      window.open('https://www.google.com/maps', '_blank');
+    });
+  }
+  // Also close toast when clicking overlay
+  const cartToastOverlay = document.getElementById('cartToastOverlay');
+  if (cartToastOverlay) {
+    cartToastOverlay.addEventListener('click', () => {
+      window.hideCartEmptyToast();
+    });
+  }
+
+// Cart notification bar functions
+  window.showCartNotif = function(message, type = 'error') {
+    const notif = document.getElementById('cartNotif');
+    const notifText = document.getElementById('cartNotifText');
+    if (!notif || !notifText) return;
+    
+    notif.classList.remove('show', 'error', 'success', 'info');
+    notif.classList.add('show', type);
+    notifText.textContent = message;
+    
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+      notif.classList.remove('show');
+    }, 3000);
+  };
+
+// Order Speech Bubble Functions
+  window.showOrderSpeechBubble = function() {
+    const bubble = document.getElementById('orderSpeechBubble');
+    if (!bubble) return;
+    localStorage.setItem('order_pending', 'true');
+    bubble.classList.add('show');
+  };
+
+  window.hideOrderSpeechBubble = function() {
+    const bubble = document.getElementById('orderSpeechBubble');
+    if (!bubble) return;
+    localStorage.removeItem('order_pending');
+    bubble.classList.remove('show');
+  };
+
+  // Check and show bubble on page load if there's a pending order
+  if (localStorage.getItem('order_pending') === 'true') {
+    const bubble = document.getElementById('orderSpeechBubble');
+    if (bubble) bubble.classList.add('show');
+  }
+
+  // Hide bubble when clicking account icon
+  document.querySelectorAll('.nav-account-icon').forEach(icon => {
+    icon.addEventListener('click', () => {
+      window.hideOrderSpeechBubble();
+    });
+  });
+
+// Top notification bar functions (outside cart)
+  window.showTopNotif = function(message, type = 'success') {
+    const topNotif = document.getElementById('topNotif');
+    const topNotifText = document.getElementById('topNotifText');
+    if (!topNotif || !topNotifText) return;
+    
+    topNotif.classList.remove('show', 'error', 'success', 'info', 'hiding');
+    topNotif.classList.add('show', type);
+    topNotifText.textContent = message;
+    
+    // Auto hide after 2 seconds with slide-out animation
+    setTimeout(() => {
+      topNotif.classList.add('hiding');
+      setTimeout(() => {
+        topNotif.classList.remove('show', 'hiding');
+      }, 200);
+    }, 2000);
+  };
+// Checkout
   const checkoutBtn = document.getElementById('checkoutBtn');
   if (checkoutBtn) {
     checkoutBtn.addEventListener('click', () => {
       if (cart.length === 0) {
-        alert('Your cart is empty!');
+        window.showTopNotif('Cart is empty!', 'info');
+        return;
+      }
+// Check if user is logged in
+      const userEmail = sessionStorage.getItem('user_email');
+      if (!userEmail) {
+        // Set redirect to return to menu after login
+        sessionStorage.setItem('redirect_after_login', 'menu.php');
+        // Show auth modal if not logged in
+        const authModal = document.getElementById('authModal');
+        if (authModal) {
+          authModal.classList.add('open');
+        }
         return;
       }
       const address = document.getElementById('cartAddress').value.trim();
@@ -274,14 +414,74 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('cartAddress').focus();
         return;
       }
-      alert('Order placed! (Demo)');
-      // Clear cart
-      cart = [];
-      window.updateCartCount();
-      renderCart();
-      window.closeCart();
+      // Show order confirmation modal
+      showOrderConfirm();
     });
   }
+
+  // Order confirmation modal
+  window.showOrderConfirm = function() {
+    const summaryEl = document.getElementById('orderConfirmSummary');
+    const subtotalEl = document.getElementById('orderSubtotal');
+    const totalEl = document.getElementById('orderTotal');
+    
+    // Build summary items
+    summaryEl.innerHTML = '';
+cart.forEach(item => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'order-confirm-item';
+      itemEl.innerHTML = `
+        <div class="order-confirm-item-info">
+          <img src="${item.image}" alt="${item.name}" class="order-confirm-item-img">
+          <div>
+            <div class="order-confirm-item-name">${item.name}</div>
+            <div class="order-confirm-item-qty">Qty: ${item.quantity}</div>
+          </div>
+        </div>
+        <div class="order-confirm-item-price">₱${(item.rawPrice * item.quantity).toLocaleString('en-PH')}</div>
+      `;
+      summaryEl.appendChild(itemEl);
+    });
+    
+    // Calculate totals
+    const subtotal = cart.reduce((s, i) => s + i.rawPrice * i.quantity, 0);
+    const total = subtotal + SHIPPING;
+    
+if (subtotalEl) subtotalEl.textContent = '₱' + Math.round(subtotal).toLocaleString('en-PH');
+    if (totalEl) totalEl.textContent = '₱' + Math.round(total).toLocaleString('en-PH');
+    
+    // Show modal - keep cart items preserved until order is actually placed
+    document.getElementById('orderConfirmOverlay').classList.add('open');
+  };
+
+// Place Order button
+  document.getElementById('orderConfirmClose').addEventListener('click', () => {
+    document.getElementById('orderConfirmOverlay').classList.remove('open');
+    
+    // Clear cart after successful order
+    cart = [];
+    window.updateCartCount();
+    renderCart();
+    
+    // Close cart immediately
+    window.closeCart();
+    
+    // Show the order tracking speech bubble
+    window.showOrderSpeechBubble();
+    
+    // Then show top notification bar (outside cart)
+    window.showTopNotif('Order Successful!', 'success');
+  });
+  
+  document.getElementById('orderConfirmCancelBtn').addEventListener('click', () => {
+    document.getElementById('orderConfirmOverlay').classList.remove('open');
+  });
+  
+  document.getElementById('orderConfirmOverlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      document.getElementById('orderConfirmOverlay').classList.remove('open');
+    }
+  });
 
   // Auth modal
   const authModal = document.getElementById('authModal');

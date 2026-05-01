@@ -102,9 +102,58 @@ header {
     color: white !important;
     transition: transform 0.2s, opacity 0.2s !important;
     opacity: 0.9;
+    position: relative;
 }
 .nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
 .nav-account-icon.active::after { display: none !important; }
+
+/* Order Tracking Bubble */
+.order-track-bubble {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    background: #222;
+    border: 1px solid var(--red);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+    z-index: 1001;
+    cursor: pointer;
+}
+.order-track-bubble::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: #222;
+    border-left: 1px solid var(--red);
+    border-top: 1px solid var(--red);
+}
+.order-track-bubble.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(4px);
+}
+.order-track-bubble:hover {
+    background: var(--red);
+    border-color: var(--red);
+}
+.order-track-bubble:hover::before {
+    background: var(--red);
+    border-left-color: var(--red);
+    border-top-color: var(--red);
+}
 
 /* =====================================================
    HERO — full viewport, no wave

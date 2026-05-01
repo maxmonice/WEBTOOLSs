@@ -19,7 +19,7 @@
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
             <div class="menu-toggle" id="mobile-menu"><i class="fa-solid fa-bars"></i></div>
-            <nav class="nav-menu" id="navMenu">
+<nav class="nav-menu" id="navMenu">
                 <a href="index.php" class="active">Home</a>
                 <a href="menu.php">Menu</a>
                 <a href="bookbar.php">Book Bar</a>
@@ -30,7 +30,7 @@
         </div>
     </header>
 
-    <!-- HERO -->
+<!-- HERO -->
     <section class="hero-section">
         <img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/banner.png?raw=true" class="banner" alt="Banner" />
         <div class="hero-overlay"></div>
@@ -47,7 +47,7 @@
             <img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/line.webp?raw=true" class="hero-line glow-image" alt="" />
             <p class="hero-subtitle">Supply and delivery of Japanese Food Products and fresh seafoods</p>
             <p class="hero-tagline">"From sea to sushi, taste the journey."</p>
-            <a href="menu.html" class="hero-order-link">
+            <a href="menu.php" class="hero-order-link">
                 <img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/ordernows.webp?raw=true" class="order-btn hover-glow pulse-glow" alt="Order Now" />
             </a>
         </div>
@@ -191,7 +191,7 @@
                 <h2 class="about-title sr">About Us</h2>
                 <div class="sec-underline sr"></div>
                 <p class="about-text sr">At Luke's Seafood Trading, we specialize in sourcing and delivering the freshest, highest-quality seafood from ocean to market. With a commitment to sustainability, integrity, and excellence, we connect trusted fisheries with businesses that demand the best. From dock to doorstep, Luke's is your reliable partner in premium seafood.</p>
-                <a href="aboutUs.html" class="about-image-button sr">
+                <a href="aboutUs.php" class="about-image-button sr">
                     <img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/moreaboutus.webp?raw=true" alt="More About Us" class="more-about-btn">
                 </a>
             </div>
@@ -210,7 +210,7 @@
                 <p class="sb-eyebrow sr">Luke's Seafood Trading also offers</p>
                 <h2 class="sb-headline sr">Ready to Book <span>The Sushi Bar?</span></h2>
                 <p class="sb-sub sr">Experience premium sushi crafted from the freshest seafood. Reserve your spot and taste the difference.</p>
-                <a href="bookbar.html" class="sb-book-btn sr">Book Now &nbsp;↗</a>
+                <a href="bookbar.php" class="sb-book-btn sr">Book Now &nbsp;↗</a>
             </div>
         </div>
     </section>
@@ -299,4 +299,4 @@
     document.querySelectorAll('.sr').forEach(el => srObs.observe(el));
 </script>
 </body>
-</html>
+</php>
