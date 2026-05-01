@@ -356,19 +356,12 @@ try {
         <textarea class="form-control" id="contentDescription" rows="4" placeholder="Item description..."></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">Image</label>
+        <label class="form-label">Image URL</label>
         <input type="url" class="form-control" id="contentImage" placeholder="https://example.com/image.jpg">
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <div class="image-upload" onclick="document.getElementById('contentImage').focus();" style="flex: 1; cursor: pointer;">
-            <i class="fa-solid fa-cloud-upload-alt"></i>
-            <p>Enter URL</p>
-          </div>
-          <div class="image-upload" onclick="document.getElementById('fileInput').click();" style="flex: 1; cursor: pointer;">
-            <i class="fa-solid fa-folder-open"></i>
-            <p>Browse Files</p>
-          </div>
+        <div class="image-upload" onclick="document.getElementById('contentImage').focus();">
+          <i class="fa-solid fa-cloud-upload-alt"></i>
+          <p>Click to enter image URL</p>
         </div>
-        <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleFileSelect(event);">
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="closeModal('contentModal')">Cancel</button>
@@ -393,22 +386,6 @@ function showToast(msg, type='') {
 }
 
 let editingContentId = null;
-
-// Handle file selection
-function handleFileSelect(event) {
-  const file = event.target.files[0];
-  if (file && file.type.startsWith('image/')) {
-    // For now, just show the filename. In a real implementation, 
-    // you would upload the file to server and get back the URL
-    const fileName = file.name;
-    document.getElementById('contentImage').value = `Selected: ${fileName}`;
-    
-    // Show file info
-    showToast(`Selected file: ${fileName}`, 'success');
-  } else {
-    showToast('Please select a valid image file', 'error');
-  }
-}
 
 function editContent(id) {
   editingContentId = id;
