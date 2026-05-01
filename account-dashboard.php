@@ -373,7 +373,7 @@
                     <div class="pw-wrap">
                         <input type="password" id="newPw" placeholder="At least 8 characters" />
                         <button type="button" class="pw-toggle" onclick="togglePwField('newPw',this)"><i class="fas fa-eye"></i></button>
-                    </div>
+                          </div>
                     <div class="pw-strength" id="pwStrengthWrap" style="display:none;">
                         <div class="pw-strength-bars">
                             <div class="pw-strength-bar" id="psb1"></div>

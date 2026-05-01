@@ -1,12 +1,7 @@
+// =====================================================
+// ORDERS PAGE JAVASCRIPT
+// =====================================================
 let currentOrderStatus = '';
-
-// ── Navigation ────────────────────────────────────────
-function switchPage(name, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  btn.classList.add('active');
-}
 
 // ── Filter tabs ───────────────────────────────────────
 function filterOrders(tab, status) {
@@ -51,12 +46,18 @@ function closeOrderDetail() {
 
 function acceptFromDetail() {
   closeOrderDetail();
-  if (currentOrderStatus === 'new') { showToast('✅ Order accepted!'); updateBadge(); }
-  else if (currentOrderStatus === 'pickup') navigateToMap();
-  else markDelivered();
+  if (currentOrderStatus === 'new') {
+    showToast('✅ Order accepted!');
+    updateBadge();
+  } else if (currentOrderStatus === 'pickup') {
+    window.location.href = 'map.php';
+  } else {
+    showToast('🎉 Delivery confirmed!');
+    setTimeout(() => window.location.href = 'history.php', 1200);
+  }
 }
 
-// ── Accept order ──────────────────────────────────────
+// ── Accept order button ───────────────────────────────
 function acceptOrder(btn) {
   btn.textContent = '✓ Accepted';
   btn.style.background = 'rgba(34,197,94,.2)';
@@ -72,19 +73,6 @@ function updateBadge() {
   const cur = parseInt(badge.textContent);
   if (cur > 0) badge.textContent = cur - 1;
   if (parseInt(badge.textContent) === 0) badge.style.display = 'none';
-}
-
-// ── Navigate to map ───────────────────────────────────
-function navigateToMap() {
-  closeOrderDetail();
-  switchPage('map', document.querySelectorAll('.nav-item')[1]);
-  showToast('📍 Navigation started');
-}
-
-// ── Mark delivered ────────────────────────────────────
-function markDelivered() {
-  showToast('🎉 Delivery confirmed!');
-  setTimeout(() => switchPage('history', document.querySelectorAll('.nav-item')[2]), 1200);
 }
 
 // ── Toast ─────────────────────────────────────────────

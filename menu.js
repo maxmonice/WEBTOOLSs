@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addItemToCart(window.currentItem, quantity, selectedVariation);
         }
         
-        // Pulse cart count animation
+// Pulse cart count animation
         const cartCount = document.getElementById('cartCount');
         if (cartCount) {
             cartCount.classList.add('pulse');
@@ -394,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     });
 
-    // ── ORDER NOW ──
+// ── ORDER NOW ──
     document.getElementById('orderNowBtn').addEventListener('click', () => {
         if (!window.currentItem) return;
 

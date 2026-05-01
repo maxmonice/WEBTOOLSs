@@ -343,16 +343,16 @@ const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
     }, 3000);
   };
 
-// Order Track Bubble Functions
-  window.showOrderTrackBubble = function() {
-    const bubble = document.getElementById('orderTrackBubble');
+// Order Speech Bubble Functions
+  window.showOrderSpeechBubble = function() {
+    const bubble = document.getElementById('orderSpeechBubble');
     if (!bubble) return;
     localStorage.setItem('order_pending', 'true');
     bubble.classList.add('show');
   };
 
-  window.hideOrderTrackBubble = function() {
-    const bubble = document.getElementById('orderTrackBubble');
+  window.hideOrderSpeechBubble = function() {
+    const bubble = document.getElementById('orderSpeechBubble');
     if (!bubble) return;
     localStorage.removeItem('order_pending');
     bubble.classList.remove('show');
@@ -360,14 +360,14 @@ const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
 
   // Check and show bubble on page load if there's a pending order
   if (localStorage.getItem('order_pending') === 'true') {
-    const bubble = document.getElementById('orderTrackBubble');
+    const bubble = document.getElementById('orderSpeechBubble');
     if (bubble) bubble.classList.add('show');
   }
 
   // Hide bubble when clicking account icon
   document.querySelectorAll('.nav-account-icon').forEach(icon => {
     icon.addEventListener('click', () => {
-      window.hideOrderTrackBubble();
+      window.hideOrderSpeechBubble();
     });
   });
 
@@ -466,8 +466,8 @@ if (subtotalEl) subtotalEl.textContent = '₱' + Math.round(subtotal).toLocaleSt
     // Close cart immediately
     window.closeCart();
     
-    // Show the order tracking bubble
-    window.showOrderTrackBubble();
+    // Show the order tracking speech bubble
+    window.showOrderSpeechBubble();
     
     // Then show top notification bar (outside cart)
     window.showTopNotif('Order Successful!', 'success');
