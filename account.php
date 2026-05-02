@@ -279,7 +279,7 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
                         <span class="custom-check"></span>
                         Remember me
                     </label>
-                    <a href="#" class="forgot-link">Forgot Password?</a>
+                    <a href="forgotpassword.php" class="forgot-link">Forgot Password?</a>
                 </div>
 
                 <button type="submit" class="btn-primary" id="loginSubmitBtn">
@@ -337,6 +337,19 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
                         <button type="button" class="toggle-pw" onclick="togglePw('signupPassword', this)">
                             <i class="fas fa-eye"></i>
                         </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="signupConfirmPassword">Confirm Password</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="signupConfirmPassword" placeholder="Confirm your password" required>
+                        <button type="button" class="toggle-pw" onclick="togglePw('signupConfirmPassword', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <div id="passwordMatchError" style="color: #ff6b6b; font-size: 0.85rem; margin-top: 5px; display: none;">
+                        <i class="fas fa-exclamation-circle"></i> Passwords do not match
                     </div>
                 </div>
 

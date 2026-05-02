@@ -414,8 +414,87 @@ const deliveryNoticeOverlay = document.getElementById('deliveryNoticeOverlay');
         document.getElementById('cartAddress').focus();
         return;
       }
+<<<<<<< HEAD
       // Show order confirmation modal
       showOrderConfirm();
+=======
+      
+      // Get payment method
+      const activePaymentBtn = document.querySelector('.payment-method-btn.active');
+      const paymentMethod = activePaymentBtn ? activePaymentBtn.dataset.method : 'mastercard';
+      
+      // Get payment details
+      let paymentDetails = {};
+      if (paymentMethod === 'mastercard') {
+        paymentDetails = {
+          cardName: document.getElementById('cardName').value.trim(),
+          cardNumber: document.getElementById('cardNumber').value.trim(),
+          cardExpiry: document.getElementById('cardExpiry').value.trim(),
+          cardCvv: document.getElementById('cardCvv').value.trim()
+        };
+      } else if (paymentMethod === 'gcash') {
+        paymentDetails = {
+          gcashNumber: document.getElementById('gcashNumber').value.trim(),
+          gcashName: document.getElementById('gcashName').value.trim()
+        };
+      }
+      
+      // Prepare order data
+      const orderData = {
+        action: 'create_order',
+        items: cart.map(item => ({
+          name: item.name,
+          price: item.price,
+          rawPrice: item.rawPrice,
+          quantity: item.quantity,
+          variation: item.variation || item.pieces || '',
+          image: item.image
+        })),
+        address: address,
+        paymentMethod: paymentMethod,
+        paymentDetails: paymentDetails,
+        subtotal: cart.reduce((s, i) => s + i.rawPrice * i.quantity, 0),
+        shipping: SHIPPING,
+        total: cart.reduce((s, i) => s + i.rawPrice * i.quantity, 0) + SHIPPING,
+        userEmail: sessionStorage.getItem('user_email'),
+        userName: sessionStorage.getItem('user_name')
+      };
+      
+      // Send order to server
+      console.log('Sending order data:', orderData);
+      fetch('process-order.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+      })
+      .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.json();
+      })
+      .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+          showNotification('Order placed successfully!', 'success');
+          // Clear cart
+          cart = [];
+          window.updateCartCount();
+          renderCart();
+          window.closeCart();
+          
+          // Update admin dashboard stats
+          updateAdminStats();
+        } else {
+          showNotification(data.message || 'Failed to place order', 'error');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        showNotification('Failed to place order. Please try again.', 'error');
+      });
+>>>>>>> origin/admin-update-05-02
     });
   }
 
@@ -498,4 +577,45 @@ function goToSignIn() {
 
 function closeAuthModal() {
   document.getElementById('authModal').classList.remove('open');
+<<<<<<< HEAD
 } 
+=======
+}
+
+// Notification function
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+    ${message}
+  `;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? '#22c55e' : '#ef4444'};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    z-index: 9999;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    animation: slideIn 0.3s ease;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// Update admin stats function
+function updateAdminStats() {
+  // This would typically fetch updated stats from server
+  console.log('Updating admin dashboard stats...');
+}
+>>>>>>> origin/admin-update-05-02

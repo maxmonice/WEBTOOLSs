@@ -127,7 +127,7 @@ function getAdminStats(PDO $pdo): array {
             ->query("SELECT SUM(total_amount) FROM orders
                      WHERE MONTH(created_at) = MONTH(NOW())
                        AND YEAR(created_at)  = YEAR(NOW())
-                       AND status != 'cancelled'")
+                       AND status = 'delivered'")
             ->fetchColumn();
         $stats['revenue_month'] = (float) ($rev ?? 0);
     } catch (\Throwable $_) {
@@ -137,7 +137,7 @@ function getAdminStats(PDO $pdo): array {
                 ->query("SELECT SUM(total) FROM orders
                          WHERE MONTH(created_at) = MONTH(NOW())
                            AND YEAR(created_at)  = YEAR(NOW())
-                           AND status != 'cancelled'")
+                           AND status = 'delivered'")
                 ->fetchColumn();
             $stats['revenue_month'] = (float) ($rev ?? 0);
         } catch (\Throwable $_) {}
@@ -220,15 +220,21 @@ function getRecentActivity(PDO $pdo, int $limit = 8): array {
 // =====================================================
 function getRecentOrders(PDO $pdo, int $limit = 5): array {
     try {
-        return $pdo->query(
-            "SELECT o.id, o.status, o.created_at,
-                    COALESCE(o.total_amount, o.total, 0) AS total,
-                    COALESCE(u.name, 'Unknown') AS customer_name
+        $orders = $pdo->query(
+            "SELECT o.id, o.status, o.created_at, o.notes,
+                    COALESCE(o.total_amount, o.total, 0) AS total
              FROM orders o
-             LEFT JOIN users u ON u.id = o.user_id
              ORDER BY o.created_at DESC
              LIMIT $limit"
         )->fetchAll();
+        
+        // Extract customer name from notes field
+        foreach ($orders as &$order) {
+            $orderDetails = json_decode($order['notes'], true) ?: [];
+            $order['customer_name'] = $orderDetails['user_name'] ?? 'Guest';
+        }
+        
+        return $orders;
     } catch (\Throwable $_) {
         return [];
     }

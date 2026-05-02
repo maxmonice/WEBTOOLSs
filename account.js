@@ -529,6 +529,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // --- PASSWORD MATCH VALIDATION ---
+    // Real-time password matching check
+    const passwordInput = document.getElementById('signupPassword');
+    const confirmPasswordInput = document.getElementById('signupConfirmPassword');
+    const passwordMatchError = document.getElementById('passwordMatchError');
+
+    function checkPasswordMatch() {
+        const password = passwordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+        
+        if (confirmPassword && password !== confirmPassword) {
+            passwordMatchError.style.display = 'block';
+            return false;
+        } else {
+            passwordMatchError.style.display = 'none';
+            return true;
+        }
+    }
+
+    // Add event listeners for real-time validation
+    confirmPasswordInput?.addEventListener('input', checkPasswordMatch);
+    passwordInput?.addEventListener('input', () => {
+        if (confirmPasswordInput.value) {
+            checkPasswordMatch();
+        }
+    });
+
     // --- EMAIL SIGNUP ---
     document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -536,9 +563,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const name     = document.getElementById('signupName').value.trim();
         const email    = document.getElementById('signupEmail').value.trim();
         const password = document.getElementById('signupPassword').value;
+        const confirmPassword = document.getElementById('signupConfirmPassword').value;
 
-        if (!name || !email || !password) { showError('Please fill in all fields.'); return; }
-        if (password.length < 8)          { showError('Password must be at least 8 characters.'); return; }
+        if (!name || !email || !password || !confirmPassword) { 
+            showError('Please fill in all fields.'); 
+            return; 
+        }
+        if (password.length < 8) { 
+            showError('Password must be at least 8 characters.'); 
+            return; 
+        }
+        if (password !== confirmPassword) { 
+            showError('Passwords do not match. Please confirm your password.'); 
+            document.getElementById('passwordMatchError').style.display = 'block';
+            return; 
+        }
+
+        // Hide password match error if passwords match
+        document.getElementById('passwordMatchError').style.display = 'none';
 
         showLoading(true);
         try {
