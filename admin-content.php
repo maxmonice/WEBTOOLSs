@@ -224,9 +224,10 @@ try {
       <a href="admin-content.php" class="nav-item active"><i class="fa-solid fa-layer-group"></i> Content Management</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
+      <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
     </nav>
     <div class="sidebar-footer">
-      <a href="admin-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      <a href="index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
     </div>
   </aside>
 
@@ -241,7 +242,7 @@ try {
       </div>
       <div class="topbar-right">
         <div class="topbar-badge"><i class="fa-regular fa-bell"></i></div>
-        <div class="admin-avatar">A</div>
+        <a href="admin-account.php" class="admin-avatar">A</a>
       </div>
     </header>
 
@@ -270,13 +271,13 @@ try {
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-clock"></i></div>
-          <div class="stat-card-value">12</div>
+          <div class="stat-card-value"><?= count(array_filter($contentItems, fn($i) => date('Y-m-d', strtotime($i['created_at'])) === date('Y-m-d'))) ?></div>
           <div class="stat-card-label">Updated Today</div>
           <div class="stat-card-change up"><i class="fa-solid fa-arrow-up"></i> Recent changes</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-image"></i></div>
-          <div class="stat-card-value">8</div>
+          <div class="stat-card-value"><?= count(array_filter($contentItems, fn($i) => empty($i['image']))) ?></div>
           <div class="stat-card-label">Missing Images</div>
           <div class="stat-card-change down"><i class="fa-solid fa-arrow-down"></i> Needs attention</div>
         </div>

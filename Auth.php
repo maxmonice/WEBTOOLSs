@@ -6,6 +6,7 @@
 // =====================================================
 
 require_once 'db.php';
+require_once 'activity-logger.php';
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
 }
@@ -226,16 +227,26 @@ function handleLogin(array $data): void {
             'userFound' => (bool)$user,
         ]);
         if (!$user) {
-            debugLog($runId, 'H1', 'Auth.php:handleLogin:adminNoUser', 'Admin email matched but user not found', []);
+            debugLog($runId, 'H1', 'Auth.php:handleLogin:noUser', 'No user found with this email', []);
             respond(false, 'No account found with this email.');
         }
+
+        // Check if user is suspended
+        $userStatus = $user['status'] ?? 'active';
+        if ($userStatus === 'suspended') {
+            debugLog($runId, 'H1', 'Auth.php:handleLogin:suspended', 'User account is suspended', [
+                'userStatus' => $userStatus,
+            ]);
+            respond(false, 'Your account has been suspended. Please contact the administrator.');
+        }
+
         $passwordMatch = password_verify($password, $user['password_hash']);
-        debugLog($runId, 'H1', 'Auth.php:handleLogin:adminPassword', 'Admin password verification', [
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:password', 'Password verification result', [
             'passwordMatch' => $passwordMatch,
-            'passwordLength' => strlen($password),
         ]);
+
         if (!$passwordMatch) {
-            debugLog($runId, 'H1', 'Auth.php:handleLogin:adminWrongPassword', 'Admin password did not match', []);
+            debugLog($runId, 'H1', 'Auth.php:handleLogin:wrongPassword', 'Password did not match', []);
             respond(false, 'Incorrect password.');
         }
         debugLog($runId, 'H1', 'Auth.php:handleLogin:admin', 'Admin login — bypassing OTP', [
@@ -246,8 +257,11 @@ function handleLogin(array $data): void {
         $_SESSION['user_name']  = $user['name'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['is_admin']   = true;
-        respond(true, 'Welcome, Administrator!', [
-            'requires_2fa' => false,
+        
+        // Log admin login activity
+        logActivity('admin_login', 'Admin user logged in successfully', $user['email'], $user['name']);
+        
+        respond(true, 'Admin login successful.', [
             'name'     => $user['name'],
             'email'    => $user['email'],
             'redirect' => 'admin-dashboard.php',
@@ -267,6 +281,15 @@ function handleLogin(array $data): void {
 
     if (!password_verify($password, $user['password_hash'])) {
         respond(false, 'Incorrect password.');
+    }
+
+    // Check if user is suspended
+    $userStatus = $user['status'] ?? 'active';
+    if ($userStatus === 'suspended') {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:suspended', 'User account is suspended', [
+            'userStatus' => $userStatus,
+        ]);
+        respond(false, 'Your account has been suspended. Please contact the administrator.');
     }
     $_SESSION['pending_user_id']    = $user['id'];
     $_SESSION['pending_user_name']  = $user['name'];
@@ -386,6 +409,12 @@ function handleVerifyOtp(array $data): void {
     }
 
     startUserSession($userId, $name, $email);
+    
+    // Log user login activity
+    $actionType = $context === 'signup' ? 'user_signup' : 'user_login';
+    $details = $context === 'signup' ? 'New user completed signup and verification' : 'User logged in successfully';
+    logActivity($actionType, $details, $email, $name);
+    
     debugLog($runId, 'H4', 'Auth.php:handleVerifyOtp:success', 'OTP verification succeeded and user session started', [
         'userId' => $userId,
         'context' => $context,
@@ -500,7 +529,7 @@ function handleGoogleAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1'
+        'SELECT id, name, email, status FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1'
     );
     $stmt->execute([$googleId]);
     $user = $stmt->fetch();
@@ -517,12 +546,25 @@ function handleGoogleAuth(array $data): void {
         $stmt->execute([$name, $email, $googleId, $avatar]);
         $userId = (int) $db->lastInsertId();
     } else {
+        // Check if user is suspended
+        $userStatus = $user['status'] ?? 'active';
+        if ($userStatus === 'suspended') {
+            debugLog($runId, 'H13', 'Auth.php:handleGoogleAuth:suspended', 'Google auth user account is suspended', [
+                'userStatus' => $userStatus,
+            ]);
+            respond(false, 'Your account has been suspended. Please contact the administrator.');
+        }
+        
         $userId = $user['id'];
         $name   = $user['name'];
         $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([$avatar, $userId]);
     }
 
     startUserSession($userId, $name, $email);
+    
+    // Log Google login activity
+    logActivity('google_login', 'User logged in with Google OAuth', $email, $name);
+    
     respond(true, 'Signed in with Google.', ['name' => $name, 'email' => $email]);
 }
 
@@ -569,7 +611,7 @@ function handleFacebookAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email FROM users WHERE provider = "facebook" AND provider_id = ? LIMIT 1'
+        'SELECT id, name, email, status FROM users WHERE provider = "facebook" AND provider_id = ? LIMIT 1'
     );
     $stmt->execute([$facebookId]);
     $user = $stmt->fetch();
@@ -588,12 +630,25 @@ function handleFacebookAuth(array $data): void {
         $stmt->execute([$name, $email ?: null, $facebookId, $avatar]);
         $userId = (int) $db->lastInsertId();
     } else {
+        // Check if user is suspended
+        $userStatus = $user['status'] ?? 'active';
+        if ($userStatus === 'suspended') {
+            debugLog($runId, 'H12', 'Auth.php:handleFacebookAuth:suspended', 'Facebook auth user account is suspended', [
+                'userStatus' => $userStatus,
+            ]);
+            respond(false, 'Your account has been suspended. Please contact the administrator.');
+        }
+        
         $userId = $user['id'];
         $name   = $user['name'];
         $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([$avatar, $userId]);
     }
 
     startUserSession($userId, $name, $email ?: '');
+    
+    // Log Facebook login activity
+    logActivity('facebook_login', 'User logged in with Facebook OAuth', $email ?: '', $name);
+    
     respond(true, 'Signed in with Facebook.', ['name' => $name, 'email' => $email]);
 }
 
@@ -620,19 +675,46 @@ function handleCheckSession(): void {
         debugLog($runId, 'H6', 'Auth.php:handleCheckSession:active', 'Active session found', [
             'userId' => $_SESSION['user_id'],
         ]);
+        
+        // Check if user is suspended
+        $db = getDB();
+        $stmt = $db->prepare('SELECT status FROM users WHERE id = ?');
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch();
+        
+        if ($user && $user['status'] === 'suspended') {
+            debugLog($runId, 'H6', 'Auth.php:handleCheckSession:suspended', 'Active user is suspended', [
+                'userId' => $_SESSION['user_id'],
+                'userStatus' => $user['status'],
+            ]);
+            // Log out the suspended user
+            session_destroy();
+            respond(false, 'Your account has been suspended.');
+        }
+        
         respond(true, 'Session active.', [
-            'name'  => $_SESSION['user_name']  ?? '',
-            'email' => $_SESSION['user_email'] ?? '',
+            'name' => $_SESSION['user_name'],
+            'email' => $_SESSION['user_email'],
+            'is_admin' => $_SESSION['is_admin'] ?? false,
         ]);
     }
 
     $token = $_COOKIE['remember_token'] ?? '';
     if ($token) {
         $db   = getDB();
-        $stmt = $db->prepare('SELECT id, name, email FROM users WHERE remember_token = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, status FROM users WHERE remember_token = ? LIMIT 1');
         $stmt->execute([$token]);
         $user = $stmt->fetch();
         if ($user) {
+            // Check if user is suspended
+            if ($user['status'] === 'suspended') {
+                debugLog($runId, 'H6', 'Auth.php:handleCheckSession:suspendedRemember', 'Remember token user is suspended', [
+                    'userId' => $user['id'],
+                    'userStatus' => $user['status'],
+                ]);
+                respond(false, 'Your account has been suspended.');
+            }
+            
             startUserSession($user['id'], $user['name'], $user['email']);
             debugLog($runId, 'H6', 'Auth.php:handleCheckSession:restored', 'Session restored via remember token', [
                 'userId' => $user['id'],

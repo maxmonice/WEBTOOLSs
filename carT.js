@@ -234,15 +234,21 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       
       // Send order to server
-      fetch('admin-orders.php', {
+      console.log('Sending order data:', orderData);
+      fetch('process-order.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(orderData)
       })
-      .then(response => response.json())
+      .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.json();
+      })
       .then(data => {
+        console.log('Response data:', data);
         if (data.success) {
           showNotification('Order placed successfully!', 'success');
           // Clear cart

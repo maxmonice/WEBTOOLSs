@@ -65,9 +65,10 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
+      <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
     </nav>
     <div class="sidebar-footer">
-      <a href="admin-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      <a href="index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
     </div>
   </aside>
 
@@ -82,14 +83,80 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i>
-          <?php if ($stats['pending_orders'] > 0): ?>
-          <span class="badge-dot"></span>
-          <?php endif; ?>
+        <div class="notification-dropdown">
+          <div class="topbar-badge" onclick="toggleNotifications()">
+            <i class="fa-regular fa-bell"></i>
+            <?php if ($stats['pending_orders'] > 0): ?>
+            <span class="badge-dot"></span>
+            <?php endif; ?>
+          </div>
+          <div class="notification-menu" id="notificationMenu">
+            <div class="notification-header">
+              <h4>Notifications</h4>
+              <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
+            </div>
+            <div class="notification-list">
+              <div class="notification-item unread">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-shopping-cart"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">New Order Received</div>
+                  <div class="notification-message">Order #ORD-0001 has been placed</div>
+                  <div class="notification-time">2 minutes ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+              <div class="notification-item unread">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-calendar-check"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">New Booking Confirmed</div>
+                  <div class="notification-message">Event booking for May 15, 2025</div>
+                  <div class="notification-time">15 minutes ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+              <div class="notification-item">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">New User Registered</div>
+                  <div class="notification-message">John Doe joined the platform</div>
+                  <div class="notification-time">1 hour ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+              <div class="notification-item">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-truck"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">Order Shipped</div>
+                  <div class="notification-message">Order #ORD-0002 has been shipped</div>
+                  <div class="notification-time">2 hours ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+            </div>
+            <div class="notification-footer">
+              <a href="admin-logs.php" class="view-all-link">View all notifications</a>
+            </div>
+          </div>
         </div>
-        <div class="admin-avatar" title="<?= $adminName ?>">
+        <a href="admin-account.php" class="admin-avatar" title="<?= $adminName ?>">
           <?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?>
-        </div>
+        </a>
       </div>
     </header>
 
@@ -242,6 +309,248 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 <script>
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
+}
+</script>
+
+<style>
+/* Notification Dropdown Styles */
+.notification-dropdown {
+  position: relative;
+}
+
+.notification-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 380px;
+  background: var(--card2);
+  border: 1px solid var(--line-w);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: none;
+  margin-top: 10px;
+}
+
+.notification-menu.show {
+  display: block;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-w);
+}
+
+.notification-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.mark-all-read {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.mark-all-read:hover {
+  background: rgba(194, 38, 38, 0.1);
+}
+
+.notification-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-w);
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.notification-item.unread {
+  background: rgba(194, 38, 38, 0.05);
+}
+
+.notification-item.unread:hover {
+  background: rgba(194, 38, 38, 0.1);
+}
+
+.notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.notification-icon i {
+  font-size: 1rem;
+}
+
+.notification-item:nth-child(1) .notification-icon {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.notification-item:nth-child(2) .notification-icon {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.notification-item:nth-child(3) .notification-icon {
+  background: rgba(249, 115, 22, 0.2);
+  color: #f97316;
+}
+
+.notification-item:nth-child(4) .notification-icon {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.notification-message {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.notification-time {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.notification-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.notification-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line-w);
+  text-align: center;
+}
+
+.view-all-link {
+  color: var(--red);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.view-all-link:hover {
+  opacity: 0.8;
+}
+
+/* Badge dot for unread notifications */
+.badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  border: 2px solid var(--dark);
+}
+
+/* Scrollbar styling */
+.notification-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+  background: var(--line-w);
+  border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+</style>
+
+<script>
+function toggleNotifications() {
+  const menu = document.getElementById('notificationMenu');
+  menu.classList.toggle('show');
+  
+  // Close when clicking outside
+  document.addEventListener('click', function closeNotifications(e) {
+    if (!e.target.closest('.notification-dropdown')) {
+      menu.classList.remove('show');
+      document.removeEventListener('click', closeNotifications);
+    }
+  });
+}
+
+function removeNotification(element) {
+  const item = element.closest('.notification-item');
+  item.style.transform = 'translateX(100%)';
+  item.style.opacity = '0';
+  setTimeout(() => item.remove(), 300);
+}
+
+function markAllAsRead() {
+  const unreadItems = document.querySelectorAll('.notification-item.unread');
+  unreadItems.forEach(item => {
+    item.classList.remove('unread');
+  });
+  
+  // Remove badge dot
+  const badgeDot = document.querySelector('.badge-dot');
+  if (badgeDot) {
+    badgeDot.style.display = 'none';
+  }
 }
 </script>
 </body>

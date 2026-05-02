@@ -1,5 +1,6 @@
 <?php
 require_once 'admin-config.php';
+require_once 'activity-logger.php';
 requireAdmin();
 
 // Handle booking creation from frontend
@@ -103,24 +104,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         error_log("Processed data - Date: $formattedDate, Time: $formattedTime");
         
-        // Insert booking into database
+        // Insert booking into database using existing table structure
         $stmt = $pdo->prepare("
             INSERT INTO bookings (
-                event_name, address, event_date, event_time, event_type, 
-                num_guests, full_name, contact_number, email_address, 
-                notes, user_email, user_name, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                user_id, status, event_date, notes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, NOW(), NOW())
         ");
+        
+        // Store all booking details in notes field as JSON
+        $bookingNotes = json_encode([
+            'event_name' => $eventName,
+            'address' => $address,
+            'event_time' => $formattedTime,
+            'event_type' => $eventType,
+            'num_guests' => $numGuests,
+            'full_name' => $fullName,
+            'contact_number' => $contactNumber,
+            'email_address' => $emailAddress,
+            'user_email' => $userEmail,
+            'user_name' => $userName,
+            'original_notes' => $notes
+        ]);
         
         try {
             $result = $stmt->execute([
-                $eventName, $address, $formattedDate, $formattedTime, $eventType,
-                $numGuests, $fullName, $contactNumber, $emailAddress,
-                $notes, $userEmail, $userName
+                null, // user_id (null for guest bookings)
+                'pending',
+                $formattedDate,
+                $bookingNotes
             ]);
             
             if ($result) {
                 $bookingId = $pdo->lastInsertId();
+                
+                // Log booking creation activity
+                logActivity('booking_created', "Customer created booking for {$eventName} on {$formattedDate} with {$numGuests} guests", $userEmail, $userName);
+                
                 echo json_encode(['success' => true, 'message' => 'Booking created successfully', 'booking_id' => $bookingId]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Failed to insert booking']);
@@ -185,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($data['action'] === 'get_day_bookings') {
         $date = $data['date'] ?? '';
         
-        $stmt = $pdo->prepare("SELECT * FROM bookings WHERE event_date = ? ORDER BY event_time");
+        $stmt = $pdo->prepare("SELECT * FROM bookings WHERE event_date = ? ORDER BY created_at");
         try {
             $stmt->execute([$date]);
             $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -205,27 +224,7 @@ try {
     $stmt->execute();
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // Table might not exist, create it
-    $createTableSQL = "
-        CREATE TABLE IF NOT EXISTS bookings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            event_name VARCHAR(255) NOT NULL,
-            address TEXT NOT NULL,
-            event_date DATE NOT NULL,
-            event_time TIME NOT NULL,
-            event_type VARCHAR(100) NOT NULL,
-            num_guests VARCHAR(50) NOT NULL,
-            full_name VARCHAR(255) NOT NULL,
-            contact_number VARCHAR(20) NOT NULL,
-            email_address VARCHAR(255) NOT NULL,
-            notes TEXT,
-            user_email VARCHAR(255),
-            user_name VARCHAR(255),
-            status ENUM('pending', 'confirmed', 'cancelled') DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ";
-    $pdo->exec($createTableSQL);
+    // Table already exists with different structure, just continue
 }
 
 $viewMode = isset($_GET['view']) ? $_GET['view'] : 'calendar'; // calendar or table
@@ -294,8 +293,12 @@ function generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOf
         // Add bookings for this day
         if (isset($bookingsByDate[$day])) {
             foreach ($bookingsByDate[$day] as $booking) {
+                // Parse booking details from notes field
+                $bookingDetails = json_decode($booking['notes'], true) ?: [];
+                $fullName = $bookingDetails['full_name'] ?? 'Guest';
+                
                 $bookingId = '#BK-' . str_pad($booking['id'], 3, '0', STR_PAD_LEFT);
-                $customerName = substr($booking['full_name'], 0, 8);
+                $customerName = substr($fullName, 0, 8);
                 $calendar .= '<div class="cal-event ' . $booking['status'] . '" onclick="event.stopPropagation(); showBookingDetails(' . $booking['id'] . ')">' . $bookingId . ' ' . $customerName . '</div>';
             }
         }
@@ -429,9 +432,10 @@ select.form-control option,
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
+      <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
     </nav>
     <div class="sidebar-footer">
-      <a href="admin-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      <a href="index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
     </div>
   </aside>
 
@@ -445,8 +449,76 @@ select.form-control option,
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i><span class="badge-dot"></span></div>
-        <div class="admin-avatar">A</div>
+        <div class="notification-dropdown">
+          <div class="topbar-badge" onclick="toggleNotifications()">
+            <i class="fa-regular fa-bell"></i>
+            <span class="badge-dot"></span>
+          </div>
+          <div class="notification-menu" id="notificationMenu">
+            <div class="notification-header">
+              <h4>Notifications</h4>
+              <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
+            </div>
+            <div class="notification-list">
+              <div class="notification-item unread">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-shopping-cart"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">New Order Received</div>
+                  <div class="notification-message">Order #ORD-0001 has been placed</div>
+                  <div class="notification-time">2 minutes ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+              <div class="notification-item unread">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-calendar-check"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">New Booking Confirmed</div>
+                  <div class="notification-message">Event booking for May 15, 2025</div>
+                  <div class="notification-time">15 minutes ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+              <div class="notification-item">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">New User Registered</div>
+                  <div class="notification-message">John Doe joined the platform</div>
+                  <div class="notification-time">1 hour ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+              <div class="notification-item">
+                <div class="notification-icon">
+                  <i class="fa-solid fa-truck"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title">Order Shipped</div>
+                  <div class="notification-message">Order #ORD-0002 has been shipped</div>
+                  <div class="notification-time">2 hours ago</div>
+                </div>
+                <div class="notification-close" onclick="removeNotification(this)">
+                  <i class="fa-solid fa-times"></i>
+                </div>
+              </div>
+            </div>
+            <div class="notification-footer">
+              <a href="admin-logs.php" class="view-all-link">View all notifications</a>
+            </div>
+          </div>
+        </div>
+        <a href="admin-account.php" class="admin-avatar">A</a>
       </div>
     </header>
 
@@ -463,27 +535,27 @@ select.form-control option,
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-calendar-check"></i></div>
-          <div class="stat-card-value">34</div>
+          <div class="stat-card-value"><?= count(array_filter($bookings, fn($b) => $b['status'] !== 'cancelled')) ?></div>
           <div class="stat-card-label">Active Bookings</div>
-          <div class="stat-card-change up"><i class="fa-solid fa-arrow-up"></i> +5 today</div>
+          <div class="stat-card-change up"><i class="fa-solid fa-arrow-up"></i> +<?= count(array_filter($bookings, fn($b) => $b['status'] !== 'cancelled' && date('Y-m-d', strtotime($b['created_at'])) === date('Y-m-d'))) ?> today</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-clock"></i></div>
-          <div class="stat-card-value">8</div>
+          <div class="stat-card-value"><?= count(array_filter($bookings, fn($b) => $b['status'] === 'pending')) ?></div>
           <div class="stat-card-label">Pending Confirmation</div>
           <div class="stat-card-change down"><i class="fa-solid fa-arrow-down"></i> needs action</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-circle-xmark"></i></div>
-          <div class="stat-card-value">3</div>
+          <div class="stat-card-value"><?= count(array_filter($bookings, fn($b) => $b['status'] === 'cancelled' && date('Y-m', strtotime($b['created_at'])) === date('Y-m'))) ?></div>
           <div class="stat-card-label">Cancelled This Month</div>
-          <div class="stat-card-change up"><i class="fa-solid fa-arrow-up"></i> low cancellation</div>
+          <div class="stat-card-change up"><i class="fa-solid fa-arrow-up"></i> <?= count(array_filter($bookings, fn($b) => $b['status'] === 'cancelled')) ?> total</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-calendar-day"></i></div>
-          <div class="stat-card-value">6</div>
+          <div class="stat-card-value"><?= count(array_filter($bookings, fn($b) => $b['event_date'] === date('Y-m-d'))) ?></div>
           <div class="stat-card-label">Today's Bookings</div>
-          <div class="stat-card-change up"><i class="fa-solid fa-arrow-up"></i> on schedule</div>
+          <div class="stat-card-change"><?= date('M j') ?></div>
         </div>
       </div>
 
@@ -544,19 +616,28 @@ select.form-control option,
                   <tbody>
                     <?php if (!empty($bookings)): ?>
                       <?php foreach ($bookings as $booking): ?>
+                        <?php 
+                          // Parse booking details from notes field
+                          $bookingDetails = json_decode($booking['notes'], true) ?: [];
+                          $fullName = $bookingDetails['full_name'] ?? 'Guest';
+                          $eventName = $bookingDetails['event_name'] ?? 'N/A';
+                          $eventTime = $bookingDetails['event_time'] ?? 'N/A';
+                          $eventType = $bookingDetails['event_type'] ?? 'N/A';
+                          $numGuests = $bookingDetails['num_guests'] ?? 'N/A';
+                        ?>
                         <tr>
                           <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
                           <td>
                             <div class="flex-gap">
-                              <div class="user-avatar"><?= strtoupper(substr($booking['full_name'], 0, 2)) ?></div>
-                              <?= htmlspecialchars($booking['full_name']) ?>
+                              <div class="user-avatar"><?= strtoupper(substr($fullName, 0, 2)) ?></div>
+                              <?= htmlspecialchars($fullName) ?>
                             </div>
                           </td>
-                          <td><?= htmlspecialchars($booking['event_name']) ?></td>
+                          <td><?= htmlspecialchars($eventName) ?></td>
                           <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
-                          <td><?= $booking['event_time'] ?></td>
-                          <td><?= htmlspecialchars($booking['event_type']) ?></td>
-                          <td><?= $booking['num_guests'] ?></td>
+                          <td><?= $eventTime ?></td>
+                          <td><?= htmlspecialchars($eventType) ?></td>
+                          <td><?= $numGuests ?></td>
                           <td>
                             <span class="badge badge-<?= $booking['status'] === 'confirmed' ? 'green' : ($booking['status'] === 'cancelled' ? 'red' : 'yellow') ?>">
                               <?= ucfirst($booking['status']) ?>
@@ -613,12 +694,17 @@ select.form-control option,
               <tbody>
                 <?php if (!empty($bookings)): ?>
                   <?php foreach ($bookings as $booking): ?>
+                    <?php 
+                      // Parse booking details from notes field
+                      $bookingDetails = json_decode($booking['notes'], true) ?: [];
+                      $fullName = $bookingDetails['full_name'] ?? 'Guest';
+                    ?>
                     <tr>
                       <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
                       <td>
                         <div class="flex-gap">
-                          <div class="user-avatar"><?= strtoupper(substr($booking['full_name'], 0, 2)) ?></div>
-                          <?= htmlspecialchars($booking['full_name']) ?>
+                          <div class="user-avatar"><?= strtoupper(substr($fullName, 0, 2)) ?></div>
+                          <?= htmlspecialchars($fullName) ?>
                         </div>
                       </td>
                       <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
@@ -663,45 +749,10 @@ select.form-control option,
             <p style="font-size:0.75rem;color:var(--muted);margin-bottom:14px;">Assigned resources for active bookings. Prevents double-booking.</p>
             <div class="resource-item">
               <div>
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Carlos Mendoza</div>
-                <div class="resource-sub">Head Fishmonger · Assigned to BK-044</div>
+                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>No staff assigned</div>
+                <div class="resource-sub">Staff management will be implemented</div>
               </div>
-              <span class="badge badge-red">Busy</span>
-            </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Lita Navarro</div>
-                <div class="resource-sub">Chef · Assigned to BK-045</div>
-              </div>
-              <span class="badge badge-yellow">Pending</span>
-            </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Ben Aquino</div>
-                <div class="resource-sub">Staff · Available</div>
-              </div>
-              <span class="badge badge-green">Free</span>
-            </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 1</div>
-                <div class="resource-sub">Equipment · Assigned to BK-044</div>
-              </div>
-              <span class="badge badge-red">Busy</span>
-            </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 2</div>
-                <div class="resource-sub">Equipment · Available</div>
-              </div>
-              <span class="badge badge-green">Free</span>
-            </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-box" style="color:var(--warning);margin-right:6px;"></i>Ice Box Set A</div>
-                <div class="resource-sub">Equipment · Assigned to BK-046</div>
-              </div>
-              <span class="badge badge-yellow">Pending</span>
+              <span class="badge badge-gray">N/A</span>
             </div>
           </div>
         </div>
@@ -902,17 +953,20 @@ function showBookingDetails(bookingId) {
   .then(data => {
     if (data.success) {
       const booking = data.booking;
+      // Parse booking details from notes field
+      const bookingDetails = booking.notes ? JSON.parse(booking.notes) : {};
+      
       document.getElementById('bookingDetailId').textContent = '#BK-' + booking.id;
-      document.getElementById('bookingDetailName').textContent = booking.full_name;
-      document.getElementById('bookingDetailEvent').textContent = booking.event_name;
+      document.getElementById('bookingDetailName').textContent = bookingDetails.full_name || 'Guest';
+      document.getElementById('bookingDetailEvent').textContent = bookingDetails.event_name || 'N/A';
       document.getElementById('bookingDetailDate').textContent = new Date(booking.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      document.getElementById('bookingDetailTime').textContent = booking.event_time;
-      document.getElementById('bookingDetailType').textContent = booking.event_type;
-      document.getElementById('bookingDetailGuests').textContent = booking.num_guests;
-      document.getElementById('bookingDetailAddress').textContent = booking.address;
-      document.getElementById('bookingDetailContact').textContent = booking.contact_number;
-      document.getElementById('bookingDetailEmail').textContent = booking.email_address;
-      document.getElementById('bookingDetailNotes').textContent = booking.notes || 'No notes';
+      document.getElementById('bookingDetailTime').textContent = bookingDetails.event_time || 'N/A';
+      document.getElementById('bookingDetailType').textContent = bookingDetails.event_type || 'N/A';
+      document.getElementById('bookingDetailGuests').textContent = bookingDetails.num_guests || 'N/A';
+      document.getElementById('bookingDetailAddress').textContent = bookingDetails.address || 'N/A';
+      document.getElementById('bookingDetailContact').textContent = bookingDetails.contact_number || 'N/A';
+      document.getElementById('bookingDetailEmail').textContent = bookingDetails.email_address || 'N/A';
+      document.getElementById('bookingDetailNotes').textContent = bookingDetails.original_notes || 'No notes';
       document.getElementById('bookingDetailStatus').className = 'badge badge-' + (booking.status === 'confirmed' ? 'green' : (booking.status === 'cancelled' ? 'red' : 'yellow'));
       document.getElementById('bookingDetailStatus').textContent = booking.status;
       
@@ -969,9 +1023,10 @@ function navigateMonth(direction) {
 }
 
 function showDayBookings(day) {
-  const urlParams = new URLSearchParams(window.location.search);
-  const month = parseInt(urlParams.get('month')) || new Date().getMonth() + 1;
-  const year = parseInt(urlParams.get('year')) || new Date().getFullYear();
+  // Use the same month/year that PHP is using to display the calendar
+  // These are embedded by PHP to ensure they match what's displayed
+  const month = <?= $currentMonth ?>;
+  const year = <?= $currentYear ?>;
   const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
   
   fetch('admin-bookings.php', {
@@ -987,24 +1042,38 @@ function showDayBookings(day) {
       const title = modal.querySelector('.modal-title');
       const content = modal.querySelector('.modal-body');
       
-      title.innerHTML = `<i class="fa-solid fa-calendar-day" style="color:var(--red);margin-right:8px;"></i>Bookings for ${new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+      // Create date object properly to avoid timezone issues
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const dateObj = new Date(year, month - 1, day); // month-1 because JS months are 0-indexed
+      
+      title.innerHTML = `<i class="fa-solid fa-calendar-day" style="color:var(--red);margin-right:8px;"></i>Bookings for ${dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}>`;
       
       if (bookings.length === 0) {
         content.innerHTML = '<p style="text-align: center; color: var(--muted); padding: 20px;">No bookings for this day.</p>';
       } else {
-        content.innerHTML = bookings.map(booking => `
+        content.innerHTML = bookings.map(booking => {
+          // Parse booking details from notes field
+          const bookingDetails = booking.notes ? JSON.parse(booking.notes) : {};
+          const fullName = bookingDetails.full_name || 'Guest';
+          const eventTime = bookingDetails.event_time || 'N/A';
+          const eventType = bookingDetails.event_type || 'N/A';
+          const numGuests = bookingDetails.num_guests || 'N/A';
+          const address = bookingDetails.address || 'N/A';
+          
+          return `
           <div class="booking-card">
             <div class="booking-id">#BK-${booking.id}</div>
-            <div class="booking-name">${booking.full_name}</div>
-            <div class="booking-detail"><i class="fa-solid fa-clock"></i> ${booking.event_time} · ${booking.event_type}</div>
-            <div class="booking-detail"><i class="fa-solid fa-users"></i> ${booking.num_guests} guests</div>
-            <div class="booking-detail"><i class="fa-solid fa-location-dot"></i> ${booking.address}</div>
+            <div class="booking-name">${fullName}</div>
+            <div class="booking-detail"><i class="fa-solid fa-clock"></i> ${eventTime} · ${eventType}</div>
+            <div class="booking-detail"><i class="fa-solid fa-users"></i> ${numGuests} guests</div>
+            <div class="booking-detail"><i class="fa-solid fa-location-dot"></i> ${address}</div>
             <div class="booking-footer">
               <span class="badge badge-${booking.status === 'confirmed' ? 'green' : (booking.status === 'cancelled' ? 'red' : 'yellow')}">${booking.status}</span>
               <button class="btn btn-outline btn-sm" onclick="showBookingDetails(${booking.id})">View Details</button>
             </div>
           </div>
-        `).join('');
+        `;
+        }).join('');
       }
       
       openModal('dayBookingsModal');
@@ -1128,12 +1197,248 @@ document.getElementById('newBookingForm').addEventListener('submit', function(e)
   });
 });
 
-document.querySelectorAll('.cal-day:not(.empty)').forEach(d => {
-  d.addEventListener('click', () => {
-    const num = d.querySelector('.cal-day-num')?.textContent;
-    if(num) showToast(`Selected June ${num}, 2025`);
+</script>
+
+<style>
+/* Notification Dropdown Styles */
+.notification-dropdown {
+  position: relative;
+}
+
+.notification-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 380px;
+  background: var(--card2);
+  border: 1px solid var(--line-w);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: none;
+  margin-top: 10px;
+}
+
+.notification-menu.show {
+  display: block;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-w);
+}
+
+.notification-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.mark-all-read {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.mark-all-read:hover {
+  background: rgba(194, 38, 38, 0.1);
+}
+
+.notification-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-w);
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.notification-item.unread {
+  background: rgba(194, 38, 38, 0.05);
+}
+
+.notification-item.unread:hover {
+  background: rgba(194, 38, 38, 0.1);
+}
+
+.notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.notification-icon i {
+  font-size: 1rem;
+}
+
+.notification-item:nth-child(1) .notification-icon {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.notification-item:nth-child(2) .notification-icon {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.notification-item:nth-child(3) .notification-icon {
+  background: rgba(249, 115, 22, 0.2);
+  color: #f97316;
+}
+
+.notification-item:nth-child(4) .notification-icon {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.notification-message {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.notification-time {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.notification-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.notification-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line-w);
+  text-align: center;
+}
+
+.view-all-link {
+  color: var(--red);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.view-all-link:hover {
+  opacity: 0.8;
+}
+
+/* Badge dot for unread notifications */
+.badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  border: 2px solid var(--dark);
+}
+
+/* Scrollbar styling */
+.notification-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+  background: var(--line-w);
+  border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+</style>
+
+<script>
+function toggleNotifications() {
+  const menu = document.getElementById('notificationMenu');
+  menu.classList.toggle('show');
+  
+  // Close when clicking outside
+  document.addEventListener('click', function closeNotifications(e) {
+    if (!e.target.closest('.notification-dropdown')) {
+      menu.classList.remove('show');
+      document.removeEventListener('click', closeNotifications);
+    }
   });
-});
+}
+
+function removeNotification(element) {
+  const item = element.closest('.notification-item');
+  item.style.transform = 'translateX(100%)';
+  item.style.opacity = '0';
+  setTimeout(() => item.remove(), 300);
+}
+
+function markAllAsRead() {
+  const unreadItems = document.querySelectorAll('.notification-item.unread');
+  unreadItems.forEach(item => {
+    item.classList.remove('unread');
+  });
+  
+  // Remove badge dot
+  const badgeDot = document.querySelector('.badge-dot');
+  if (badgeDot) {
+    badgeDot.style.display = 'none';
+  }
+}
 </script>
 </body>
 </html>
