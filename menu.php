@@ -51,10 +51,10 @@ foreach ($allItems as $item) {
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon" id="navAccountIcon" title="Account">
+<a href="account.php" class="nav-account-icon" id="navAccountIcon" title="Account">
                     <i class="fas fa-user-circle"></i>
+                    <div class="order-speech-bubble" id="orderSpeechBubble" onclick="window.location.href='account.php'">Track your order here</div>
                 </a>
-                <div class="order-speech-bubble" id="orderSpeechBubble" onclick="window.location.href='account.php'">Track your order here</div>
             </nav>
         </div>
     </header>
