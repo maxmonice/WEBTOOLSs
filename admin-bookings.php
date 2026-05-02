@@ -296,7 +296,10 @@ function generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOf
             foreach ($bookingsByDate[$day] as $booking) {
                 $bookingId = '#BK-' . str_pad($booking['id'], 3, '0', STR_PAD_LEFT);
                 $customerName = substr($booking['full_name'], 0, 8);
-                $calendar .= '<div class="cal-event ' . $booking['status'] . '" onclick="event.stopPropagation(); showBookingDetails(' . $booking['id'] . ')">' . $bookingId . ' ' . $customerName . '</div>';
+                
+                $calendar .= '<div class="cal-event ' . $booking['status'] . '">';
+                $calendar .= '<div onclick="event.stopPropagation(); showDayBookings(' . $day . ')" style="cursor: pointer;">' . $bookingId . ' ' . $customerName . '</div>';
+                $calendar .= '</div>';
             }
         }
         
@@ -375,9 +378,14 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
   border: 1px solid var(--line-w);
   border-radius: 10px;
   padding: 16px;
-  transition: border-color 0.2s, transform 0.2s;
+  transition: all 0.25s ease;
 }
-.booking-card:hover { border-color: rgba(194,38,38,0.3); transform: translateY(-2px); }
+.booking-card:hover { 
+  border-color: rgba(194,38,38,0.5); 
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(194, 38, 38, 0.2);
+  background: var(--card2);
+}
 .booking-id { font-size: 0.7rem; color: var(--red); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 4px; }
 .booking-name { font-size: 0.9rem; color: #fff; font-weight: 600; margin-bottom: 6px; }
 .booking-detail { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
@@ -403,11 +411,151 @@ select.form-control option,
   background: var(--card);
 }
 
+/* Booking detail action buttons */
+.booking-detail-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.booking-action-btn {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.booking-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.booking-action-btn.confirm {
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.3), rgba(46, 204, 113, 0.15));
+  border-color: rgba(46, 204, 113, 0.7);
+  color: #2ecc71;
+}
+
+.view-layout {
+  display: grid;
+  grid-template-columns: 1.6fr 0.9fr;
+  gap: 20px;
+}
+
+.view-layout .main-panel {
+  min-width: 0;
+}
+
+.side-stack {
+  display: grid;
+  gap: 20px;
+}
+
+@media (max-width: 1100px) {
+  .view-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.no-results-row td {
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.booking-action-btn.confirm:hover {
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.5), rgba(46, 204, 113, 0.3));
+  border-color: rgba(46, 204, 113, 0.9);
+  box-shadow: 0 6px 16px rgba(46, 204, 113, 0.4);
+}
+
+.booking-action-btn.cancel {
+  background: linear-gradient(135deg, rgba(194, 38, 38, 0.3), rgba(194, 38, 38, 0.15));
+  border-color: rgba(194, 38, 38, 0.7);
+  color: #ff6b6b;
+}
+
+.booking-action-btn.cancel:hover {
+  background: linear-gradient(135deg, rgba(194, 38, 38, 0.5), rgba(194, 38, 38, 0.3));
+  border-color: rgba(194, 38, 38, 0.9);
+  box-shadow: 0 6px 16px rgba(194, 38, 38, 0.4);
+}
+
+/* Booking actions styling */
+.booking-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.btn-xs {
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  border-radius: 3px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-xs:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
 /* Navigation buttons group */
 .calendar-nav-group {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Table details button */
+.table-details-btn {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.table-details-btn:hover {
+  background: linear-gradient(135deg, rgba(194, 38, 38, 0.3), rgba(194, 38, 38, 0.1));
+  border-color: rgba(194, 38, 38, 0.6);
+  color: #ff6b6b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(194, 38, 38, 0.3);
+}
+
+.page-content {
+  padding: 28px 48px 28px 28px;
+  max-width: calc(100vw - 320px);
+  margin-right: auto;
+}
+
+@media (max-width: 1100px) {
+  .page-content {
+    padding-right: 28px;
+    max-width: 100%;
+  }
 }
 </style>
 </head>
@@ -487,228 +635,219 @@ select.form-control option,
         </div>
       </div>
 
-      <div class="grid-2">
-        <!-- CALENDAR -->
-        <div class="panel" style="grid-column: 1 / -1;">
-          <div class="panel-header">
-            <div class="flex-between" style="width: 100%;">
-              <div class="flex-gap" style="align-items: center;">
-                <span class="panel-title"><i class="fa-solid fa-calendar" style="color:var(--red);margin-right:8px;"></i><?= date('F Y', mktime(0, 0, 0, $currentMonth, 1, $currentYear)) ?></span>
-                <select id="viewToggle" onchange="toggleView()" style="background: var(--dark); border: 1px solid var(--line-w); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
-                  <option value="calendar" <?= $viewMode === 'calendar' ? 'selected' : '' ?>>Calendar View</option>
-                  <option value="table" <?= $viewMode === 'table' ? 'selected' : '' ?>>Table View</option>
-                </select>
-                <select id="yearSelect" onchange="changeYear()" style="background: var(--dark); border: 1px solid var(--line-w); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
-                  <?php 
-                  $startYear = 2020;
-                  $endYear = 2030;
-                  for ($year = $startYear; $year <= $endYear; $year++) {
-                    echo '<option value="' . $year . '"' . ($year == $currentYear ? ' selected' : '') . '>' . $year . '</option>';
-                  }
-                  ?>
-                </select>
+      <div class="panel main-panel">
+        <div class="panel-header">
+          <div class="flex-between" style="width: 100%;">
+            <div class="flex-gap" style="align-items: center;">
+              <span class="panel-title"><i class="fa-solid fa-calendar" style="color:var(--red);margin-right:8px;"></i><?= date('F Y', mktime(0, 0, 0, $currentMonth, 1, $currentYear)) ?></span>
+              <select id="viewToggle" onchange="toggleView()" style="background: var(--dark); border: 1px solid var(--line-w); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                <option value="calendar" <?= $viewMode === 'calendar' ? 'selected' : '' ?>>Calendar View</option>
+                <option value="table" <?= $viewMode === 'table' ? 'selected' : '' ?>>Table View</option>
+              </select>
+              <select id="yearSelect" onchange="changeYear()" style="background: var(--dark); border: 1px solid var(--line-w); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                <?php 
+                $startYear = 2020;
+                $endYear = 2030;
+                for ($year = $startYear; $year <= $endYear; $year++) {
+                  echo '<option value="' . $year . '"' . ($year == $currentYear ? ' selected' : '') . '>' . $year . '</option>';
+                }
+                ?>
+              </select>
+              <select id="statusFilter" onchange="filterBookingsByStatus()" style="background: var(--dark); border: 1px solid var(--line-w); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                <option value="all">All Bookings</option>
+                <option value="pending">Pending Only</option>
+                <option value="confirmed">Confirmed Only</option>
+                <option value="cancelled">Cancelled Only</option>
+              </select>
+            </div>
+            <div class="calendar-nav-group">
+              <button class="btn btn-outline btn-sm" onclick="navigateMonth('prev')" title="Previous Month">
+                <i class="fa-solid fa-chevron-left"></i> Prev
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="navigateMonth('next')" title="Next Month">
+                Next <i class="fa-solid fa-chevron-right"></i>
+              </button>
+              <div style="border-left: 1px solid var(--line-w); padding-left: 10px; display: flex; gap: 8px;">
+                <span class="badge badge-green">● Confirmed</span>
+                <span class="badge badge-yellow">● Pending</span>
+                <span class="badge badge-red">● Cancelled</span>
               </div>
-              <div class="calendar-nav-group">
-                <button class="btn btn-outline btn-sm" onclick="navigateMonth('prev')" title="Previous Month">
-                  <i class="fa-solid fa-chevron-left"></i> Prev
-                </button>
-                <button class="btn btn-outline btn-sm" onclick="navigateMonth('next')" title="Next Month">
-                  Next <i class="fa-solid fa-chevron-right"></i>
-                </button>
-                <div style="border-left: 1px solid var(--line-w); padding-left: 10px; display: flex; gap: 8px;">
-                  <span class="badge badge-green">● Confirmed</span>
-                  <span class="badge badge-yellow">● Pending</span>
-                  <span class="badge badge-red">● Cancelled</span>
-                </div>
-                <button class="btn btn-danger btn-sm" onclick="clearAllBookings()" title="Clear All Bookings">
-                  <i class="fa-solid fa-trash"></i> Clear All
-                </button>
-              </div>
+              <button class="btn btn-danger btn-sm" onclick="clearAllBookings()" title="Clear All Bookings">
+                <i class="fa-solid fa-trash"></i> Clear All
+              </button>
             </div>
           </div>
-          <div class="panel-body">
-            <?php if ($viewMode === 'calendar'): ?>
-              <div class="calendar-grid">
-                <div class="cal-header">Sun</div><div class="cal-header">Mon</div><div class="cal-header">Tue</div>
-                <div class="cal-header">Wed</div><div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div>
-                <?= $calendar ?>
-              </div>
-            <?php else: ?>
-              <div style="overflow-x:auto;">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th><th>Customer</th><th>Event Name</th><th>Date</th><th>Time</th><th>Type</th><th>Guests</th><th>Status</th><th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <?php if (!empty($bookings)): ?>
-                      <?php foreach ($bookings as $booking): ?>
-                        <tr>
-                          <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
-                          <td>
-                            <div class="flex-gap">
-                              <div class="user-avatar"><?= strtoupper(substr($booking['full_name'], 0, 2)) ?></div>
-                              <?= htmlspecialchars($booking['full_name']) ?>
-                            </div>
-                          </td>
-                          <td><?= htmlspecialchars($booking['event_name']) ?></td>
-                          <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
-                          <td><?= $booking['event_time'] ?></td>
-                          <td><?= htmlspecialchars($booking['event_type']) ?></td>
-                          <td><?= $booking['num_guests'] ?></td>
-                          <td>
-                            <span class="badge badge-<?= $booking['status'] === 'confirmed' ? 'green' : ($booking['status'] === 'cancelled' ? 'red' : 'yellow') ?>">
-                              <?= ucfirst($booking['status']) ?>
-                            </span>
-                          </td>
-                          <td>
-                            <?php if ($booking['status'] === 'pending'): ?>
-                              <div class="flex-gap">
-                                <button class="action-btn edit" title="Confirm" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'confirmed')">
-                                  <i class="fa-solid fa-check"></i>
-                                </button>
-                                <button class="action-btn" title="Cancel" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'cancelled')">
-                                  <i class="fa-solid fa-xmark"></i>
-                                </button>
-                              </div>
-                            <?php else: ?>
-                              <button class="action-btn edit"><i class="fa-solid fa-pen"></i></button>
-                            <?php endif; ?>
-                          </td>
-                        </tr>
-                      <?php endforeach; ?>
-                    <?php else: ?>
-                      <tr>
-                        <td colspan="8" style="text-align: center; padding: 40px; color: var(--muted);">
-                          <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                          No bookings yet. Bookings will appear here once customers submit them.
+        </div>
+        <div class="panel-body">
+          <?php if ($viewMode === 'calendar'): ?>
+            <div class="calendar-grid">
+              <div class="cal-header">Sun</div><div class="cal-header">Mon</div><div class="cal-header">Tue</div>
+              <div class="cal-header">Wed</div><div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div>
+              <?= $calendar ?>
+            </div>
+          <?php else: ?>
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Customer</th><th>Event Name</th><th>Date</th><th>Time</th><th>Type</th><th>Guests</th><th>Status</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if (!empty($bookings)): ?>
+                    <?php foreach ($bookings as $booking): ?>
+                      <tr data-status="<?= $booking['status'] ?>">
+                        <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
+                        <td>
+                          <div class="flex-gap">
+                            <div class="user-avatar"><?= strtoupper(substr($booking['full_name'], 0, 2)) ?></div>
+                            <?= htmlspecialchars($booking['full_name']) ?>
+                          </div>
+                        </td>
+                        <td><?= htmlspecialchars($booking['event_name']) ?></td>
+                        <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
+                        <td><?= $booking['event_time'] ?></td>
+                        <td><?= htmlspecialchars($booking['event_type']) ?></td>
+                        <td><?= $booking['num_guests'] ?></td>
+                        <td>
+                          <span class="badge badge-<?= $booking['status'] === 'confirmed' ? 'green' : ($booking['status'] === 'cancelled' ? 'red' : 'yellow') ?>">
+                            <?= ucfirst($booking['status']) ?>
+                          </span>
+                        </td>
+                        <td>
+                          <button class="table-details-btn" title="View Booking Details" onclick="showBookingDetails(<?= $booking['id'] ?>)">
+                            <i class="fa-solid fa-circle-info"></i>
+                          </button>
                         </td>
                       </tr>
-                    <?php endif; ?>
-                  </tbody>
-                </table>
-              <?php endif; ?>
-          </div>
-        </div>
-      </div>
-
-      <!-- BOOKINGS TABLE + RESOURCES -->
-      <div class="grid-2" style="margin-top:0;">
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Recent Bookings</span>
-            <div class="search-wrap">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" class="search-input" placeholder="Search..." style="max-width:160px;"/>
-            </div>
-          </div>
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th><th>Customer</th><th>Date</th><th>Status</th><th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (!empty($bookings)): ?>
-                  <?php foreach ($bookings as $booking): ?>
-                    <tr>
-                      <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
-                      <td>
-                        <div class="flex-gap">
-                          <div class="user-avatar"><?= strtoupper(substr($booking['full_name'], 0, 2)) ?></div>
-                          <?= htmlspecialchars($booking['full_name']) ?>
-                        </div>
-                      </td>
-                      <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
-                      <td>
-                        <span class="badge badge-<?= $booking['status'] === 'confirmed' ? 'green' : ($booking['status'] === 'cancelled' ? 'red' : 'yellow') ?>">
-                          <?= ucfirst($booking['status']) ?>
-                        </span>
-                      </td>
-                      <td>
-                        <?php if ($booking['status'] === 'pending'): ?>
-                          <div class="flex-gap">
-                            <button class="action-btn edit" title="Confirm" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'confirmed')">
-                              <i class="fa-solid fa-check"></i>
-                            </button>
-                            <button class="action-btn" title="Cancel" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'cancelled')">
-                              <i class="fa-solid fa-xmark"></i>
-                            </button>
-                          </div>
-                        <?php else: ?>
-                          <button class="action-btn edit"><i class="fa-solid fa-pen"></i></button>
-                        <?php endif; ?>
+                    <?php endforeach; ?>
+                    <tr class="no-results-row" style="display:none;">
+                      <td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">
+                        <i class="fa-solid fa-search-minus" style="font-size:2rem; margin-bottom:10px; display:block;"></i>
+                        No records found for this filter.
                       </td>
                     </tr>
-                  <?php endforeach; ?>
-                <?php else: ?>
-                  <tr>
-                    <td colspan="5" style="text-align: center; padding: 40px; color: var(--muted);">
-                      <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                      No bookings yet. Bookings will appear here once customers submit them.
-                    </td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
+                  <?php else: ?>
+                    <tr>
+                      <td colspan="9" style="text-align: center; padding: 40px; color: var(--muted);">
+                        <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                        No bookings yet. Bookings will appear here once customers submit them.
+                      </td>
+                    </tr>
+                  <?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Recent Bookings</span>
+          <div class="search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" class="search-input" placeholder="Search..." style="max-width:160px;"/>
           </div>
         </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Customer</th><th>Date</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (!empty($bookings)): ?>
+                <?php foreach ($bookings as $booking): ?>
+                  <tr data-status="<?= $booking['status'] ?>">
+                    <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
+                    <td>
+                      <div class="flex-gap">
+                        <div class="user-avatar"><?= strtoupper(substr($booking['full_name'], 0, 2)) ?></div>
+                        <?= htmlspecialchars($booking['full_name']) ?>
+                      </div>
+                    </td>
+                    <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
+                    <td>
+                      <span class="badge badge-<?= $booking['status'] === 'confirmed' ? 'green' : ($booking['status'] === 'cancelled' ? 'red' : 'yellow') ?>">
+                        <?= ucfirst($booking['status']) ?>
+                      </span>
+                    </td>
+                    <td>
+                      <button class="table-details-btn" title="View Booking Details" onclick="showBookingDetails(<?= $booking['id'] ?>)">
+                        <i class="fa-solid fa-circle-info"></i>
+                      </button>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+                <tr class="no-results-row" style="display:none;">
+                  <td colspan="5" style="text-align:center; padding:30px; color:var(--muted);">
+                    <i class="fa-solid fa-search-minus" style="font-size:2rem; margin-bottom:10px; display:block;"></i>
+                    No records found for this filter.
+                  </td>
+                </tr>
+              <?php else: ?>
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 40px; color: var(--muted);">
+                    <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                    No bookings yet. Bookings will appear here once customers submit them.
+                  </td>
+                </tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        <!-- STAFF & EQUIPMENT -->
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Staff & Equipment</span><span class="badge badge-gray">Resource Tracker</span></div>
-          <div class="panel-body">
-            <p style="font-size:0.75rem;color:var(--muted);margin-bottom:14px;">Assigned resources for active bookings. Prevents double-booking.</p>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Carlos Mendoza</div>
-                <div class="resource-sub">Head Fishmonger · Assigned to BK-044</div>
-              </div>
-              <span class="badge badge-red">Busy</span>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Staff & Equipment</span><span class="badge badge-gray">Resource Tracker</span></div>
+        <div class="panel-body">
+          <p style="font-size:0.75rem;color:var(--muted);margin-bottom:14px;">Assigned resources for active bookings. Prevents double-booking.</p>
+          <div class="resource-item">
+            <div>
+              <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Carlos Mendoza</div>
+              <div class="resource-sub">Head Fishmonger · Assigned to BK-044</div>
             </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Lita Navarro</div>
-                <div class="resource-sub">Chef · Assigned to BK-045</div>
-              </div>
-              <span class="badge badge-yellow">Pending</span>
+            <span class="badge badge-red">Busy</span>
+          </div>
+          <div class="resource-item">
+            <div>
+              <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Lita Navarro</div>
+              <div class="resource-sub">Chef · Assigned to BK-045</div>
             </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Ben Aquino</div>
-                <div class="resource-sub">Staff · Available</div>
-              </div>
-              <span class="badge badge-green">Free</span>
+            <span class="badge badge-yellow">Pending</span>
+          </div>
+          <div class="resource-item">
+            <div>
+              <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Ben Aquino</div>
+              <div class="resource-sub">Staff · Available</div>
             </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 1</div>
-                <div class="resource-sub">Equipment · Assigned to BK-044</div>
-              </div>
-              <span class="badge badge-red">Busy</span>
+            <span class="badge badge-green">Free</span>
+          </div>
+          <div class="resource-item">
+            <div>
+              <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 1</div>
+              <div class="resource-sub">Equipment · Assigned to BK-044</div>
             </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 2</div>
-                <div class="resource-sub">Equipment · Available</div>
-              </div>
-              <span class="badge badge-green">Free</span>
+            <span class="badge badge-red">Busy</span>
+          </div>
+          <div class="resource-item">
+            <div>
+              <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 2</div>
+              <div class="resource-sub">Equipment · Available</div>
             </div>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-box" style="color:var(--warning);margin-right:6px;"></i>Ice Box Set A</div>
-                <div class="resource-sub">Equipment · Assigned to BK-046</div>
-              </div>
-              <span class="badge badge-yellow">Pending</span>
+            <span class="badge badge-green">Free</span>
+          </div>
+          <div class="resource-item">
+            <div>
+              <div class="resource-name"><i class="fa-solid fa-box" style="color:var(--warning);margin-right:6px;"></i>Ice Box Set A</div>
+              <div class="resource-sub">Equipment · Assigned to BK-046</div>
             </div>
+            <span class="badge badge-yellow">Pending</span>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</div>
 
 <!-- New Booking Modal -->
 <div class="modal-overlay" id="newBookingModal">
@@ -831,6 +970,10 @@ select.form-control option,
         <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Notes</div>
         <div style="font-weight: 600;" id="bookingDetailNotes">Notes</div>
       </div>
+      
+      <div class="booking-detail-actions" id="bookingDetailActions">
+        <!-- Action buttons will be populated here -->
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('bookingDetailModal')">Close</button>
@@ -853,6 +996,48 @@ select.form-control option,
 
 <div class="toast-container" id="toastContainer"></div>
 <script>
+let currentStatusFilter = 'all';
+
+function filterBookingsByStatus() {
+  const statusFilter = document.getElementById('statusFilter').value;
+  currentStatusFilter = statusFilter;
+  
+  const viewMode = document.getElementById('viewToggle').value;
+  
+  if (viewMode === 'calendar') {
+    const calendarEvents = document.querySelectorAll('.cal-event');
+    calendarEvents.forEach(event => {
+      const eventClass = event.className;
+      const hasStatus = eventClass.includes('confirmed') || eventClass.includes('pending') || eventClass.includes('cancelled');
+      if (!hasStatus) return;
+      
+      let eventStatus = '';
+      if (eventClass.includes('confirmed')) eventStatus = 'confirmed';
+      else if (eventClass.includes('pending')) eventStatus = 'pending';
+      else if (eventClass.includes('cancelled')) eventStatus = 'cancelled';
+      
+      event.style.display = statusFilter === 'all' || eventStatus === statusFilter ? '' : 'none';
+    });
+  }
+  
+  const tableRows = Array.from(document.querySelectorAll('table tbody tr'));
+  const dataRows = tableRows.filter(row => row.dataset.status !== undefined);
+  const matchingRows = dataRows.filter(row => statusFilter === 'all' || row.dataset.status.toLowerCase() === statusFilter);
+  
+  tableRows.forEach(row => {
+    if (row.classList.contains('no-results-row')) {
+      row.style.display = matchingRows.length === 0 && dataRows.length > 0 ? '' : 'none';
+      return;
+    }
+    
+    if (!row.dataset.status) {
+      row.style.display = dataRows.length === 0 ? '' : 'none';
+      return;
+    }
+    
+    row.style.display = statusFilter === 'all' || row.dataset.status.toLowerCase() === statusFilter ? '' : 'none';
+  });
+}
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -916,6 +1101,27 @@ function showBookingDetails(bookingId) {
       document.getElementById('bookingDetailStatus').className = 'badge badge-' + (booking.status === 'confirmed' ? 'green' : (booking.status === 'cancelled' ? 'red' : 'yellow'));
       document.getElementById('bookingDetailStatus').textContent = booking.status;
       
+      // Populate action buttons based on status
+      const actionsDiv = document.getElementById('bookingDetailActions');
+      if (booking.status === 'pending') {
+        actionsDiv.innerHTML = `
+          <button class="booking-action-btn confirm" onclick="updateBookingStatus(${booking.id}, 'confirmed')">
+            <i class="fa-solid fa-check"></i> Confirm Booking
+          </button>
+          <button class="booking-action-btn cancel" onclick="updateBookingStatus(${booking.id}, 'cancelled')">
+            <i class="fa-solid fa-xmark"></i> Cancel Booking
+          </button>
+        `;
+      } else if (booking.status === 'confirmed') {
+        actionsDiv.innerHTML = `
+          <button class="booking-action-btn cancel" onclick="updateBookingStatus(${booking.id}, 'cancelled')">
+            <i class="fa-solid fa-xmark"></i> Cancel Booking
+          </button>
+        `;
+      } else {
+        actionsDiv.innerHTML = '';
+      }
+      
       openModal('bookingDetailModal');
     } else {
       showToast(data.message || 'Failed to load booking details', 'error');
@@ -932,6 +1138,8 @@ function toggleView() {
   const urlParams = new URLSearchParams(window.location.search);
   const currentMonth = urlParams.get('month') || new Date().getMonth() + 1;
   const currentYear = urlParams.get('year') || new Date().getFullYear();
+  document.getElementById('statusFilter').value = 'all';
+  currentStatusFilter = 'all';
   window.location.href = `admin-bookings.php?month=${currentMonth}&year=${currentYear}&view=${viewMode}`;
 }
 
@@ -969,6 +1177,9 @@ function navigateMonth(direction) {
 }
 
 function showDayBookings(day) {
+  // Store the day for back navigation
+  window.lastDayClicked = day;
+  
   const urlParams = new URLSearchParams(window.location.search);
   const month = parseInt(urlParams.get('month')) || new Date().getMonth() + 1;
   const year = parseInt(urlParams.get('year')) || new Date().getFullYear();
@@ -993,15 +1204,15 @@ function showDayBookings(day) {
         content.innerHTML = '<p style="text-align: center; color: var(--muted); padding: 20px;">No bookings for this day.</p>';
       } else {
         content.innerHTML = bookings.map(booking => `
-          <div class="booking-card">
-            <div class="booking-id">#BK-${booking.id}</div>
+          <div class="booking-card" style="cursor: pointer;" onclick="showBookingDetailsFromDay(${booking.id})">
+            <div class="booking-id">#BK-${String(booking.id).padStart(3, '0')}</div>
             <div class="booking-name">${booking.full_name}</div>
             <div class="booking-detail"><i class="fa-solid fa-clock"></i> ${booking.event_time} · ${booking.event_type}</div>
             <div class="booking-detail"><i class="fa-solid fa-users"></i> ${booking.num_guests} guests</div>
             <div class="booking-detail"><i class="fa-solid fa-location-dot"></i> ${booking.address}</div>
             <div class="booking-footer">
               <span class="badge badge-${booking.status === 'confirmed' ? 'green' : (booking.status === 'cancelled' ? 'red' : 'yellow')}">${booking.status}</span>
-              <button class="btn btn-outline btn-sm" onclick="showBookingDetails(${booking.id})">View Details</button>
+              <i class="fa-solid fa-arrow-right" style="color: var(--muted); margin-left: auto;"></i>
             </div>
           </div>
         `).join('');
@@ -1010,6 +1221,145 @@ function showDayBookings(day) {
       openModal('dayBookingsModal');
     } else {
       showToast(data.message || 'Failed to load day bookings', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showToast('Failed to load day bookings. Please try again.', 'error');
+  });
+}
+
+function showBookingDetailsFromDay(bookingId) {
+  fetch('admin-bookings.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_booking', id: bookingId })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const booking = data.booking;
+      const modal = document.getElementById('dayBookingsModal');
+      const title = modal.querySelector('.modal-title');
+      const content = modal.querySelector('.modal-body');
+      
+      // Show booking details in the day bookings modal
+      title.innerHTML = `<i class="fa-solid fa-arrow-left" style="color:var(--red);margin-right:8px;cursor:pointer;font-size:1.2rem;" onclick="goBackToDayBookings()"></i>#BK-${String(booking.id).padStart(3, '0')} · ${booking.full_name}`;
+      
+      // Store the current day for going back
+      window.currentDayBookingsDay = bookingId;
+      
+      content.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Event</div>
+            <div style="font-weight: 600;">${booking.event_name}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Date</div>
+            <div style="font-weight: 600;">${new Date(booking.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Time</div>
+            <div style="font-weight: 600;">${booking.event_time}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Type</div>
+            <div style="font-weight: 600;">${booking.event_type}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Guests</div>
+            <div style="font-weight: 600;">${booking.num_guests}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Status</div>
+            <span class="badge badge-${booking.status === 'confirmed' ? 'green' : (booking.status === 'cancelled' ? 'red' : 'yellow')}">${booking.status}</span>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Address</div>
+          <div style="font-weight: 600;">${booking.address}</div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Contact Number</div>
+            <div style="font-weight: 600;">${booking.contact_number}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Email</div>
+            <div style="font-weight: 600;">${booking.email_address}</div>
+          </div>
+        </div>
+        
+        <div>
+          <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Notes</div>
+          <div style="font-weight: 600;">${booking.notes || 'No notes'}</div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+          ${booking.status === 'pending' ? `
+            <button class="booking-action-btn confirm" onclick="updateBookingStatus(${booking.id}, 'confirmed')">
+              <i class="fa-solid fa-check"></i> Confirm Booking
+            </button>
+            <button class="booking-action-btn cancel" onclick="updateBookingStatus(${booking.id}, 'cancelled')">
+              <i class="fa-solid fa-xmark"></i> Cancel Booking
+            </button>
+          ` : booking.status === 'confirmed' ? `
+            <button class="booking-action-btn cancel" onclick="updateBookingStatus(${booking.id}, 'cancelled')">
+              <i class="fa-solid fa-xmark"></i> Cancel Booking
+            </button>
+          ` : ''}
+        </div>
+      `;
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showToast('Failed to load booking details. Please try again.', 'error');
+  });
+}
+
+function goBackToDayBookings() {
+  // Get stored day bookings
+  const urlParams = new URLSearchParams(window.location.search);
+  const month = parseInt(urlParams.get('month')) || new Date().getMonth() + 1;
+  const year = parseInt(urlParams.get('year')) || new Date().getFullYear();
+  const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(window.lastDayClicked).padStart(2, '0');
+  
+  fetch('admin-bookings.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_day_bookings', date: dateStr })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const bookings = data.bookings;
+      const modal = document.getElementById('dayBookingsModal');
+      const title = modal.querySelector('.modal-title');
+      const content = modal.querySelector('.modal-body');
+      
+      title.innerHTML = `<i class="fa-solid fa-calendar-day" style="color:var(--red);margin-right:8px;"></i>Bookings for ${new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+      
+      if (bookings.length === 0) {
+        content.innerHTML = '<p style="text-align: center; color: var(--muted); padding: 20px;">No bookings for this day.</p>';
+      } else {
+        content.innerHTML = bookings.map(booking => `
+          <div class="booking-card" style="cursor: pointer;" onclick="showBookingDetailsFromDay(${booking.id})">
+            <div class="booking-id">#BK-${String(booking.id).padStart(3, '0')}</div>
+            <div class="booking-name">${booking.full_name}</div>
+            <div class="booking-detail"><i class="fa-solid fa-clock"></i> ${booking.event_time} · ${booking.event_type}</div>
+            <div class="booking-detail"><i class="fa-solid fa-users"></i> ${booking.num_guests} guests</div>
+            <div class="booking-detail"><i class="fa-solid fa-location-dot"></i> ${booking.address}</div>
+            <div class="booking-footer">
+              <span class="badge badge-${booking.status === 'confirmed' ? 'green' : (booking.status === 'cancelled' ? 'red' : 'yellow')}">${booking.status}</span>
+              <i class="fa-solid fa-arrow-right" style="color: var(--muted); margin-left: auto;"></i>
+            </div>
+          </div>
+        `).join('');
+      }
     }
   })
   .catch(error => {
