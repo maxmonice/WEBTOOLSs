@@ -36,8 +36,10 @@ foreach ($allItems as $item) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="menu.css">
     <link rel="stylesheet" href="carT.css">
+
 </head>
 <body>
+
 
     <div class="grain-overlay"></div>
 
@@ -210,8 +212,18 @@ foreach ($allItems as $item) {
         </div>
     </footer>
 
-    <?php include 'carT.php'; ?>
+<?php include 'carT.php'; ?>
     <script src="carT.js"></script>
+    <script>
+        // Cart init - ensures functions available & count updated
+        if (typeof updateCartCount === 'function') updateCartCount();
+        document.getElementById('cartBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (typeof openCart === 'function') openCart();
+        });
+        console.log('Cart init complete. openCart:', typeof openCart);
+    </script>
     <script src="menu.js"></script>
+
 </body>
 </html>

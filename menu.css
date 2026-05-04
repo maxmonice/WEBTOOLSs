@@ -60,7 +60,7 @@ p, a, span, li,
    ===================================================== */
 .grain-overlay {
     position: fixed; inset: 0;
-    pointer-events: none; z-index: 9990; opacity: 0.03;
+    pointer-events: none; z-index: 1; opacity: 0.03;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -180,38 +180,38 @@ header {
 .nav-account-icon {
     display: flex !important; align-items: center;
     font-size: 1.35rem !important; color: white !important;
-    transition: transform 0.2s, opacity 0.2s !important; opacity: 0.9;
+    opacity: 0.9;
     position: relative;
 }
-.nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
 .nav-account-icon.active::after { display: none !important; }
 
 /* Speech bubble positioned under account icon - bubble is now inside .nav-account-icon */
 .nav-account-icon .order-speech-bubble {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-top: 8px;
-    background: var(--card);
-    border: 1px solid var(--red-glow);
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--white);
-    white-space: nowrap;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-    z-index: 1100;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
-    pointer-events: none;
-    cursor: pointer;
+    position: absolute !important;
+    top: 100% !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    margin-top: 12px !important;
+    min-width: 140px;
+    background: var(--card) !important;
+    border: 1px solid var(--red-glow) !important;
+    border-radius: 12px !important;
+    padding: 12px 20px !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: var(--white) !important;
+    white-space: nowrap !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5) !important;
+    z-index: 1100 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: opacity 0.3s, visibility 0.3s !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
 }
 .nav-account-icon .order-speech-bubble.show {
-    opacity: 1;
-    visibility: visible;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 .nav-account-icon .order-speech-bubble::before {
     content: '';
@@ -435,7 +435,7 @@ header {
     gap: 12px; min-height: 36px; text-align: left;
 }
 .modal-dropdown-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(194,38,38,0.5); }
-.modal-dropdown-btn i { font-size: 0.7rem; transition: transform 0.2s; color: var(--red); flex-shrink: 0; }
+.modal-dropdown-btn i { font-size: 0.7rem; transition: transform 0.2s; color: var(--red); flex-shrink: 0; margin-left: 8px; }
 .modal-dropdown-btn.open i { transform: rotate(180deg); }
 .modal-dropdown-list {
     display: none; position: fixed; 
@@ -504,13 +504,7 @@ footer a:hover { opacity: 0.85; }
     .nav-menu a.active::after { display: none; }
     .nav-account-icon { justify-content: flex-end; }
     .menu-section { padding: 0 20px 60px; }
-    .hero-banner { width: calc(100% + 40px); margin-left: -20px; height: clamp(140px,30vw,220px); }
-    .category-heading::before { display: none; }
-    .menu-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-    .menu-grid.three-columns { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-    .desktop-view { display: none; }
-    .mobile-footer-view { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 20px; }
-    .mobile-info { font-size: 0.82rem; line-height: 1.7; color: white; text-transform: uppercase; max-width: 90%; font-weight: 400; }
+    .hero-banner { width: calc(100% + 40px)1e; max-width: 90%; font-weight: 400; }
     .mobile-info a { color: white; text-decoration: none; border-bottom: 1px dotted rgba(255,255,255,0.4); }
     .mobile-info i { margin-right: 5px; }
     .pipe { font-weight: 800; margin: 0 4px; }
@@ -519,8 +513,8 @@ footer a:hover { opacity: 0.85; }
     .search-wrapper { top: 70px; }
 }
 
-/* RESPONSIVE — 480px */
-@media (max-width: 480px) {
+/* RESPONSIVE — 480px */    
+@media (max-width: 480px) { 
     .logo { font-size: 1rem; }
     .menu-section { padding: 0 15px 60px; }
     .hero-banner { width: calc(100% + 30px); margin-left: -15px; }

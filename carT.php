@@ -1,5 +1,5 @@
 <!-- Cart Button -->
-<div class="cart-btn" id="cartBtn" role="button" tabindex="0">
+<div class="cart-btn cart-btn-fixed" id="cartBtn" role="button" tabindex="0" onclick="if(typeof openCart==='function') openCart();" style="z-index: 10010 !important; pointer-events: auto;">
     <i class="fas fa-shopping-cart"></i>
     <span class="cart-count" id="cartCount">0</span>
 </div>
@@ -60,7 +60,7 @@
                 <h3 class="cart-right-title">Payment details</h3>
                 <p class="cart-label">Type of payment</p>
                 <div class="payment-methods">
-                    <button class="payment-method-btn active" data-method="mastercard">
+                    <button class="payment-method-btn active" data-method="card">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/1280px-Mastercard-logo.svg.png" alt="MasterCard">
                     </button>
                     <button class="payment-method-btn" data-method="cod">
@@ -163,7 +163,7 @@
 </div>
 
 <!-- Remove Item Confirmation Modal -->
-<div class="confirm-remove-overlay" id="confirmRemoveOverlay">
+<div class="confirm-remove-overlay" id="confirmRemoveOverlay" style="z-index: 10000;">
     <div class="confirm-remove-modal">
         <div class="confirm-remove-icon"><i class="fas fa-trash-alt"></i></div>
         <h3 class="confirm-remove-title">Remove Item</h3>

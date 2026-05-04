@@ -378,14 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addItemToCart(window.currentItem, quantity, selectedVariation);
         }
         
-// Pulse cart count animation
-        const cartCount = document.getElementById('cartCount');
-        if (cartCount) {
-            cartCount.classList.add('pulse');
-            setTimeout(() => cartCount.classList.remove('pulse'), 600);
-            // Update cart count display
-            if (window.updateCartCount) window.updateCartCount();
-        }
+        if (window.updateCartCount) window.updateCartCount();
 
         setTimeout(() => {
             btn.innerHTML = '<i class="fas fa-cart-arrow-down" style="color: #fff;"></i>';
@@ -402,13 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addItemToCart(window.currentItem, quantity, selectedVariation);
         }
         
-        // Pulse cart count animation
-        const cartCount = document.getElementById('cartCount');
-        if (cartCount) {
-            cartCount.classList.add('pulse');
-            setTimeout(() => cartCount.classList.remove('pulse'), 600);
-            if (window.updateCartCount) window.updateCartCount();
-        }
+        if (window.updateCartCount) window.updateCartCount();
         
         closeModal();
         if (window.openCart) window.openCart();
@@ -444,6 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function openAuthModal()  { document.getElementById('authModal').classList.add('open'); }
 function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
 function goToSignIn() {
-    sessionStorage.setItem('redirect_after_login', 'menu.html');
-    window.location.href = 'account.html';
+    sessionStorage.setItem('redirect_after_login', 'menu.php');
+    window.location.href = 'account.php';
 }
