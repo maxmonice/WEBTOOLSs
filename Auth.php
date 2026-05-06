@@ -264,7 +264,7 @@ function handleLogin(array $data): void {
         respond(true, 'Admin login successful.', [
             'name'     => $user['name'],
             'email'    => $user['email'],
-            'redirect' => 'admin-dashboard.php',
+            'redirect' => 'adminSide/admin-dashboard.php',
         ]);
     } else {
         debugLog($runId, 'H1', 'Auth.php:handleLogin:notAdmin', 'Admin check FAILED - email does NOT match admin@gmail.com', [
