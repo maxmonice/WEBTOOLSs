@@ -18,7 +18,7 @@
 
 <!-- Top Notification Bar -->
 <div class="top-notif" id="topNotif">
-<span class="top-notif-icon"></span>
+    <span class="top-notif-icon"></span>
     <span class="top-notif-text" id="topNotifText">Order Successful!</span>
 </div>
 
@@ -42,12 +42,12 @@
             </div>
         </div>
 
-<div class="cart-right">
+        <div class="cart-right">
             <div id="cartAuthNotice" class="cart-auth-notice" style="display:none;"></div>
             <div class="cart-notif" id="cartNotif">
                 <span class="cart-notif-text" id="cartNotifText">Cart is empty - add items from the menu!</span>
             </div>
-<div class="cart-right-section">
+            <div class="cart-right-section">
                 <h3 class="cart-right-title">Address</h3>
                 <div class="cart-address-field">
                     <input type="text" class="cart-input" placeholder="Street, Barangay, and City" id="cartAddress">
@@ -119,23 +119,11 @@
 
                     <p class="cart-label" style="margin-top:12px;">GCash Reference Number</p>
                     <div class="input-group">
-                        <input 
-                            type="text" 
-                            class="cart-input dark" 
-                            id="gcashRef" 
-                            placeholder="09XX XXX XXXX" 
-                            maxlength="13" 
-                            oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        <input type="text" class="cart-input dark" id="gcashRef" placeholder="09XX XXX XXXX" maxlength="13" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>
                     <p class="cart-label" style="margin-top:10px;">GCash Mobile Number</p>
                     <div class="input-group">
-                    <input 
-                            type="text" 
-                            class="cart-input dark" 
-                            id="gcashNumber" 
-                            placeholder="09XX XXX XXXX" 
-                            maxlength="11" 
-                            oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        <input type="text" class="cart-input dark" id="gcashNumber" placeholder="09XX XXX XXXX" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>
                 </div>
             </div>
@@ -143,19 +131,19 @@
             <div class="cart-totals">
                 <div class="cart-total-row">
                     <span>Subtotal</span>
-                    <span id="cartSubtotal">â‚±0</span>
+                    <span id="cartSubtotal">₱0</span>
                 </div>
                 <div class="cart-total-row">
                     <span>Shipping</span>
-                    <span>â‚±50</span>
+                    <span>₱50</span>
                 </div>
                 <div class="cart-total-row total">
                     <span>Total (Tax incl.)</span>
-                    <span id="cartTotal">â‚±50</span>
+                    <span id="cartTotal">₱50</span>
                 </div>
             </div>
             <button class="checkout-btn" id="checkoutBtn">
-                <span id="checkoutTotal">â‚±50</span>
+                <span id="checkoutTotal">₱50</span>
                 <span>Checkout <i class="fas fa-arrow-right"></i><i class="fas fa-lock lock-icon"></i></span>
             </button>
         </div>
@@ -193,7 +181,7 @@
             <p>You need to be signed in to place an order.<br>
             <strong>Please log in to your account</strong> to continue.</p>
         </div>
-<div class="auth-modal-foot">
+        <div class="auth-modal-foot">
             <button class="auth-btn-signin" onclick="goToSignIn()">
                 <i class="fa-solid fa-right-to-bracket"></i> Sign In to My Account
             </button>
@@ -205,14 +193,18 @@
 <!-- Order Confirmation Modal -->
 <div class="order-confirm-overlay" id="orderConfirmOverlay">
     <div class="order-confirm-modal">
-<div class="order-confirm-icon"><i class="fas fa-check"></i></div>
-        <h3 class="order-confirm-title">Order Confirmed!</h3>
-        <p class="order-confirm-text">Thank you for your order. Here's your summary:</p>
-        
+        <div class="order-confirm-icon"><i class="fas fa-receipt"></i></div>
+        <h3 class="order-confirm-title">Confirm Your Order</h3>
+        <p class="order-confirm-text">Review your order details before placing.</p>
+
+        <div class="order-confirm-pay-simple">
+            Payment method: <strong id="orderConfirmPayText">Card</strong>
+        </div>
+
         <div class="order-confirm-summary" id="orderConfirmSummary"></div>
-        
+
         <div class="order-confirm-divider"></div>
-        
+
         <div class="order-confirm-breakdown">
             <div class="order-confirm-row">
                 <span>Subtotal</span>
@@ -227,10 +219,14 @@
                 <span id="orderTotal">₱50</span>
             </div>
         </div>
-        
-<div class="order-confirm-actions">
-            <button class="order-confirm-close" id="orderConfirmClose">Place Order</button>
+
+        <div class="order-confirm-actions">
+            <button class="order-confirm-place" id="orderConfirmClose">
+                <i class="fas fa-check-circle"></i> Place Order
+            </button>
             <button class="order-confirm-cancel" id="orderConfirmCancelBtn">Cancel</button>
         </div>
     </div>
 </div>
+
+

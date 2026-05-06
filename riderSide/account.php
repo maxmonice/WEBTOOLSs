@@ -1,3 +1,7 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -131,7 +135,7 @@
         </div>
       </div>
 
-      <button class="logout-btn" onclick="confirmLogout()">
+      <button class="logout-btn" onclick="doLogout()">
         <i class="fas fa-sign-out-alt"></i> Log Out
       </button>
       <div style="height:8px"></div>

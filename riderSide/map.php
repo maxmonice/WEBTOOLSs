@@ -1,3 +1,7 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,8 +10,14 @@
 <title>Luke's Seafood — Map</title>
 <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 <link rel="stylesheet" href="shared.css">
 <link rel="stylesheet" href="map.css">
+<style>
+  #map-view { width: 100%; height: 100%; background: #1a1a2e; }
+  .leaflet-routing-container { display: none !important; /* Hide default OSRM routing UI */ }
+</style>
 </head>
 <body>
 <div class="phone-shell">
@@ -22,54 +32,8 @@
 
   <!-- MAP PAGE -->
   <div class="page-content map-page">
-    <div class="map-container">
-      <div class="map-grid"></div>
-
-      <!-- Roads -->
-      <div class="map-road-h" style="top:30%;height:18px"></div>
-      <div class="map-road-h" style="top:55%;height:14px"></div>
-      <div class="map-road-h" style="top:75%;height:10px"></div>
-      <div class="map-road-v" style="left:35%;width:16px"></div>
-      <div class="map-road-v" style="left:65%;width:12px"></div>
-      <div class="map-road-v" style="left:20%;width:10px"></div>
-
-      <!-- Blocks -->
-      <div class="map-block" style="top:8%;left:8%;width:22%;height:20%"></div>
-      <div class="map-block" style="top:8%;left:42%;width:18%;height:20%"></div>
-      <div class="map-block" style="top:8%;left:72%;width:20%;height:20%"></div>
-      <div class="map-block" style="top:38%;left:8%;width:20%;height:14%"></div>
-      <div class="map-block" style="top:38%;left:42%;width:18%;height:14%"></div>
-      <div class="map-block" style="top:38%;left:72%;width:20%;height:14%"></div>
-      <div class="map-block" style="top:62%;left:8%;width:22%;height:10%"></div>
-      <div class="map-block" style="top:62%;left:42%;width:18%;height:10%"></div>
-      <div class="map-block" style="top:62%;left:72%;width:20%;height:10%"></div>
-
-      <div class="route-line"></div>
-
-      <!-- Rider pin -->
-      <div class="rider-pin">
-        <div class="rider-pin-pulse"></div>
-        <div class="rider-pin-inner"><i class="fas fa-motorcycle"></i></div>
-      </div>
-
-      <!-- Destination pin -->
-      <div class="dest-pin">
-        <div class="dest-pin-inner"><i class="fas fa-home"></i></div>
-      </div>
-
-      <!-- Map controls -->
-      <div class="map-controls">
-        <button class="map-ctrl-btn"><i class="fas fa-plus"></i></button>
-        <button class="map-ctrl-btn"><i class="fas fa-minus"></i></button>
-        <button class="map-ctrl-btn"><i class="fas fa-crosshairs"></i></button>
-        <button class="map-ctrl-btn"><i class="fas fa-layer-group"></i></button>
-      </div>
-
-      <!-- Map labels -->
-      <div style="position:absolute;top:22%;left:36%;font-size:.6rem;color:rgba(255,255,255,.5);font-weight:600;z-index:6">Mabini St.</div>
-      <div style="position:absolute;top:48%;left:12%;font-size:.6rem;color:rgba(255,255,255,.5);font-weight:600;z-index:6">Rizal Ave.</div>
-      <div style="position:absolute;top:24%;left:67%;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.4);border-radius:6px;padding:2px 6px;font-size:.62rem;color:#4ade80;font-weight:700;z-index:8">Destination</div>
-      <div style="position:absolute;top:52%;left:44%;background:rgba(194,38,38,.2);border:1px solid rgba(194,38,38,.4);border-radius:6px;padding:2px 6px;font-size:.62rem;color:#ff8080;font-weight:700;z-index:8">You</div>
+    <div class="map-container" style="padding:0;">
+      <div id="map-view"></div>
     </div>
 
     <!-- Delivery info card -->
@@ -127,6 +91,19 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Leaflet, Routing, and Socket.io JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+<script src="http://localhost:3000/socket.io/socket.io.js"></script>
+
+<script>
+  // Pass active order data from backend if available (mocked for now, assumes rider accepted order 12345)
+  // In a real flow, this comes from the active order session/db.
+  const ACTIVE_ORDER_ID = localStorage.getItem('rider_active_order') || 12345;
+  const DEST_LAT = 14.545; // Default Brgy Bagumbayan demo coords
+  const DEST_LNG = 121.050;
+</script>
 <script src="map.js"></script>
 </body>
 </html>

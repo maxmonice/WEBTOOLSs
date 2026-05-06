@@ -571,6 +571,20 @@ function handleGoogleAuth(array $data): void {
 // =====================================================
 //  FACEBOOK OAUTH
 // =====================================================
+function fbCurlGet(string $url): ?string {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => false,
+        CURLOPT_USERAGENT      => 'LukesSeafood/1.0',
+    ]);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    return $response ?: null;
+}
+
 function handleFacebookAuth(array $data): void {
     $accessToken       = trim($data['access_token'] ?? '');
     $facebookAppId     = getenv('FACEBOOK_APP_ID') ?: '1282425887392045';
@@ -578,26 +592,28 @@ function handleFacebookAuth(array $data): void {
     $runId             = (string)($GLOBALS['DEBUG_RUN_ID'] ?? 'unknown');
 
     debugLog($runId, 'H12', 'Auth.php:handleFacebookAuth:config', 'Facebook auth config loaded', [
-        'hasAppId' => $facebookAppId !== '',
+        'hasAppId'     => $facebookAppId !== '',
         'hasAppSecret' => $facebookAppSecret !== '',
     ]);
 
     if (!$accessToken) respond(false, 'Missing Facebook access token.');
     if (!$facebookAppId || !$facebookAppSecret) {
-        respond(false, 'Facebook login is not configured. Please set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET.');
+        respond(false, 'Facebook login is not configured.');
     }
 
+    // Verify token with Facebook
     $appToken  = $facebookAppId . '|' . $facebookAppSecret;
     $verifyUrl = 'https://graph.facebook.com/debug_token?input_token=' . urlencode($accessToken)
                . '&access_token=' . urlencode($appToken);
-    $verifyResponse = @file_get_contents($verifyUrl);
-    if (!$verifyResponse) respond(false, 'Could not verify Facebook token.');
+    $verifyResponse = fbCurlGet($verifyUrl);
+    if (!$verifyResponse) respond(false, 'Could not verify Facebook token. Check server cURL/SSL settings.');
 
     $verifyData = json_decode($verifyResponse, true);
     if (empty($verifyData['data']['is_valid'])) respond(false, 'Invalid Facebook token.');
 
+    // Fetch user info
     $userUrl  = 'https://graph.facebook.com/me?fields=id,name,email,picture&access_token=' . urlencode($accessToken);
-    $userResp = @file_get_contents($userUrl);
+    $userResp = fbCurlGet($userUrl);
     if (!$userResp) respond(false, 'Could not fetch Facebook user info.');
 
     $fbUser     = json_decode($userResp, true);
@@ -630,25 +646,13 @@ function handleFacebookAuth(array $data): void {
         $stmt->execute([$name, $email ?: null, $facebookId, $avatar]);
         $userId = (int) $db->lastInsertId();
     } else {
-        // Check if user is suspended
-        $userStatus = $user['status'] ?? 'active';
-        if ($userStatus === 'suspended') {
-            debugLog($runId, 'H12', 'Auth.php:handleFacebookAuth:suspended', 'Facebook auth user account is suspended', [
-                'userStatus' => $userStatus,
-            ]);
-            respond(false, 'Your account has been suspended. Please contact the administrator.');
-        }
-        
         $userId = $user['id'];
         $name   = $user['name'];
         $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([$avatar, $userId]);
     }
 
     startUserSession($userId, $name, $email ?: '');
-    
-    // Log Facebook login activity
     logActivity('facebook_login', 'User logged in with Facebook OAuth', $email ?: '', $name);
-    
     respond(true, 'Signed in with Facebook.', ['name' => $name, 'email' => $email]);
 }
 

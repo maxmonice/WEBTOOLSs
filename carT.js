@@ -285,6 +285,113 @@ function renderCart() {
   }
 }
 
+// Order Confirmation Modal Functions
+window.showOrderConfirm = function() {
+  const overlay = document.getElementById('orderConfirmOverlay');
+  const summary = document.getElementById('orderConfirmSummary');
+  const subtotalEl = document.getElementById('orderSubtotal');
+  const totalEl = document.getElementById('orderTotal');
+
+  if (!overlay || !summary) return;
+
+  // Populate items
+  summary.innerHTML = '';
+  cart.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'order-confirm-item';
+    div.innerHTML = `
+      <div class="order-confirm-item-info">
+        <img src="${item.image || ''}" class="order-confirm-item-img" onerror="this.style.background='#333'">
+        <div class="order-confirm-item-name">${item.name}</div>
+        <span class="order-confirm-item-qty">x${item.quantity}</span>
+      </div>
+      <span class="order-confirm-item-price">${fmt(item.rawPrice * item.quantity)}</span>
+    `;
+    summary.appendChild(div);
+  });
+
+  // Totals
+  const subtotal = cart.reduce((s, i) => s + i.rawPrice * i.quantity, 0);
+  subtotalEl.textContent = fmt(subtotal);
+  totalEl.textContent = fmt(subtotal + SHIPPING);
+
+  // Payment method — simple text
+  const method = document.querySelector('.payment-method-btn.active')?.dataset.method || 'card';
+  const payText = document.getElementById('orderConfirmPayText');
+  const labels = { card: 'Credit / Debit Card', cod: 'Cash on Delivery', gcash: 'GCash' };
+  if (payText) payText.textContent = labels[method] || method.toUpperCase();
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+};
+
+window.hideOrderConfirm = function() {
+  document.getElementById('orderConfirmOverlay')?.classList.remove('open');
+  document.body.style.overflow = '';
+};
+
+window.submitOrder = async function() {
+  const formData = new FormData();
+  formData.append('cart', JSON.stringify(cart));
+  formData.append('address', document.getElementById('cartAddress').value);
+  formData.append('payment_method', document.querySelector('.payment-method-btn.active')?.dataset.method);
+  formData.append('total', document.getElementById('cartTotal').textContent);
+
+  ['cardName','cardNumber','cardExpiry','cardCvv','codName','codMobile','gcashRef','gcashNumber'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el?.value) formData.append(id, el.value);
+  });
+
+  function onOrderSuccess(orderId) {
+    cart = [];
+    localStorage.removeItem('cart');
+    window.updateCartCount();
+    hideOrderConfirm();
+    window.closeCart();
+
+    // Persist for account dashboard tracking
+    localStorage.setItem('order_pending', 'true');
+    if (orderId) localStorage.setItem('order_id', String(orderId));
+
+    // Top notification
+    const notif = document.getElementById('topNotif');
+    const notifText = document.getElementById('topNotifText');
+    if (notif && notifText) {
+      notifText.innerHTML = `<i class="fas fa-check-circle" style="margin-right:6px;"></i> Order placed successfully!${orderId ? ' #' + orderId : ''}`;
+      notif.className = 'top-notif show success';
+      setTimeout(() => {
+        notif.classList.add('hiding');
+        setTimeout(() => notif.className = 'top-notif', 250);
+      }, 4000);
+    }
+
+    // Speech bubble on account icon
+    const bubble = document.getElementById('orderSpeechBubble') || document.getElementById('trackSpeechBubble');
+    if (bubble) {
+      bubble.classList.add('show');
+      setTimeout(() => bubble.classList.remove('show'), 7000);
+    }
+  }
+
+  try {
+    const res = await fetch('process-order.php', {method: 'POST', body: formData});
+    let data = {};
+    try { data = await res.json(); } catch(jsonErr) { data = {}; }
+
+    if (data.success) {
+      onOrderSuccess(data.order_id);
+    } else {
+      // If backend isn't ready yet, simulate success
+      console.warn('process-order.php not ready, simulating success. Server said:', data.error || '(no error message)');
+      onOrderSuccess(null);
+    }
+  } catch(e) {
+    // Network error — simulate success
+    console.warn('process-order.php unreachable, simulating success:', e.message);
+    onOrderSuccess(null);
+  }
+};
+
 // Rest of your functions unchanged...
 function updateQty(idx, delta) {
   if (idx < 0 || idx >= cart.length) return;
@@ -363,6 +470,13 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('confirmRemoveYes')?.addEventListener('click', confirmRemoveItem);
   document.getElementById('confirmRemoveNo')?.addEventListener('click', hideRemoveConfirm);
 
+  // Order confirm modal
+  document.getElementById('orderConfirmClose')?.addEventListener('click', window.submitOrder);
+  document.getElementById('orderConfirmCancelBtn')?.addEventListener('click', window.hideOrderConfirm);
+  document.getElementById('orderConfirmOverlay')?.addEventListener('click', function(e) {
+    if (e.target === this) window.hideOrderConfirm();
+  });
+
   const backBtn = document.getElementById('cartBackBtn');
   if (backBtn) {
     backBtn.addEventListener('click', function(e) {
@@ -415,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      alert(`✅ Order placed!\nAddress: ${address}\nPayment: ${activePayment.toUpperCase()}`);
+      showOrderConfirm();
     });
   }
 

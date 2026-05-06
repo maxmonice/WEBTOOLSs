@@ -6,10 +6,18 @@ function toggleSwitch(el) {
   el.classList.toggle('on');
 }
 
-function confirmLogout() {
-  if (confirm('Are you sure you want to log out?')) {
-    window.location.href = 'login.php';
-  }
+function confirmLogout() { doLogout(); }
+
+async function doLogout() {
+  try {
+    await fetch('rider-auth.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'logout' })
+    });
+  } catch (e) {}
+  window.location.href = 'login.php';
 }
 
 function showToast(msg) {

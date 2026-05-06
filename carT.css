@@ -19,7 +19,7 @@
     box-shadow: 0 12px 40px rgba(194, 38, 38, 0.8), 0 0 0 4px rgba(194, 38, 38, 0.3) !important;
     z-index: 10020 !important;
     transition: transform 0.3s, box-shadow 0.3s !important;
-    border: 2px solid rgba(255, 255, 255, 0.25) !important;
+    border: none !important;
     pointer-events: auto !important;
 }
 
@@ -1141,7 +1141,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    z-index: 9600;
+    z-index: 10070;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(8px);
     align-items: center;
@@ -1159,8 +1159,8 @@
     border: none;
     border-radius: 18px;
     width: 100%;
-    max-width: 380px;
-    padding: 32px 28px 28px;
+    max-width: 420px;
+    padding: 28px 28px 26px;
     text-align: center;
     position: relative;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
@@ -1169,17 +1169,17 @@
 }
 
 .order-confirm-icon {
-    width: 64px;
-    height: 64px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: rgba(194, 38, 38, 0.12);
     border: 1px solid rgba(194, 38, 38, 0.35);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     color: #C22626;
-    margin: 0 auto 18px;
+    margin: 0 auto 14px;
 }
 
 .order-confirm-icon i {
@@ -1190,24 +1190,51 @@
 
 .order-confirm-title {
     font-family: 'Aclonica', sans-serif;
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     color: #fff;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .order-confirm-text {
     font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.87rem;
+    font-size: 0.82rem;
     color: rgba(255, 255, 255, 0.55);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .order-confirm-summary {
     text-align: left;
-    max-height: 180px;
+    max-height: 150px;
     overflow-y: auto;
-    margin-bottom: 16px;
-    padding-right: 8px;
+    margin-bottom: 12px;
+    padding-right: 6px;
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(194, 38, 38, 0.6) rgba(255, 255, 255, 0.06);
+}
+
+.order-confirm-summary::-webkit-scrollbar {
+    display: block;
+    width: 4px;
+}
+
+.order-confirm-summary::-webkit-scrollbar-button {
+    display: none;
+}
+
+.order-confirm-summary::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+}
+
+.order-confirm-summary::-webkit-scrollbar-thumb {
+    background: rgba(194, 38, 38, 0.55);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.order-confirm-summary::-webkit-scrollbar-thumb:hover {
+    background: rgba(194, 38, 38, 0.85);
 }
 
 .order-confirm-item {
@@ -1287,40 +1314,62 @@
     margin-top: 6px;
 }
 
-.order-confirm-actions {
-    margin-top: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.order-confirm-pay-simple {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 14px;
+    text-align: left;
 }
 
-.order-confirm-close {
+.order-confirm-pay-simple strong {
+    color: #fff;
+    font-weight: 700;
+}
+
+.order-confirm-actions {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.order-confirm-place {
     width: 100%;
-    padding: 13px;
+    padding: 14px;
     background: linear-gradient(135deg, #C22626, #8B0A1E);
     color: #fff;
     border: none;
     border-radius: 10px;
     font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 700;
+    font-size: 0.98rem;
+    font-weight: 800;
     cursor: pointer;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
     transition: opacity 0.2s, box-shadow 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 18px rgba(194, 38, 38, 0.4);
 }
 
-.order-confirm-close:hover {
+.order-confirm-place:hover {
     opacity: 0.92;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(194, 38, 38, 0.45);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(194, 38, 38, 0.55);
+}
+
+.order-confirm-place:active {
+    transform: translateY(0);
 }
 
 .order-confirm-cancel {
     width: 100%;
     padding: 12px;
-    background: #2a2a2a;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 10px;
     font-family: 'Be Vietnam Pro', sans-serif;
     font-size: 0.88rem;
@@ -1331,7 +1380,7 @@
 
 .order-confirm-cancel:hover {
     color: #fff;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.07);
     border-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -1601,4 +1650,65 @@
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.15);
     text-align: center;
+}
+
+/* =====================================================
+   TRACK ORDER SPEECH BUBBLE
+   ===================================================== */
+.track-speech-bubble {
+    position: fixed;
+    bottom: 110px;
+    right: 22px;
+    background: #fff;
+    color: #1a1a1a;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(194,38,38,0.12);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    z-index: 10030;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px) scale(0.92);
+    transition: opacity 0.35s cubic-bezier(.16,1,.3,1), transform 0.35s cubic-bezier(.16,1,.3,1);
+}
+
+.track-speech-bubble i {
+    color: #C22626;
+    font-size: 0.9rem;
+}
+
+.track-speech-bubble.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+
+/* Tail pointing down-right toward the cart button */
+.track-speech-tail {
+    position: absolute;
+    bottom: -9px;
+    right: 22px;
+    width: 0;
+    height: 0;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 10px solid #fff;
+    filter: drop-shadow(0 3px 3px rgba(0,0,0,0.08));
+}
+
+/* Gentle bounce to attract attention */
+@keyframes speechBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    40%       { transform: translateY(-5px) scale(1.03); }
+    60%       { transform: translateY(-2px) scale(1.01); }
+}
+
+.track-speech-bubble.show {
+    animation: speechBounce 1.2s ease 0.4s 2;
 }

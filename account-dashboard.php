@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -177,6 +179,70 @@
             .edit-btn { width: 100%; justify-content: center; }
             .page { padding: 32px 16px 60px; }
         }
+
+        /* ── ORDER TRACKING MAP ── */
+        .order-track-card { padding: 16px 22px 20px; }
+        .order-track-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+        .order-track-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(194,38,38,0.12); border:1px solid var(--border-red); border-radius:20px; padding:4px 12px; font-size:0.72rem; font-weight:700; color:var(--red); letter-spacing:0.06em; text-transform:uppercase; }
+        .order-track-badge .dot { width:7px; height:7px; border-radius:50%; background:var(--red); animation:pulse-dot 1.4s infinite; }
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(1.4);} }
+        .order-track-id { font-size:0.75rem; color:var(--muted); font-weight:600; }
+        .order-track-address { font-size:0.82rem; color:var(--text); font-weight:600; margin-bottom:14px; display:flex; align-items:flex-start; gap:8px; line-height:1.4; }
+        .order-track-address i { color:var(--red); margin-top:2px; flex-shrink:0; }
+
+        /* Mini map */
+        .mini-map-wrap { position:relative; height:170px; border-radius:12px; overflow:hidden; cursor:pointer; background:#1a2235; border:1px solid rgba(255,255,255,0.08); margin-bottom:14px; transition:transform 0.2s, box-shadow 0.2s; }
+        .mini-map-wrap:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.4); }
+        .mini-map-wrap::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.5)); pointer-events:none; z-index:2; }
+        .map-expand-hint { position:absolute; bottom:10px; right:10px; z-index:5; background:rgba(0,0,0,0.6); color:#fff; font-size:0.65rem; font-weight:700; padding:4px 9px; border-radius:8px; display:flex; align-items:center; gap:5px; backdrop-filter:blur(4px); }
+        .map-grid-bg { position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px); background-size:28px 28px; }
+        .map-road-h,.map-road-v { position:absolute; background:rgba(255,255,255,0.12); border-radius:2px; }
+        .map-road-h { left:0; right:0; }
+        .map-road-v { top:0; bottom:0; }
+        .map-route { position:absolute; top:38%; left:20%; width:55%; height:3px; background:linear-gradient(90deg,#C22626,#ff6b35); border-radius:4px; z-index:3; animation:route-draw 1.2s ease forwards; transform-origin:left; }
+        @keyframes route-draw { from{transform:scaleX(0);} to{transform:scaleX(1);} }
+        .map-rider-pin { position:absolute; z-index:6; display:flex; flex-direction:column; align-items:center; animation:rider-move 6s ease-in-out infinite alternate; }
+        @keyframes rider-move { from{left:18%;top:35%;} to{left:58%;top:34%;} }
+        .map-rider-pulse { width:28px; height:28px; border-radius:50%; background:rgba(194,38,38,0.25); border:2px solid rgba(194,38,38,0.5); display:flex; align-items:center; justify-content:center; animation:pin-pulse 1.8s infinite; }
+        @keyframes pin-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(194,38,38,0.4);} 50%{box-shadow:0 0 0 10px rgba(194,38,38,0);} }
+        .map-rider-icon { font-size:0.85rem; color:#C22626; }
+        .map-dest-pin { position:absolute; top:30%; left:68%; z-index:5; display:flex; flex-direction:column; align-items:center; }
+        .map-dest-inner { width:24px; height:24px; border-radius:50%; background:linear-gradient(135deg,#22c55e,#16a34a); display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:#fff; box-shadow:0 0 12px rgba(34,197,94,0.5); }
+        .map-label { position:absolute; bottom:6px; left:50%; transform:translateX(-50%); z-index:5; font-size:0.6rem; color:rgba(255,255,255,0.45); font-weight:600; white-space:nowrap; }
+
+        /* Progress steps */
+        .track-progress { display:flex; align-items:center; gap:0; margin-bottom:14px; }
+        .track-step { display:flex; flex-direction:column; align-items:center; gap:4px; flex:0 0 auto; }
+        .track-dot { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,0.15); background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:0.6rem; color:var(--muted); transition:all 0.3s; }
+        .track-dot.done { background:var(--red); border-color:var(--red); color:#fff; box-shadow:0 0 10px rgba(194,38,38,0.4); }
+        .track-dot.active { border-color:var(--red); color:var(--red); animation:step-pulse 1.8s infinite; }
+        @keyframes step-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(194,38,38,0.4);} 50%{box-shadow:0 0 0 6px rgba(194,38,38,0);} }
+        .track-label { font-size:0.62rem; color:var(--muted); font-weight:600; text-align:center; line-height:1.3; white-space:nowrap; }
+        .track-label.done,.track-label.active { color:var(--text); }
+        .track-line { flex:1; height:2px; background:rgba(255,255,255,0.1); margin:0 4px; margin-bottom:18px; transition:background 0.3s; }
+        .track-line.done { background:var(--red); }
+        .track-actions { display:flex; gap:10px; }
+        .btn-view-map { flex:1; padding:10px; background:linear-gradient(135deg,var(--red),var(--red-dark)); color:#fff; border:none; border-radius:9px; font-family:'Be Vietnam Pro',sans-serif; font-size:0.82rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; transition:opacity 0.2s,box-shadow 0.2s; }
+        .btn-view-map:hover { opacity:0.9; box-shadow:0 4px 16px rgba(194,38,38,0.4); }
+        .btn-received { flex:1; padding:10px; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:9px; font-family:'Be Vietnam Pro',sans-serif; font-size:0.82rem; font-weight:700; cursor:pointer; transition:color 0.2s,border-color 0.2s; }
+        .btn-received:hover { color:var(--text); border-color:rgba(255,255,255,0.25); }
+
+        /* Fullscreen map overlay */
+        .map-fullscreen-overlay { display:none; position:fixed; inset:0; z-index:9000; background:#111827; flex-direction:column; }
+        .map-fullscreen-overlay.open { display:flex; animation:fadeIn 0.2s ease; }
+        .map-fs-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:rgba(0,0,0,0.6); backdrop-filter:blur(10px); position:relative; z-index:10; border-bottom:1px solid rgba(255,255,255,0.08); }
+        .map-fs-title { font-family:'Aclonica',sans-serif; font-size:1rem; color:#fff; }
+        .map-fs-close { width:36px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.85rem; transition:background 0.2s; }
+        .map-fs-close:hover { background:rgba(255,255,255,0.16); }
+        .map-fs-body { flex:1; position:relative; overflow:hidden; }
+        #customer-map-view { width: 100%; height: 100%; background: #111827; }
+        .leaflet-routing-container { display: none !important; }
+        .map-fs-card { position:absolute; bottom:0; left:0; right:0; background:rgba(17,24,39,0.95); backdrop-filter:blur(16px); border-top:1px solid rgba(255,255,255,0.08); padding:20px 22px; z-index:400; }
+        .map-fs-addr { font-size:0.82rem; color:rgba(255,255,255,0.55); margin-bottom:4px; }
+        .map-fs-addr-val { font-size:0.95rem; font-weight:700; color:#fff; margin-bottom:16px; }
+        .map-fs-progress { display:flex; align-items:center; margin-bottom:18px; }
+        .map-fs-eta { display:flex; align-items:center; gap:8px; font-size:0.78rem; color:rgba(255,255,255,0.5); font-weight:600; }
+        .map-fs-eta strong { color:#fff; font-size:1rem; }
     </style>
 </head>
 <body>
@@ -230,12 +296,10 @@
             </div>
 
 <!-- Track Your Order -->
-            <div class="section-block">
-                <div class="section-label"><i class="fa-solid fa-box-open"></i> Track Your Order</div>
+            <div class="section-block" id="trackingBlock">
+                <div class="section-label"><i class="fa-solid fa-location-dot"></i> Track Your Order</div>
                 <div id="orderTrackingSection">
-                    <div class="menu-rows" id="orderTrackingRows">
-                        <!-- Order tracking info will be loaded here -->
-                    </div>
+                    <!-- Populated by loadOrderTracking() -->
                 </div>
             </div>
 
@@ -296,6 +360,30 @@
             </div>
         </div>
     </main>
+
+    <!-- FULLSCREEN MAP OVERLAY -->
+    <div class="map-fullscreen-overlay" id="mapFullscreen">
+        <div class="map-fs-header">
+            <span class="map-fs-title"><i class="fas fa-motorcycle" style="color:#C22626;margin-right:8px;"></i>Live Tracking</span>
+            <button class="map-fs-close" onclick="closeMapFullscreen()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="map-fs-body">
+            <div id="customer-map-view"></div>
+        </div>
+        <!-- Bottom card -->
+        <div class="map-fs-card">
+            <div class="map-fs-addr">Delivering to</div>
+            <div class="map-fs-addr-val" id="fsAddress">—</div>
+            <div class="map-fs-progress track-progress">
+                <div class="track-step"><div class="track-dot done" id="fsDot1"><i class="fas fa-check" style="font-size:0.55rem"></i></div><div class="track-label done">Order<br>Placed</div></div>
+                <div class="track-line done" id="fsLine1"></div>
+                <div class="track-step"><div class="track-dot active" id="fsDot2"><i class="fas fa-motorcycle" style="font-size:0.6rem"></i></div><div class="track-label active">On the<br>Way</div></div>
+                <div class="track-line" id="fsLine2"></div>
+                <div class="track-step"><div class="track-dot" id="fsDot3"><i class="fas fa-box" style="font-size:0.55rem"></i></div><div class="track-label">Delivered</div></div>
+            </div>
+            <div class="map-fs-eta"><i class="fas fa-clock" style="color:#C22626"></i> Estimated arrival: <strong id="fsEta">~15 mins</strong></div>
+        </div>
+    </div>
 
     <!-- FOOTER -->
     <footer>
@@ -420,6 +508,10 @@
 
     <!-- TOAST -->
     <div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toastMsg">Done!</span></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
 
     <script>
         // ── Session guard ──
@@ -555,58 +647,331 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         });
 
         // ── Order Tracking ──
-        function loadOrderTracking() {
-            const rowsContainer = document.getElementById('orderTrackingRows');
-            const hasPendingOrder = localStorage.getItem('order_pending') === 'true';
-            
-            if (hasPendingOrder) {
-                // Show pending order info
-                rowsContainer.innerHTML = `
-                    <a class="menu-row" href="#">
-                        <div class="mr-left">
-                            <div class="mr-icon" style="background: var(--red); color: #fff;"><i class="fa-solid fa-clock"></i></div>
-                            <div class="mr-text">
-                                <div class="mr-title">Order Pending</div>
-                                <div class="mr-sub">Your order is being processed</div>
-                            </div>
-                        </div>
-                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
-                    </a>
-                    <hr class="menu-divider">
-                    <a class="menu-row" href="#" onclick="clearOrderTracking(); return false;">
-                        <div class="mr-left">
-                            <div class="mr-icon"><i class="fa-solid fa-check-circle"></i></div>
-                            <div class="mr-text">
-                                <div class="mr-title">Mark as Received</div>
-                                <div class="mr-sub">Confirm you received your order</div>
-                            </div>
-                        </div>
-                        <i class="fa-solid fa-chevron-right mr-arrow"></i>
-                    </a>
-                `;
-            } else {
-                // No pending orders
-                rowsContainer.innerHTML = `
-                    <div class="menu-row" style="cursor: default;">
-                        <div class="mr-left">
-                            <div class="mr-icon"><i class="fa-solid fa-box-open"></i></div>
-                            <div class="mr-text">
-                                <div class="mr-title">No Active Orders</div>
-                                <div class="mr-sub">Place an order to track it here</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
+        let _currentOrder = null;
+
+        async function loadOrderTracking() {
+            const section = document.getElementById('orderTrackingSection');
+            const orderId = localStorage.getItem('order_id');
+            const hasPending = localStorage.getItem('order_pending') === 'true';
+
+            if (!hasPending && !orderId) {
+                renderNoOrder(section);
+                return;
             }
+
+            // Try fetching from backend
+            try {
+                const url = orderId ? `get-order.php?order_id=${orderId}` : 'get-order.php';
+                const res = await fetch(url, { credentials: 'include' });
+                const data = await res.json();
+                if (data.success && data.order) {
+                    _currentOrder = data.order;
+                    renderOrderCard(section, data.order);
+                    return;
+                }
+            } catch (e) { /* fallback below */ }
+
+            // Fallback: show generic pending state if localStorage says pending
+            if (hasPending) {
+                renderGenericPending(section);
+            } else {
+                renderNoOrder(section);
+            }
+        }
+
+        function statusToStep(status) {
+            if (status === 'delivered') return 3;
+            if (status === 'on_the_way' || status === 'picked_up') return 2;
+            return 1;
+        }
+
+        function renderOrderCard(section, order) {
+            const step = statusToStep(order.status);
+            const fmt  = n => '₱' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+            const payLabel = { cod:'Cash on Delivery', gcash:'GCash', card:'Credit / Debit Card' };
+
+            section.innerHTML = `
+            <div class="order-track-card">
+                <div class="order-track-header">
+                    <span class="order-track-badge"><span class="dot"></span>${order.status.replace(/_/g,' ')}</span>
+                    <span class="order-track-id">Order #${order.id}</span>
+                </div>
+                <div class="order-track-address">
+                    <i class="fas fa-location-dot"></i>
+                    <span>${order.address}</span>
+                </div>
+
+                <!-- Mini animated map -->
+                <div class="mini-map-wrap" onclick="openMapFullscreen()" title="Click to expand">
+                    <div id="customer-mini-map" style="width:100%; height:100%; border-radius:12px; z-index:1; pointer-events:none;"></div>
+                    <div class="map-label" style="z-index:10;">Tap to view full map</div>
+                    <div class="map-expand-hint" style="z-index:10;"><i class="fas fa-expand-alt"></i> Full screen</div>
+                </div>
+
+                <!-- Progress -->
+                <div class="track-progress">
+                    <div class="track-step">
+                        <div class="track-dot ${step>=1?'done':''}"><i class="fas fa-check" style="font-size:0.55rem"></i></div>
+                        <div class="track-label ${step>=1?'done':''}">Order<br>Placed</div>
+                    </div>
+                    <div class="track-line ${step>=2?'done':''}"></div>
+                    <div class="track-step">
+                        <div class="track-dot ${step===2?'active':step>2?'done':''}"><i class="fas fa-motorcycle" style="font-size:0.6rem"></i></div>
+                        <div class="track-label ${step>=2?'active':''}">On the<br>Way</div>
+                    </div>
+                    <div class="track-line ${step>=3?'done':''}"></div>
+                    <div class="track-step">
+                        <div class="track-dot ${step>=3?'done':''}"><i class="fas fa-box" style="font-size:0.55rem"></i></div>
+                        <div class="track-label ${step>=3?'done':''}">Delivered</div>
+                    </div>
+                </div>
+
+                <!-- Info row -->
+                <div style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;display:flex;gap:14px;flex-wrap:wrap;">
+                    <span><i class="fas fa-receipt" style="color:var(--red);margin-right:4px"></i>${fmt(order.total_amount)}</span>
+                    <span><i class="fas fa-wallet" style="color:var(--red);margin-right:4px"></i>${payLabel[order.payment_method]||order.payment_method}</span>
+                </div>
+
+                <div class="track-actions">
+                    <button class="btn-view-map" onclick="openMapFullscreen()">
+                        <i class="fas fa-map-marked-alt"></i> View Full Map
+                    </button>
+                    <button class="btn-received" onclick="clearOrderTracking()">
+                        <i class="fas fa-check-circle"></i> Mark Received
+                    </button>
+                </div>
+            </div>`;
+
+            // Pre-fill fullscreen map address
+            const fsAddr = document.getElementById('fsAddress');
+            if (fsAddr) fsAddr.textContent = order.address;
+
+            // Initialize the mini map preview immediately after DOM injection
+            setTimeout(initCustomerMiniMap, 50);
+        }
+
+        function renderGenericPending(section) {
+            section.innerHTML = `
+            <div class="order-track-card">
+                <div class="order-track-header">
+                    <span class="order-track-badge"><span class="dot"></span>Pending</span>
+                </div>
+                <div class="order-track-address"><i class="fas fa-clock"></i><span>Your order is being processed…</span></div>
+                <div class="mini-map-wrap" onclick="openMapFullscreen()">
+                    <div class="map-grid-bg"></div>
+                    <div class="map-road-h" style="top:35%;height:14px"></div>
+                    <div class="map-road-v" style="left:30%;width:12px"></div>
+                    <div class="map-route"></div>
+                    <div class="map-rider-pin"><div class="map-rider-pulse"><i class="fas fa-motorcycle map-rider-icon"></i></div></div>
+                    <div class="map-dest-pin"><div class="map-dest-inner"><i class="fas fa-home" style="font-size:0.65rem"></i></div></div>
+                    <div class="map-label">Tap to view full map</div>
+                    <div class="map-expand-hint"><i class="fas fa-expand-alt"></i> Full screen</div>
+                </div>
+                <div class="track-actions">
+                    <button class="btn-view-map" onclick="openMapFullscreen()"><i class="fas fa-map-marked-alt"></i> View Map</button>
+                    <button class="btn-received" onclick="clearOrderTracking()"><i class="fas fa-check-circle"></i> Mark Received</button>
+                </div>
+            </div>`;
+        }
+
+        function renderNoOrder(section) {
+            section.innerHTML = `
+            <div class="menu-row" style="cursor:default;padding:20px 22px;">
+                <div class="mr-left">
+                    <div class="mr-icon"><i class="fa-solid fa-box-open"></i></div>
+                    <div class="mr-text">
+                        <div class="mr-title">No Active Orders</div>
+                        <div class="mr-sub">Place an order to track it here</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // ── Leaflet & Socket.io for Customer ──
+        let customerMap;
+        let customerRiderMarker;
+        let customerDestMarker;
+        let customerRouteLine;
+        
+        let miniMap;
+        let miniRiderMarker;
+        let miniDestMarker;
+        let miniRouteLine;
+
+        let trackingSocket;
+
+        const DEST_LAT = 14.545; // Hardcoded demo fallback
+        const DEST_LNG = 121.050;
+
+        const riderIconHtml = `
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(194,38,38,0.25);border:2px solid rgba(194,38,38,0.5);display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(194,38,38,0.4)">
+            <i class="fas fa-motorcycle" style="color:#C22626;font-size:1.1rem;"></i>
+          </div>
+        `;
+        const cRiderIcon = L.divIcon({ html: riderIconHtml, className: '', iconSize: [36, 36], iconAnchor: [18, 18] });
+
+        const destIconHtml = `
+          <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(34,197,94,0.5)">
+            <i class="fas fa-home" style="color:#fff;font-size:0.85rem;"></i>
+          </div>
+        `;
+        const cDestIcon = L.divIcon({ html: destIconHtml, className: '', iconSize: [30, 30], iconAnchor: [15, 15] });
+
+        function initCustomerMap() {
+            if (customerMap) {
+                // Resize map if already initialized
+                setTimeout(() => customerMap.invalidateSize(), 100);
+                return;
+            }
+
+            const mapContainer = document.getElementById('customer-map-view');
+            if (!mapContainer) return;
+
+            customerMap = L.map(mapContainer, { zoomControl: false }).setView([14.545, 121.050], 14);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(customerMap);
+
+            customerRiderMarker = L.marker([0, 0], { icon: cRiderIcon }).addTo(customerMap);
+            customerDestMarker = L.marker([DEST_LAT, DEST_LNG], { icon: cDestIcon }).addTo(customerMap);
+
+            setupSocketListener(); // Setup socket if not already done
+        }
+
+        function initCustomerMiniMap() {
+            const container = document.getElementById('customer-mini-map');
+            if (!container || miniMap) return; // Only init once
+
+            miniMap = L.map(container, {
+                zoomControl: false,
+                dragging: false,
+                touchZoom: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false
+            }).setView([14.545, 121.050], 14);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(miniMap);
+
+            miniRiderMarker = L.marker([0, 0], { icon: cRiderIcon }).addTo(miniMap);
+            miniDestMarker = L.marker([DEST_LAT, DEST_LNG], { icon: cDestIcon }).addTo(miniMap);
+
+            setupSocketListener(); // Ensure socket is connected to move mini map too
+        }
+
+        let socketSetupDone = false;
+        function setupSocketListener() {
+            if (socketSetupDone) return;
+            socketSetupDone = true;
+            try {
+                trackingSocket = io('http://localhost:3000');
+                trackingSocket.on('connect', () => {
+                    console.log("Connected to tracking server! ID: " + trackingSocket.id);
+                    if (_currentOrder) {
+                        trackingSocket.emit('join-order', _currentOrder.id);
+                    }
+                });
+
+                trackingSocket.on('receive-location', (data) => {
+                    // data contains lat and lng directly from the server
+                    const newLatLng = [data.lat, data.lng];
+                    
+                    // Update fullscreen marker & route
+                    if (customerRiderMarker) {
+                        customerRiderMarker.setLatLng(newLatLng);
+                        updateCustomerRoute(newLatLng, [DEST_LAT, DEST_LNG]);
+                    }
+                    
+                    // Update mini marker & route
+                    if (miniRiderMarker) {
+                        miniRiderMarker.setLatLng(newLatLng);
+                        updateMiniRoute(newLatLng, [DEST_LAT, DEST_LNG]);
+                    }
+                });
+            } catch (e) {
+                console.warn('Socket.io not available or server offline.');
+            }
+        }
+
+        function updateCustomerRoute(startLatLng, endLatLng) {
+            if (customerRouteLine) {
+                customerMap.removeLayer(customerRouteLine);
+            }
+
+            customerRouteLine = L.polyline([startLatLng, endLatLng], {
+                color: '#C22626', weight: 4, opacity: 0.8, dashArray: '10, 10'
+            }).addTo(customerMap);
+            
+            customerMap.fitBounds([startLatLng, endLatLng], { padding: [30, 30] });
+
+            // Calculate ETA locally
+            const distKm = getDistance(startLatLng[0], startLatLng[1], endLatLng[0], endLatLng[1]);
+            const etaInMinutes = Math.max(1, Math.round((distKm / 20) * 60)); 
+            const fsEtaEl = document.getElementById('fsEta');
+            if (fsEtaEl) fsEtaEl.textContent = '~' + etaInMinutes + ' mins';
+        }
+
+        function updateMiniRoute(startLatLng, endLatLng) {
+            if (!miniMap) return;
+            if (miniRouteLine) miniMap.removeLayer(miniRouteLine);
+
+            miniRouteLine = L.polyline([startLatLng, endLatLng], {
+                color: '#C22626', weight: 3, opacity: 0.8, dashArray: '5, 5'
+            }).addTo(miniMap);
+            
+            miniMap.fitBounds([startLatLng, endLatLng], { padding: [15, 15] });
+        }
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+        }
+
+        function openMapFullscreen() {
+            const overlay = document.getElementById('mapFullscreen');
+            if (!overlay) return;
+            if (_currentOrder && _currentOrder.address) {
+                const el = document.getElementById('fsAddress');
+                if (el) el.textContent = _currentOrder.address;
+            }
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            
+            // Initialize or resize leafet map
+            initCustomerMap();
+        }
+
+        function closeMapFullscreen() {
+            document.getElementById('mapFullscreen')?.classList.remove('open');
+            document.body.style.overflow = '';
         }
 
         function clearOrderTracking() {
             localStorage.removeItem('order_pending');
-            loadOrderTracking();
+            localStorage.removeItem('order_id');
+            _currentOrder = null;
+            renderNoOrder(document.getElementById('orderTrackingSection'));
             showToast('Order marked as received!');
+            if (trackingSocket) trackingSocket.disconnect();
         }
 
-        // Load order tracking on page load
+        // Close fullscreen map on Escape key
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMapFullscreen(); });
+
+        // Load on page init
         loadOrderTracking();
     </script>
 </body>
