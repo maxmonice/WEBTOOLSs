@@ -19,7 +19,7 @@ $RIDERS = [
     'rider1@gmail.com' => [
         'password' => 'password123',
         'name'     => 'Rider One',
-        'id'       => 'LKS-R-0001',
+        'id'       => 1,
     ],
 ];
 

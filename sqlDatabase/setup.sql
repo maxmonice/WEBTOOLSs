@@ -1,4 +1,4 @@
--- =====================================================
+ -- =====================================================
 --  setup.sql — Run this once to create your tables
 --  In phpMyAdmin: create database 'lukes_seafood'
 --  then run this SQL in the SQL tab

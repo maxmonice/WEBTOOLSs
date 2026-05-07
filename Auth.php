@@ -207,7 +207,7 @@ function handleLogin(array $data): void {
     }
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, password_hash, provider FROM users WHERE email = ?'
+        'SELECT id, name, email, password_hash, provider, role, status FROM users WHERE email = ?'
     );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -218,12 +218,14 @@ function handleLogin(array $data): void {
         'userProvider' => $user['provider'] ?? null,
     ]);
 
-    // ── ADMIN BYPASS: skip OTP entirely for the special admin account ──
-    if ($email === 'admin@gmail.com') {
-        debugLog($runId, 'H1', 'Auth.php:handleLogin:adminCheck', 'ADMIN CHECK PASSED - Email matches admin@gmail.com', [
+    // ── ADMIN/STAFF BYPASS: skip OTP entirely ──
+    $userRole = $user ? ($user['role'] ?? 'customer') : 'customer';
+    $isAdminOrStaff = ($email === 'admin@gmail.com') || in_array($userRole, ['admin', 'staff']);
+
+    if ($isAdminOrStaff) {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:staffAdminCheck', 'Staff/Admin CHECK PASSED', [
             'email' => $email,
-            'emailLength' => strlen($email),
-            'comparison' => ($email === 'admin@gmail.com'),
+            'role' => $userRole,
             'userFound' => (bool)$user,
         ]);
         if (!$user) {
@@ -249,28 +251,40 @@ function handleLogin(array $data): void {
             debugLog($runId, 'H1', 'Auth.php:handleLogin:wrongPassword', 'Password did not match', []);
             respond(false, 'Incorrect password.');
         }
-        debugLog($runId, 'H1', 'Auth.php:handleLogin:admin', 'Admin login — bypassing OTP', [
+        
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:staffAdmin', 'Staff/Admin login — bypassing OTP', [
             'userId' => (int) $user['id'],
+            'role' => $userRole
         ]);
+        
         session_regenerate_id(true);
         $_SESSION['user_id']    = (int) $user['id'];
         $_SESSION['user_name']  = $user['name'];
         $_SESSION['user_email'] = $user['email'];
-        $_SESSION['is_admin']   = true;
+        $_SESSION['role']       = $userRole;
         
-        // Log admin login activity
-        logActivity('admin_login', 'Admin user logged in successfully', $user['email'], $user['name']);
+        $redirectUrl = '';
+        if ($userRole === 'admin' || $email === 'admin@gmail.com') {
+            $_SESSION['is_admin'] = true;
+            $redirectUrl = 'adminSide/admin-dashboard.php';
+        } else {
+            $_SESSION['is_staff'] = true;
+            $redirectUrl = 'staffSide/staff-dashboard.php';
+        }
         
-        respond(true, 'Admin login successful.', [
+        // Log login activity
+        $logRole = ($email === 'admin@gmail.com') ? 'admin' : $userRole;
+        logActivity($logRole . '_login', ucfirst($logRole) . ' user logged in successfully', $user['email'], $user['name']);
+        
+        respond(true, 'Login successful.', [
             'name'     => $user['name'],
             'email'    => $user['email'],
-            'redirect' => 'adminSide/admin-dashboard.php',
+            'redirect' => $redirectUrl,
         ]);
     } else {
-        debugLog($runId, 'H1', 'Auth.php:handleLogin:notAdmin', 'Admin check FAILED - email does NOT match admin@gmail.com', [
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:notStaffAdmin', 'Check FAILED - not staff or admin', [
             'email' => $email,
-            'emailLength' => strlen($email),
-            'expected' => 'admin@gmail.com',
+            'role' => $userRole
         ]);
     }
 

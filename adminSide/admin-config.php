@@ -58,7 +58,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // =====================================================
 function requireAdmin(): void {
     if (empty($_SESSION['is_admin']) || empty($_SESSION['user_id'])) {
-        header('Location: account.php');
+        header('Location: ../account.php');
         exit;
     }
 }
@@ -76,6 +76,7 @@ function getAdminStats(PDO $pdo): array {
         'active_bookings'  => 0,
         'pending_bookings' => 0,
         'pending_orders'   => 0,
+        'preparing_orders' => 0, // Added to track workflow
         'revenue_month'    => 0,
         'total_orders'     => 0,
     ];
@@ -112,6 +113,12 @@ function getAdminStats(PDO $pdo): array {
     try {
         $stats['pending_orders'] = (int) $pdo
             ->query("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
+            ->fetchColumn();
+    } catch (\Throwable $_) {}
+
+    try {
+        $stats['preparing_orders'] = (int) $pdo
+            ->query("SELECT COUNT(*) FROM orders WHERE status = 'preparing'")
             ->fetchColumn();
     } catch (\Throwable $_) {}
 
@@ -220,19 +227,16 @@ function getRecentActivity(PDO $pdo, int $limit = 8): array {
 // =====================================================
 function getRecentOrders(PDO $pdo, int $limit = 5): array {
     try {
+        // Updated to join with users table and include ETA
         $orders = $pdo->query(
-            "SELECT o.id, o.status, o.created_at, o.notes,
+            "SELECT o.id, o.status, o.created_at, o.estimated_arrival_time, 
+                    u.name as customer_name,
                     COALESCE(o.total_amount, o.total, 0) AS total
              FROM orders o
+             LEFT JOIN users u ON o.user_id = u.id
              ORDER BY o.created_at DESC
              LIMIT $limit"
         )->fetchAll();
-        
-        // Extract customer name from notes field
-        foreach ($orders as &$order) {
-            $orderDetails = json_decode($order['notes'], true) ?: [];
-            $order['customer_name'] = $orderDetails['user_name'] ?? 'Guest';
-        }
         
         return $orders;
     } catch (\Throwable $_) {

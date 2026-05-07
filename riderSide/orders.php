@@ -4,6 +4,7 @@ if (empty($_SESSION['rider_id'])) {
     header('Location: login.php');
     exit;
 }
+$riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -29,28 +30,37 @@ if (empty($_SESSION['rider_id'])) {
 
   <!-- ORDERS PAGE -->
   <div class="page-content">
-<div class="orders-hero">
-      <div class="hero-greeting">Good morning,</div>
-      <div class="hero-name">Rider Marco 🏍️</div>
+    <div class="orders-hero">
+      <div class="hero-greeting">Good day,</div>
+      <div class="hero-name"><?= $riderName ?> 🏍️</div>
       <div class="hero-stats">
-        <div class="stat-card"><div class="stat-val">0</div><div class="stat-lbl">Incoming</div></div>
-        <div class="stat-card"><div class="stat-val">0</div><div class="stat-lbl">Today</div></div>
-        <div class="stat-card"><div class="stat-val">₱0</div><div class="stat-lbl">Earned</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-incoming">—</div><div class="stat-lbl">Incoming</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-today">—</div><div class="stat-lbl">Today</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-earned">₱0</div><div class="stat-lbl">Earned</div></div>
       </div>
     </div>
 
-    <div class="empty-state">
-      <i class="fa-solid fa-motorcycle" style="color: rgb(255, 255, 255);"></i>
+    <!-- Order list (populated by JS) -->
+    <div id="orders-list"></div>
+
+    <!-- Empty state (shown when no orders) -->
+    <div class="empty-state" id="empty-state" style="display:none;">
+      <i class="fa-solid fa-motorcycle" style="color: rgb(255,255,255);"></i>
       <div class="empty-text">No incoming orders</div>
+      <div style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:4px;">Orders will appear here when they are ready</div>
     </div>
 
-
+    <!-- Loading state -->
+    <div id="loading-state" style="text-align:center;padding:40px;color:rgba(255,255,255,0.4);">
+      <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;margin-bottom:10px;display:block;"></i>
+      Loading orders…
+    </div>
   </div>
 
   <!-- Bottom Nav -->
   <div class="bottom-nav">
     <button class="nav-item active">
-      <div class="nav-badge" id="order-badge">3</div>
+      <div class="nav-badge" id="order-badge" style="display:none;">0</div>
       <i class="fas fa-clipboard-list"></i><span>Orders</span>
     </button>
     <button class="nav-item" onclick="window.location.href='map.php'">
@@ -107,6 +117,10 @@ if (empty($_SESSION['rider_id'])) {
 
 <div class="toast" id="toast"></div>
 
+<script>
+  // Pass rider session data to JS
+  const RIDER_ID = <?= (int)$_SESSION['rider_id'] ?>;
+</script>
 <script src="orders.js"></script>
 </body>
 </html>

@@ -26,6 +26,7 @@ CREATE TABLE `menu_items` (
   `description` text DEFAULT NULL,
   `price` decimal(10,2) NOT NULL,
   `image_path` varchar(255) DEFAULT NULL,
+  `stock_quantity` int(11) NOT NULL DEFAULT 0,
   `pieces` varchar(50) DEFAULT NULL,
   `variations` json DEFAULT NULL,
   `rating` decimal(2,1) DEFAULT 5.0,

@@ -13,7 +13,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Dashboard — Luke's Staff</title>
-<link rel="stylesheet" href="admin.css"/>
+<link rel="stylesheet" href="../adminSide/admin.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <style>
 /* ── Staff role pill in sidebar ── */
@@ -188,8 +188,14 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-truck-fast"></i></div>
           <div class="stat-card-value"><?= number_format($stats['processing_orders']) ?></div>
-          <div class="stat-card-label">In Progress Orders</div>
+          <div class="stat-card-label">In Progress</div>
           <div class="stat-card-change up"><i class="fa-solid fa-spinner"></i> being processed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon"><i class="fa-solid fa-motorcycle"></i></div>
+          <div class="stat-card-value"><?= number_format($stats['confirmed_orders']) ?></div>
+          <div class="stat-card-label">Ready for Rider</div>
+          <div class="stat-card-change up"><i class="fa-solid fa-check-circle"></i> awaiting pickup</div>
         </div>
       </div>
 

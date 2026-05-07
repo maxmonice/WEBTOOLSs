@@ -64,10 +64,10 @@ try {
     ], JSON_UNESCAPED_UNICODE);
 
     $stmt = $pdo->prepare("
-        INSERT INTO orders (user_id, status, total_amount, address, payment_method, notes, created_at, updated_at)
-        VALUES (?, 'pending', ?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO orders (user_id, user_name, user_email, status, total_amount, address, payment_method, notes, created_at, updated_at)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, NOW(), NOW())
     ");
-    $stmt->execute([$sessionUserId, $total, $address, $paymentMethod, $orderNotes]);
+    $stmt->execute([$sessionUserId, $userName, $userEmail, $total, $address, $paymentMethod, $orderNotes]);
     $orderId = (int) $pdo->lastInsertId();
 
     $itemCount = count($items);

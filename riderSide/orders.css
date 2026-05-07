@@ -243,3 +243,67 @@
   color: rgba(255,255,255,.7);
   font-weight: 500;
 }
+
+/* ── Live order card layout ── */
+#orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px 0;
+}
+
+.order-card {
+  background: var(--card-bg);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+  animation: slideUp .3s ease both;
+}
+.order-card:active { transform: scale(.98); }
+
+.order-card-header {
+  padding: 12px 14px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.order-id   { font-size: .7rem; color: var(--muted); font-weight: 600; }
+.order-badge {
+  font-size: .62rem; font-weight: 800; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 20px;
+}
+.order-badge.new {
+  background: rgba(245,158,11,.18); color: #fbbf24;
+  border: 1px solid rgba(245,158,11,.3);
+}
+
+.order-card .order-info-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .78rem; color: rgba(255,255,255,.72);
+  padding: 5px 14px 0;
+}
+.order-card .order-info-row:last-of-type { padding-bottom: 4px; }
+.order-card .order-info-row i { width: 14px; color: var(--red); font-size: .72rem; }
+
+.order-footer {
+  padding: 10px 14px;
+  background: rgba(0,0,0,.2);
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px;
+}
+.order-total { font-weight: 800; font-size: 1rem; color: #fff; }
+
+/* nav badge dot */
+.nav-badge {
+  position: absolute; top: 4px; right: 10px;
+  background: var(--red, #c22626);
+  color: #fff; font-size: .55rem; font-weight: 800;
+  min-width: 16px; height: 16px; border-radius: 20px;
+  display: flex; align-items: center; justify-content: center; padding: 0 3px;
+}
+
+/* toast error variant */
+.toast.error { background: #ef4444; }

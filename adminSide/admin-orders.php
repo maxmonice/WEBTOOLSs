@@ -1,98 +1,108 @@
 <?php
 require_once 'admin-config.php';
-require_once 'activity-logger.php';
+require_once '../activity-logger.php';
 requireAdmin();
 
-// Handle order creation from frontend
+// Handle order creation from frontend (JSON body)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = json_decode(file_get_contents('php://input'), true);
-    
-    if ($data['action'] === 'create_order') {
-        
-        $items = $data['items'] ?? [];
-        $address = $data['address'] ?? '';
-        $paymentMethod = $data['paymentMethod'] ?? '';
-        $paymentDetails = $data['paymentDetails'] ?? [];
-        $subtotal = $data['subtotal'] ?? 0;
-        $shipping = $data['shipping'] ?? 0;
-        $total = $data['total'] ?? 0;
-        $userEmail = $data['userEmail'] ?? '';
-        $userName = $data['userName'] ?? '';
-        
-        // Validate required fields
+    $raw  = file_get_contents('php://input');
+    $data = $raw ? json_decode($raw, true) : null;
+
+    if (isset($data['action']) && $data['action'] === 'create_order') {
+        $items         = $data['items']          ?? [];
+        $address       = $data['address']        ?? '';
+        $paymentMethod = $data['paymentMethod']  ?? '';
+        $paymentDetails= $data['paymentDetails'] ?? [];
+        $subtotal      = $data['subtotal']       ?? 0;
+        $shipping      = $data['shipping']       ?? 0;
+        $total         = $data['total']          ?? 0;
+        $userEmail     = $data['userEmail']      ?? '';
+        $userName      = $data['userName']       ?? '';
+
         if (empty($items) || empty($address) || empty($paymentMethod)) {
             echo json_encode(['success' => false, 'message' => 'Missing required order information']);
             exit;
         }
-        
-        // Insert order into database using existing table structure
-        $stmt = $pdo->prepare("
-            INSERT INTO orders (
-                user_id, status, total_amount, address, payment_method, notes, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-        ");
-        
-        // Store items and payment details in notes field as JSON
         $orderNotes = json_encode([
-            'items' => $items,
+            'items'           => $items,
             'payment_details' => $paymentDetails,
-            'user_email' => $userEmail,
-            'user_name' => $userName,
-            'shipping' => $shipping,
-            'subtotal' => $subtotal,
-            'created_by_admin' => true
+            'user_email'      => $userEmail,
+            'user_name'       => $userName,
+            'shipping'        => $shipping,
+            'subtotal'        => $subtotal,
+            'created_by_admin'=> true,
         ]);
-        
         try {
-            $stmt->execute([
-                null, // user_id (null for admin-created orders)
-                'pending',
-                $total,
-                $address,
-                $paymentMethod,
-                $orderNotes
-            ]);
-            
+            $pdo->prepare("
+                INSERT INTO orders (user_id, status, total_amount, address, payment_method, notes, created_at, updated_at)
+                VALUES (?, 'pending', ?, ?, ?, ?, NOW(), NOW())
+            ")->execute([null, $total, $address, $paymentMethod, $orderNotes]);
             echo json_encode(['success' => true, 'message' => 'Order created successfully']);
-            exit;
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
-            exit;
         }
+        exit;
     }
 }
 
-// Handle order status updates
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_order_status') {
-    $orderId = $_POST['order_id'] ?? '';
-    $newStatus = $_POST['status'] ?? '';
-    
-    if (empty($orderId) || empty($newStatus)) {
-        echo json_encode(['success' => false, 'message' => 'Missing order ID or status']);
-        exit;
-    }
-    
-    $validStatuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
-    if (!in_array($newStatus, $validStatuses)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid status: ' . $newStatus]);
-        exit;
-    }
-    
-    try {
-        $stmt = $pdo->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $result = $stmt->execute([$newStatus, $orderId]);
-        
-        if ($result) {
-            // Log order status update
-            logActivity('order_status_updated', "Admin updated order #{$orderId} status to: {$newStatus}", $_SESSION['user_email'], $_SESSION['user_name']);
-            
-            echo json_encode(['success' => true, 'message' => 'Order status updated successfully']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to update order status']);
+// Handle form-POST AJAX actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+
+    // ── Start Preparing: status → processing, save ETA ──
+    if ($_POST['action'] === 'prepare_order') {
+        $orderId = (int)($_POST['order_id'] ?? 0);
+        $eta     = trim($_POST['eta'] ?? '');
+        if (!$orderId || !$eta) {
+            echo json_encode(['success' => false, 'message' => 'Missing order ID or ETA']);
+            exit;
+        }
+        try {
+            $pdo->prepare("UPDATE orders SET status = 'processing', eta = ?, updated_at = NOW() WHERE id = ?")
+                ->execute([$eta, $orderId]);
+            logActivity('order_preparing', "Admin started preparing order #{$orderId} — ETA: {$eta}", $_SESSION['user_email'], $_SESSION['user_name']);
+            echo json_encode(['success' => true, 'message' => 'Order is now being prepared.']);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         exit;
-    } catch (PDOException $e) {
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+
+    // ── Done Preparing: status → confirmed (ready for rider) ──
+    if ($_POST['action'] === 'complete_order') {
+        $orderId = (int)($_POST['order_id'] ?? 0);
+        if (!$orderId) {
+            echo json_encode(['success' => false, 'message' => 'Missing order ID']);
+            exit;
+        }
+        try {
+            $pdo->prepare("UPDATE orders SET status = 'confirmed', updated_at = NOW() WHERE id = ?")
+                ->execute([$orderId]);
+            logActivity('order_ready', "Order #{$orderId} marked as ready for rider dispatch", $_SESSION['user_email'], $_SESSION['user_name']);
+            echo json_encode(['success' => true, 'message' => 'Order is ready for rider!']);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // ── Generic status update (cancel, etc.) ──
+    if ($_POST['action'] === 'update_order_status') {
+        $orderId   = $_POST['order_id'] ?? '';
+        $newStatus = $_POST['status']   ?? '';
+        $validStatuses = ['pending', 'processing', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+        if (empty($orderId) || !in_array($newStatus, $validStatuses)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid request']);
+            exit;
+        }
+        try {
+            $pdo->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?")
+                ->execute([$newStatus, $orderId]);
+            logActivity('order_status_updated', "Admin updated order #{$orderId} to: {$newStatus}", $_SESSION['user_email'], $_SESSION['user_name']);
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
         exit;
     }
 }
@@ -104,9 +114,10 @@ try {
     $stmt->execute();
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // Table already exists with different structure, just continue
+    // continue
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -137,7 +148,7 @@ try {
       <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
     </nav>
     <div class="sidebar-footer">
-      <a href="index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
+      <a href="../index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
     </div>
   </aside>
 
@@ -323,28 +334,22 @@ elseif ($order['status'] === 'shipped' || $order['status'] === 'confirmed') $bad
                     <td><?= date('M d, Y', strtotime($order['created_at'])) ?></td>
                     <td>
                       <div class="flex-gap">
-                        <?php if ($order['status'] === 'pending'): ?>
-                          <button class="action-btn edit" title="Mark as Confirmed" onclick="updateOrderStatus(<?= $order['id'] ?>, 'confirmed')">
-                            <i class="fa-solid fa-check"></i>
-                          </button>
-                          <button class="action-btn" title="Cancel Order" onclick="updateOrderStatus(<?= $order['id'] ?>, 'cancelled')">
-                            <i class="fa-solid fa-xmark"></i>
-                          </button>
-                        <?php elseif ($order['status'] === 'confirmed'): ?>
-                          <button class="action-btn edit" title="Mark as Shipped" onclick="updateOrderStatus(<?= $order['id'] ?>, 'shipped')">
-                            <i class="fa-solid fa-truck"></i>
-                          </button>
-                          <button class="action-btn" title="Cancel Order" onclick="updateOrderStatus(<?= $order['id'] ?>, 'cancelled')">
-                            <i class="fa-solid fa-xmark"></i>
-                          </button>
-                        <?php elseif ($order['status'] === 'shipped'): ?>
-                          <button class="action-btn edit" title="Mark as Delivered" onclick="updateOrderStatus(<?= $order['id'] ?>, 'delivered')">
-                            <i class="fa-solid fa-check"></i>
-                          </button>
-                        <?php elseif ($order['status'] === 'cancelled'): ?>
-                          <span style="color: var(--muted); font-size: 0.8rem;">Cancelled</span>
-                        <?php elseif ($order['status'] === 'delivered'): ?>
-                          <span style="color: var(--green); font-size: 0.8rem;">Completed</span>
+                        <?php
+                        $statusIcons = [
+                          'pending'    => ['icon'=>'fa-hourglass-half',  'color'=>'#f39c12', 'label'=>'Pending'],
+                          'processing' => ['icon'=>'fa-fire-burner',     'color'=>'#f97316', 'label'=>'Preparing'],
+                          'confirmed'  => ['icon'=>'fa-motorcycle',      'color'=>'#3b82f6', 'label'=>'With Rider'],
+                          'shipped'    => ['icon'=>'fa-truck',           'color'=>'#a855f7', 'label'=>'Out for Delivery'],
+                          'delivered'  => ['icon'=>'fa-circle-check',   'color'=>'#22c55e', 'label'=>'Completed'],
+                          'cancelled'  => ['icon'=>'fa-circle-xmark',   'color'=>'#6b7280', 'label'=>'Cancelled'],
+                        ];
+                        $si = $statusIcons[$order['status']] ?? ['icon'=>'fa-circle', 'color'=>'#6b7280', 'label'=>ucfirst($order['status'])];
+                        ?>
+                        <span style="color:<?= $si['color'] ?>;font-size:0.8rem;display:inline-flex;align-items:center;gap:5px;">
+                          <i class="fa-solid <?= $si['icon'] ?>"></i> <?= $si['label'] ?>
+                        </span>
+                        <?php if (!empty($order['eta']) && $order['status'] === 'processing'): ?>
+                          <span style="font-size:0.7rem;color:#f39c12;">· ETA: <?= htmlspecialchars($order['eta']) ?></span>
                         <?php endif; ?>
                       </div>
                     </td>
@@ -368,37 +373,6 @@ elseif ($order['status'] === 'shipped' || $order['status'] === 'confirmed') $bad
 
 <script>
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-
-function updateOrderStatus(orderId, newStatus) {
-    if (!confirm('Are you sure you want to update this order status to ' + newStatus + '?')) {
-        return;
-    }
-    
-    // Use form data instead of JSON
-    const formData = new FormData();
-    formData.append('action', 'update_order_status');
-    formData.append('order_id', orderId);
-    formData.append('status', newStatus);
-    
-    fetch('admin-orders.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Show success message and reload page
-            alert('Order status updated successfully!');
-            location.reload();
-        } else {
-            alert('Failed to update order status: ' + (data.message || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to update order status. Please try again.');
-    });
-}
 </script>
 
 <style>

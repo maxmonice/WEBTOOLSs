@@ -49,13 +49,13 @@ if (session_status() === PHP_SESSION_NONE) {
 // =====================================================
 function requireStaff(): void {
     if (empty($_SESSION['user_id'])) {
-        header('Location: account.php');
+        header('Location: ../account.php');
         exit;
     }
     // Block customers from accessing staff panel
     $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
     if (!in_array($role, ['staff', 'admin'], true) && empty($_SESSION['is_admin'])) {
-        header('Location: account.php');
+        header('Location: ../account.php');
         exit;
     }
 }
@@ -75,6 +75,7 @@ function getStaffStats(PDO $pdo): array {
         'my_bookings_today'=> 0,
         'pending_orders'   => 0,
         'processing_orders'=> 0,
+        'confirmed_orders' => 0,
         'total_orders_today'=> 0,
     ];
 
@@ -105,6 +106,12 @@ function getStaffStats(PDO $pdo): array {
     try {
         $stats['processing_orders'] = (int) $pdo
             ->query("SELECT COUNT(*) FROM orders WHERE status = 'processing'")
+            ->fetchColumn();
+    } catch (\Throwable $_) {}
+
+    try {
+        $stats['confirmed_orders'] = (int) $pdo
+            ->query("SELECT COUNT(*) FROM orders WHERE status = 'confirmed'")
             ->fetchColumn();
     } catch (\Throwable $_) {}
 

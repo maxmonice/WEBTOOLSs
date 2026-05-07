@@ -5,28 +5,60 @@ requireStaff();
 $successMsg = '';
 $errorMsg   = '';
 
-// Allowed status transitions for staff (cannot set to refunded or anything financial)
-const STAFF_ALLOWED_STATUSES = ['processing', 'shipped', 'delivered', 'cancelled'];
+// Handle AJAX POST actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    $oid    = (int)($_POST['order_id'] ?? 0);
-
-    if ($action === 'update_status' && $oid > 0) {
-        $newStatus = $_POST['new_status'] ?? '';
-        if (in_array($newStatus, STAFF_ALLOWED_STATUSES, true)) {
-            try {
-                $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')
-                    ->execute([$newStatus, $oid]);
-                $successMsg = 'Order <strong>#ORD-' . str_pad($oid, 4, '0', STR_PAD_LEFT) . '</strong> updated to ' . ucfirst($newStatus) . '.';
-            } catch (\Throwable $e) {
-                $errorMsg = 'Error: ' . $e->getMessage();
-            }
-        } else {
-            $errorMsg = 'Invalid status. Staff can only set: Processing, Shipped, Delivered, Cancelled.';
+    // ── Start Preparing: status → processing, save ETA ──
+    if ($_POST['action'] === 'prepare_order') {
+        $orderId = (int)($_POST['order_id'] ?? 0);
+        $eta     = trim($_POST['eta'] ?? '');
+        if (!$orderId || !$eta) {
+            echo json_encode(['success' => false, 'message' => 'Missing order ID or ETA']);
+            exit;
         }
-    } elseif ($action === 'delete_order') {
-        $errorMsg = 'You do not have permission to delete orders. Please contact an admin.';
+        try {
+            $pdo->prepare("UPDATE orders SET status = 'processing', eta = ?, updated_at = NOW() WHERE id = ?")
+                ->execute([$eta, $orderId]);
+            echo json_encode(['success' => true, 'message' => 'Order is now being prepared.']);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // ── Done Preparing: status → confirmed (ready for rider) ──
+    if ($_POST['action'] === 'complete_order') {
+        $orderId = (int)($_POST['order_id'] ?? 0);
+        if (!$orderId) {
+            echo json_encode(['success' => false, 'message' => 'Missing order ID']);
+            exit;
+        }
+        try {
+            $pdo->prepare("UPDATE orders SET status = 'confirmed', updated_at = NOW() WHERE id = ?")
+                ->execute([$orderId]);
+            echo json_encode(['success' => true, 'message' => 'Order is ready for rider!']);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // ── Cancel order ──
+    if ($_POST['action'] === 'cancel_order') {
+        $orderId = (int)($_POST['order_id'] ?? 0);
+        if (!$orderId) {
+            echo json_encode(['success' => false, 'message' => 'Missing order ID']);
+            exit;
+        }
+        try {
+            $pdo->prepare("UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = ?")
+                ->execute([$orderId]);
+            echo json_encode(['success' => true]);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
     }
 }
 
@@ -37,8 +69,9 @@ $filter = trim($_GET['filter'] ?? '');
 $whereClause = 'WHERE 1=1';
 $params      = [];
 if ($search !== '') {
-    $whereClause .= ' AND u.name LIKE :s';
-    $params[':s'] = "%$search%";
+    $whereClause .= ' AND (u.name LIKE :s OR o.user_name LIKE :s2)';
+    $params[':s']  = "%$search%";
+    $params[':s2'] = "%$search%";
 }
 if ($filter !== '') {
     $whereClause .= ' AND o.status = :f';
@@ -47,10 +80,11 @@ if ($filter !== '') {
 
 try {
     $stmt = $pdo->prepare(
-        "SELECT o.id, o.status, o.created_at,
+        "SELECT o.id, o.status, o.created_at, o.eta,
                 COALESCE(o.total_amount, o.total, 0) AS total,
-                COALESCE(u.name, 'Unknown') AS customer_name,
-                COALESCE(u.email, '—') AS customer_email
+                COALESCE(o.user_name, u.name, 'Customer') AS customer_name,
+                COALESCE(o.user_email, u.email, '—') AS customer_email,
+                o.address, o.payment_method, o.notes, o.items
          FROM orders o
          LEFT JOIN users u ON u.id = o.user_id
          $whereClause
@@ -58,8 +92,9 @@ try {
     );
     $stmt->execute($params);
     $orders = $stmt->fetchAll();
-} catch (\Throwable $_) {
+} catch (\Throwable $e) {
     $orders = [];
+    $errorMsg = "Query Error: " . $e->getMessage();
 }
 
 $stats = getStaffStats($pdo);
@@ -71,7 +106,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Orders — Luke's Staff</title>
-<link rel="stylesheet" href="admin.css"/>
+<link rel="stylesheet" href="../adminSide/admin.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <style>
 .role-pill {
@@ -88,13 +123,6 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
     content: '\f023'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     font-size: 0.65rem; margin-left: auto; color: rgba(255,255,255,0.3);
 }
-.filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.action-btn {
-    width:30px; height:30px; border-radius:6px; border:1px solid var(--line-w);
-    background:transparent; color:var(--muted); font-size:0.8rem;
-    display:inline-grid; place-items:center; cursor:pointer; transition:all 0.2s;
-}
-.action-btn:hover { border-color:var(--red); color:#ff6b6b; background:rgba(194,38,38,0.1); }
 .alert { padding:12px 16px; border-radius:8px; margin-bottom:16px; display:flex; align-items:center; gap:10px; font-size:0.86rem; }
 .alert-success { background:rgba(46,204,113,0.12); color:#2ecc71; border:1px solid rgba(46,204,113,0.25); }
 .alert-error   { background:rgba(194,38,38,0.12);  color:#ff6b6b; border:1px solid rgba(194,38,38,0.25); }
@@ -104,12 +132,16 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
     background: rgba(243,156,18,0.07); border: 1px solid rgba(243,156,18,0.15);
     border-radius: 6px; padding: 3px 8px;
 }
-.status-select {
-    background: var(--card2); border: 1px solid var(--line-w); color: #fff;
-    border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; cursor: pointer;
+/* Status action buttons */
+.action-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 8px; font-size: 0.78rem;
+    font-weight: 700; cursor: pointer; border: 1px solid; transition: all .2s;
 }
-.status-select:focus { outline: none; border-color: var(--red); }
-.inline-form { display: inline-flex; align-items: center; gap: 6px; }
+.action-pill:hover { transform: translateY(-1px); }
+.pill-prepare  { background: rgba(243,156,18,.15); color: #f39c12; border-color: rgba(243,156,18,.3); }
+.pill-done     { background: rgba(34,197,94,.15);  color: #22c55e; border-color: rgba(34,197,94,.3); }
+.pill-cancel   { background: rgba(239,68,68,.1);   color: #ef4444; border-color: rgba(239,68,68,.25); }
 </style>
 </head>
 <body>
@@ -131,7 +163,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
       <a href="staff-customers.php" class="nav-item"><i class="fa-solid fa-users"></i> Customers</a>
       <div class="nav-section-label">Restricted</div>
       <span class="nav-item locked"><i class="fa-solid fa-layer-group"></i> Content Management</span>
-      <span class="nav-item locked"><i class="fa-solid fa-shield-halved"></i> Security & Logs</span>
+      <span class="nav-item locked"><i class="fa-solid fa-shield-halved"></i> Security &amp; Logs</span>
       <span class="nav-item locked"><i class="fa-solid fa-sliders"></i> System Config</span>
     </nav>
     <div class="sidebar-footer">
@@ -162,33 +194,35 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
       <div class="page-header flex-between">
         <div>
           <h1>Order Management</h1>
-          <p>Update order status to Processing, Shipped, Delivered, or Cancelled.</p>
+          <p>Prepare incoming orders and dispatch them to riders.</p>
         </div>
-        <span class="permission-note"><i class="fa-solid fa-lock"></i> Status update only — no delete or refund</span>
+        <span class="permission-note"><i class="fa-solid fa-lock"></i> No delete or refund access</span>
       </div>
 
-      <?php if ($successMsg): ?>
-      <div class="alert alert-success"><i class="fa-solid fa-check-circle"></i> <?= $successMsg ?></div>
-      <?php endif; ?>
-      <?php if ($errorMsg): ?>
-      <div class="alert alert-error"><i class="fa-solid fa-triangle-exclamation"></i> <?= $errorMsg ?></div>
-      <?php endif; ?>
-
-      <!-- STATS (no revenue) -->
+      <!-- STATS -->
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-bag-shopping"></i></div>
           <div class="stat-card-value"><?= $stats['pending_orders'] ?></div>
           <div class="stat-card-label">Pending Orders</div>
           <div class="stat-card-change <?= $stats['pending_orders'] > 0 ? 'down' : 'up' ?>">
-            <i class="fa-solid fa-arrow-down"></i> <?= $stats['pending_orders'] > 0 ? 'needs processing' : 'all clear' ?>
+            <i class="fa-solid fa-arrow-down"></i> <?= $stats['pending_orders'] > 0 ? 'needs attention' : 'all clear' ?>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-icon"><i class="fa-solid fa-gears"></i></div>
+          <div class="stat-card-icon"><i class="fa-solid fa-fire-burner"></i></div>
           <div class="stat-card-value"><?= $stats['processing_orders'] ?></div>
-          <div class="stat-card-label">In Processing</div>
-          <div class="stat-card-change up"><i class="fa-solid fa-spinner"></i> active</div>
+          <div class="stat-card-label">Being Prepared</div>
+          <div class="stat-card-change up"><i class="fa-solid fa-spinner"></i> in kitchen</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon"><i class="fa-solid fa-motorcycle"></i></div>
+          <div class="stat-card-value"><?php
+            try { echo $pdo->query("SELECT COUNT(*) FROM orders WHERE status='confirmed'")->fetchColumn(); }
+            catch(\Throwable $_) { echo '0'; }
+          ?></div>
+          <div class="stat-card-label">Ready for Rider</div>
+          <div class="stat-card-change up"><i class="fa-solid fa-check"></i> awaiting pickup</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-truck-fast"></i></div>
@@ -196,28 +230,22 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
           <div class="stat-card-label">Orders Today</div>
           <div class="stat-card-change up"><i class="fa-solid fa-clock"></i> today</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card-icon"><i class="fa-solid fa-list-check"></i></div>
-          <div class="stat-card-value"><?= count($orders) ?></div>
-          <div class="stat-card-label">Total Orders</div>
-          <div class="stat-card-change up"><i class="fa-solid fa-database"></i> in system</div>
-        </div>
       </div>
 
       <!-- FILTER TABS -->
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
         <a href="staff-orders.php" class="btn btn-outline btn-sm <?= !$filter ? 'btn-primary' : '' ?>">All</a>
-        <a href="staff-orders.php?filter=pending" class="btn btn-outline btn-sm">Pending</a>
-        <a href="staff-orders.php?filter=processing" class="btn btn-outline btn-sm">Processing</a>
-        <a href="staff-orders.php?filter=shipped" class="btn btn-outline btn-sm">Shipped</a>
-        <a href="staff-orders.php?filter=delivered" class="btn btn-outline btn-sm">Delivered</a>
-        <a href="staff-orders.php?filter=cancelled" class="btn btn-outline btn-sm">Cancelled</a>
+        <a href="staff-orders.php?filter=pending" class="btn btn-outline btn-sm <?= $filter==='pending' ? 'btn-primary' : '' ?>">Pending</a>
+        <a href="staff-orders.php?filter=processing" class="btn btn-outline btn-sm <?= $filter==='processing' ? 'btn-primary' : '' ?>">Processing</a>
+        <a href="staff-orders.php?filter=confirmed" class="btn btn-outline btn-sm <?= $filter==='confirmed' ? 'btn-primary' : '' ?>">Ready for Rider</a>
+        <a href="staff-orders.php?filter=shipped" class="btn btn-outline btn-sm <?= $filter==='shipped' ? 'btn-primary' : '' ?>">Shipped</a>
+        <a href="staff-orders.php?filter=delivered" class="btn btn-outline btn-sm <?= $filter==='delivered' ? 'btn-primary' : '' ?>">Delivered</a>
       </div>
 
       <!-- ORDERS TABLE -->
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">All Orders
+          <span class="panel-title">Orders
             <span style="color:var(--muted);font-weight:400;font-size:0.82rem;margin-left:8px;">(<?= count($orders) ?> shown)</span>
           </span>
           <form method="GET" style="display:flex;gap:10px;align-items:center;">
@@ -234,46 +262,67 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         <div style="overflow-x:auto;">
           <table class="data-table">
             <thead><tr>
-              <th>Order ID</th><th>Customer</th><th>Total</th><th>Current Status</th><th>Date</th><th>Update Status</th>
+              <th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Status / ETA</th><th>Date</th><th>Actions</th>
             </tr></thead>
             <tbody>
               <?php if (empty($orders)): ?>
-              <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">
+              <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--muted);">
+                <i class="fa-solid fa-bag-shopping" style="font-size:1.8rem;display:block;margin-bottom:8px;"></i>
                 No orders found<?= $filter ? ' with status "' . htmlspecialchars($filter) . '"' : '' ?>.
               </td></tr>
               <?php else: ?>
-              <?php foreach ($orders as $o): ?>
+              <?php foreach ($orders as $o):
+                // Try parsing JSON from 'items' first, then 'notes'
+                $rawItems = !empty($o['items']) ? $o['items'] : ($o['notes'] ?? '{}');
+                $decoded = json_decode($rawItems, true) ?: [];
+                $items = $decoded['items'] ?? (is_array($decoded) ? $decoded : []);
+                
+                $itemsText = implode(', ', array_map(fn($i) => ($i['name'] ?? 'Item') . (($i['quantity'] ?? 1) > 1 ? ' x'.$i['quantity'] : ''), $items));
+                if (!$itemsText) $itemsText = '—';
+              ?>
               <tr>
                 <td style="color:var(--red);font-weight:700;">#ORD-<?= str_pad($o['id'], 4, '0', STR_PAD_LEFT) ?></td>
                 <td>
                   <div class="flex-gap">
                     <div class="user-avatar"><?= strtoupper(substr($o['customer_name'], 0, 2)) ?></div>
-                    <?= htmlspecialchars($o['customer_name']) ?>
+                    <div>
+                      <?= htmlspecialchars($o['customer_name']) ?>
+                      <div style="font-size:0.72rem;color:var(--muted);"><?= htmlspecialchars($o['customer_email']) ?></div>
+                    </div>
                   </div>
                 </td>
+                <td style="max-width:180px;font-size:0.8rem;"><?= htmlspecialchars($itemsText) ?></td>
                 <td><?= peso((float)$o['total']) ?></td>
-                <td><?= statusBadge($o['status']) ?></td>
+                <td>
+                  <?= statusBadge($o['status']) ?>
+                  <?php if ($o['status'] === 'processing' && !empty($o['eta'])): ?>
+                    <div style="font-size:0.7rem;color:#f39c12;margin-top:4px;"><i class="fa-solid fa-clock"></i> ETA: <?= htmlspecialchars($o['eta']) ?></div>
+                  <?php endif; ?>
+                </td>
                 <td><?= date('M d, Y', strtotime($o['created_at'])) ?></td>
                 <td>
-                  <?php if (!in_array($o['status'], ['delivered', 'cancelled'])): ?>
-                  <form method="POST" class="inline-form">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="order_id" value="<?= $o['id'] ?>">
-                    <select name="new_status" class="status-select">
-                      <option value="processing" <?= $o['status']==='processing'?'selected':'' ?>>Processing</option>
-                      <option value="shipped"    <?= $o['status']==='shipped'?'selected':'' ?>>Shipped</option>
-                      <option value="delivered"  <?= $o['status']==='delivered'?'selected':'' ?>>Delivered</option>
-                      <option value="cancelled"  <?= $o['status']==='cancelled'?'selected':'' ?>>Cancelled</option>
-                    </select>
-                    <button type="submit" class="action-btn" title="Save" onclick="return confirm('Update this order status?')">
-                      <i class="fa-solid fa-floppy-disk"></i>
-                    </button>
-                  </form>
-                  <?php else: ?>
-                  <span style="font-size:0.75rem;color:var(--muted);">
-                    <i class="fa-solid fa-lock" style="margin-right:4px;"></i>Finalized
-                  </span>
-                  <?php endif; ?>
+                  <div class="flex-gap" style="flex-wrap:wrap;gap:6px;">
+                    <?php if ($o['status'] === 'pending'): ?>
+                      <button class="action-pill pill-prepare" onclick="openPrepareModal(<?= $o['id'] ?>)">
+                        <i class="fa-solid fa-fire-burner"></i> Prepare
+                      </button>
+                      <button class="action-pill pill-cancel" onclick="cancelOrder(<?= $o['id'] ?>)">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    <?php elseif ($o['status'] === 'processing'): ?>
+                      <button class="action-pill pill-done" onclick="completeOrder(<?= $o['id'] ?>)">
+                        <i class="fa-solid fa-check-circle"></i> Done!
+                      </button>
+                    <?php elseif ($o['status'] === 'confirmed'): ?>
+                      <span style="color:#3b82f6;font-size:0.78rem;"><i class="fa-solid fa-motorcycle"></i> Sent to Rider</span>
+                    <?php elseif ($o['status'] === 'shipped'): ?>
+                      <span style="color:#a855f7;font-size:0.78rem;"><i class="fa-solid fa-truck"></i> Out for Delivery</span>
+                    <?php elseif ($o['status'] === 'delivered'): ?>
+                      <span style="color:#22c55e;font-size:0.78rem;"><i class="fa-solid fa-circle-check"></i> Completed</span>
+                    <?php elseif ($o['status'] === 'cancelled'): ?>
+                      <span style="color:var(--muted);font-size:0.78rem;">Cancelled</span>
+                    <?php endif; ?>
+                  </div>
                 </td>
               </tr>
               <?php endforeach; ?>
@@ -283,16 +332,105 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--line-w);font-size:0.75rem;color:var(--muted);">
           <i class="fa-solid fa-circle-info" style="margin-right:5px;color:#f39c12;"></i>
-          Staff can update status to: <strong style="color:rgba(255,255,255,0.5);">Processing → Shipped → Delivered</strong> or <strong style="color:rgba(255,255,255,0.5);">Cancelled</strong>. 
-          Delivered and Cancelled orders are locked. Refunds and deletions require admin.
+          Workflow: <strong style="color:rgba(255,255,255,0.5);">Pending → Prepare (set ETA) → Processing → Done! → Rider</strong>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- ETA MODAL -->
+<div id="etaModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1a1a2e;border:1px solid rgba(243,156,18,0.3);border-radius:16px;padding:32px;width:380px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <h3 style="margin:0 0 6px;color:#fff;font-size:1.1rem;"><i class="fa-solid fa-fire-burner" style="color:#f39c12;margin-right:8px;"></i>Start Preparing Order</h3>
+    <p style="color:rgba(255,255,255,0.5);font-size:0.82rem;margin:0 0 22px;">Set an estimated preparation time.</p>
+    <input type="hidden" id="etaOrderId">
+    <label style="font-size:0.8rem;color:rgba(255,255,255,0.6);display:block;margin-bottom:8px;">Estimated Time</label>
+    <select id="etaSelect" style="width:100%;padding:10px 14px;background:#0f0f1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:0.9rem;margin-bottom:8px;">
+      <option value="10-15 mins">10–15 minutes</option>
+      <option value="15-20 mins">15–20 minutes</option>
+      <option value="20-30 mins" selected>20–30 minutes</option>
+      <option value="30-45 mins">30–45 minutes</option>
+      <option value="45-60 mins">45–60 minutes</option>
+      <option value="custom">Custom…</option>
+    </select>
+    <input type="text" id="etaCustom" placeholder="e.g. 25 mins" style="width:100%;padding:10px 14px;background:#0f0f1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:0.9rem;margin-bottom:20px;display:none;box-sizing:border-box;">
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeEtaModal()" style="flex:1;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;cursor:pointer;font-size:0.9rem;">Cancel</button>
+      <button onclick="submitPrepare()" style="flex:2;padding:10px;background:linear-gradient(135deg,#f39c12,#e67e22);border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:0.9rem;font-weight:600;"><i class="fa-solid fa-fire-burner"></i> Start Preparing</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+// ── ETA Modal ──
+function openPrepareModal(orderId) {
+  document.getElementById('etaOrderId').value = orderId;
+  document.getElementById('etaSelect').value = '20-30 mins';
+  document.getElementById('etaCustom').style.display = 'none';
+  document.getElementById('etaModal').style.display = 'flex';
+}
+function closeEtaModal() {
+  document.getElementById('etaModal').style.display = 'none';
+}
+document.getElementById('etaSelect').addEventListener('change', function() {
+  document.getElementById('etaCustom').style.display = this.value === 'custom' ? 'block' : 'none';
+});
+function submitPrepare() {
+  const orderId = document.getElementById('etaOrderId').value;
+  const sel = document.getElementById('etaSelect');
+  const eta = sel.value === 'custom' ? document.getElementById('etaCustom').value.trim() : sel.value;
+  if (!eta) { alert('Please enter an estimated time.'); return; }
+  const fd = new FormData();
+  fd.append('action', 'prepare_order');
+  fd.append('order_id', orderId);
+  fd.append('eta', eta);
+  fetch('staff-orders.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { closeEtaModal(); showToast('🍳 Order is being prepared!'); setTimeout(() => location.reload(), 1200); }
+      else alert('Error: ' + d.message);
+    });
+}
+
+// ── Done Preparing ──
+function completeOrder(orderId) {
+  if (!confirm('Mark this order as done and send to rider?')) return;
+  const fd = new FormData();
+  fd.append('action', 'complete_order');
+  fd.append('order_id', orderId);
+  fetch('staff-orders.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('🏍️ Order sent to rider!'); setTimeout(() => location.reload(), 1200); }
+      else alert('Error: ' + d.message);
+    });
+}
+
+// ── Cancel ──
+function cancelOrder(orderId) {
+  if (!confirm('Cancel this order?')) return;
+  const fd = new FormData();
+  fd.append('action', 'cancel_order');
+  fd.append('order_id', orderId);
+  fetch('staff-orders.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { showToast('Order cancelled.'); setTimeout(() => location.reload(), 1000); }
+      else alert('Error: ' + d.message);
+    });
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:28px;right:28px;z-index:99999;padding:12px 22px;border-radius:10px;font-size:0.9rem;font-weight:600;color:#fff;background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 8px 30px rgba(0,0,0,0.4);';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
 </script>
 </body>
 </html>
