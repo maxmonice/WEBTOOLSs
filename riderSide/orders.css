@@ -124,6 +124,14 @@
   background: rgba(255,255,255,.1);
   border: 1px solid rgba(255,255,255,.2); box-shadow: none;
 }
+.accept-btn:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.order-card.locked {
+  border-color: rgba(245,158,11,.25);
+}
 
 /* Order detail modal */
 .modal-overlay {
@@ -278,6 +286,14 @@
 .order-badge.new {
   background: rgba(245,158,11,.18); color: #fbbf24;
   border: 1px solid rgba(245,158,11,.3);
+}
+.order-badge.prep {
+  background: rgba(245,158,11,.18); color: #fbbf24;
+  border: 1px solid rgba(245,158,11,.3);
+}
+.order-badge.sent {
+  background: rgba(59,130,246,.18); color: #60a5fa;
+  border: 1px solid rgba(59,130,246,.35);
 }
 
 .order-card .order-info-row {

@@ -6,7 +6,7 @@ let currentOrder = null; // full order object currently in modal
 
 // ── Fetch and render orders ────────────────────────────
 function loadOrders() {
-  fetch('rider-orders-api.php?action=get_confirmed_orders')
+  fetch('rider-orders-api.php?action=get_rider_orders')
     .then(r => r.json())
     .then(data => {
       document.getElementById('loading-state').style.display = 'none';
@@ -49,10 +49,12 @@ function loadOrders() {
 function renderOrderCards(orders) {
   const container = document.getElementById('orders-list');
   container.innerHTML = orders.map(order => `
-    <div class="order-card" data-id="${order.id}" onclick="openOrderDetail(${JSON.stringify(order).replace(/"/g, '&quot;')})">
+    <div class="order-card ${order.status !== 'confirmed' ? 'locked' : ''}" data-id="${order.id}" onclick="handleOrderTap(${JSON.stringify(order).replace(/"/g, '&quot;')})">
       <div class="order-card-header">
         <span class="order-id">${order.order_num}</span>
-        <span class="order-badge new">New</span>
+        <span class="order-badge ${order.status === 'confirmed' ? 'sent' : 'prep'}">
+          ${order.status === 'confirmed' ? 'Sent' : 'Preparing'}
+        </span>
       </div>
       <div class="order-info-row">
         <i class="fas fa-user"></i>
@@ -69,12 +71,22 @@ function renderOrderCards(orders) {
       ${order.eta ? `<div class="order-info-row" style="color:#f39c12;"><i class="fas fa-clock"></i><span>Ready in: ${order.eta}</span></div>` : ''}
       <div class="order-footer">
         <span class="order-total">${order.total}</span>
-        <button class="accept-btn" onclick="event.stopPropagation();quickAccept(${order.id})">
-          <i class="fas fa-check"></i> Accept
-        </button>
+        ${order.status === 'confirmed'
+          ? `<button class="accept-btn" onclick="event.stopPropagation();quickAccept(${order.id})"><i class="fas fa-route"></i> On Route</button>`
+          : `<button class="accept-btn secondary" disabled><i class="fas fa-clock"></i> Waiting</button>`
+        }
       </div>
     </div>
   `).join('');
+}
+
+function handleOrderTap(order) {
+  if (typeof order === 'string') order = JSON.parse(order.replace(/&quot;/g, '"'));
+  if (order.status !== 'confirmed') {
+    showToast('This order is still being prepared by staff.', 'error');
+    return;
+  }
+  openOrderDetail(order);
 }
 
 // ── Order Detail Modal ────────────────────────────────
@@ -102,7 +114,14 @@ function openOrderDetail(order) {
     : `<div style="padding:12px;color:rgba(255,255,255,0.4);font-size:0.85rem;">${order.items_summary || 'No item details'}</div>`;
 
   document.getElementById('detailItems').innerHTML = itemsHtml;
-  document.getElementById('detailMainBtn').innerHTML = '<i class="fas fa-check"></i> Accept Order';
+  const mainBtn = document.getElementById('detailMainBtn');
+  if (order.status === 'confirmed') {
+    mainBtn.disabled = false;
+    mainBtn.innerHTML = '<i class="fas fa-route"></i> On Route';
+  } else {
+    mainBtn.disabled = true;
+    mainBtn.innerHTML = '<i class="fas fa-clock"></i> Waiting for Staff';
+  }
   document.getElementById('orderDetailModal').classList.add('open');
 }
 
@@ -113,6 +132,10 @@ function closeOrderDetail() {
 
 function acceptFromDetail() {
   if (!currentOrder) return;
+  if (currentOrder.status !== 'confirmed') {
+    showToast('Order is not ready yet.', 'error');
+    return;
+  }
   doAcceptOrder(currentOrder.id);
 }
 
@@ -131,9 +154,10 @@ function doAcceptOrder(orderId) {
     .then(d => {
       if (d.success) {
         closeOrderDetail();
-        showToast('✅ Order accepted! Head to pickup.', 'success');
-        // Reload after short delay so badge updates
-        setTimeout(() => loadOrders(), 1500);
+        showToast('✅ Order accepted! Opening map...', 'success');
+        setTimeout(() => {
+          window.location.href = 'map.php?order_id=' + orderId;
+        }, 1500);
       } else {
         showToast('❌ ' + (d.message || 'Could not accept order'), 'error');
       }

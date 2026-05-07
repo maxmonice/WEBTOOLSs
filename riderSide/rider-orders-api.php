@@ -27,13 +27,14 @@ try {
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-// ── Fetch all confirmed (ready for rider) orders ──
-if ($action === 'get_confirmed_orders') {
+// ── Fetch rider queue (processing + confirmed) ──
+if ($action === 'get_rider_orders' || $action === 'get_confirmed_orders') {
     $stmt = $pdo->prepare("
-        SELECT id, address, payment_method, total_amount, total, user_name, user_email,
+        SELECT id, address, delivery_latitude, delivery_longitude, status,
+               payment_method, total_amount, user_name, user_email,
                notes, eta, created_at
         FROM orders
-        WHERE status = 'confirmed'
+        WHERE status IN ('processing', 'confirmed')
         ORDER BY updated_at DESC
     ");
     $stmt->execute();
@@ -53,10 +54,13 @@ if ($action === 'get_confirmed_orders') {
         $orders[] = [
             'id'             => $row['id'],
             'order_num'      => '#ORD-' . str_pad($row['id'], 4, '0', STR_PAD_LEFT),
+            'status'         => $row['status'],
             'customer_name'  => $row['user_name'] ?: ($notes['user_name'] ?? 'Customer'),
             'customer_phone' => $notes['phone'] ?? '—',
             'address'        => $row['address'],
             'payment'        => $row['payment_method'],
+            'lat'            => $row['delivery_latitude'],
+            'lng'            => $row['delivery_longitude'],
             'total'          => '₱' . number_format((float)($row['total_amount'] ?? $row['total'] ?? 0), 2),
             'eta'            => $row['eta'] ?? '',
             'items'          => $items,
@@ -78,8 +82,12 @@ if ($action === 'accept_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     try {
         // Store rider_id as VARCHAR-compatible string
-        $pdo->prepare("UPDATE orders SET status = 'shipped', rider_id = ?, updated_at = NOW() WHERE id = ? AND status = 'confirmed'")
-            ->execute([(string)$riderId, $orderId]);
+        $stmt = $pdo->prepare("UPDATE orders SET status = 'shipped', rider_id = ?, updated_at = NOW() WHERE id = ? AND status = 'confirmed'");
+        $stmt->execute([(string)$riderId, $orderId]);
+        if ($stmt->rowCount() === 0) {
+            echo json_encode(['success' => false, 'message' => 'Order is not sent to rider yet.']);
+            exit;
+        }
         echo json_encode(['success' => true, 'message' => 'Order accepted! Head to the pickup.']);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);

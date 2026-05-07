@@ -331,16 +331,33 @@ window.hideOrderConfirm = function() {
 };
 
 window.submitOrder = async function() {
-  const formData = new FormData();
-  formData.append('cart', JSON.stringify(cart));
-  formData.append('address', document.getElementById('cartAddress').value);
-  formData.append('payment_method', document.querySelector('.payment-method-btn.active')?.dataset.method);
-  formData.append('total', document.getElementById('cartTotal').textContent);
+  const paymentMethod = document.querySelector('.payment-method-btn.active')?.dataset.method || '';
+  const address = document.getElementById('cartAddress')?.value.trim() || '';
+  const subtotal = cart.reduce((sum, item) => sum + ((item.rawPrice || 0) * (item.quantity || 1)), 0);
+  const total = subtotal + SHIPPING;
+  const paymentDetails = {};
 
   ['cardName','cardNumber','cardExpiry','cardCvv','codName','codMobile','gcashRef','gcashNumber'].forEach(id => {
     const el = document.getElementById(id);
-    if (el?.value) formData.append(id, el.value);
+    if (el?.value) paymentDetails[id] = el.value.trim();
   });
+
+  const payload = {
+    action: 'create_order',
+    items: cart.map(item => ({
+      name: item.name,
+      price: Number(item.rawPrice || 0),
+      quantity: Number(item.quantity || 1),
+      variation: item.variation || null,
+      pieces: item.pieces || null
+    })),
+    address,
+    paymentMethod,
+    paymentDetails,
+    subtotal,
+    shipping: SHIPPING,
+    total
+  };
 
   function onOrderSuccess(orderId) {
     cart = [];
@@ -374,21 +391,21 @@ window.submitOrder = async function() {
   }
 
   try {
-    const res = await fetch('process-order.php', {method: 'POST', body: formData});
+    const res = await fetch('process-order.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
     let data = {};
     try { data = await res.json(); } catch(jsonErr) { data = {}; }
 
     if (data.success) {
       onOrderSuccess(data.order_id);
     } else {
-      // If backend isn't ready yet, simulate success
-      console.warn('process-order.php not ready, simulating success. Server said:', data.error || '(no error message)');
-      onOrderSuccess(null);
+      alert(data.message || 'Failed to place order. Please try again.');
     }
   } catch(e) {
-    // Network error — simulate success
-    console.warn('process-order.php unreachable, simulating success:', e.message);
-    onOrderSuccess(null);
+    alert('Network error while placing order. Please try again.');
   }
 };
 
