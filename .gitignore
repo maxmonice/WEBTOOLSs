@@ -8,6 +8,8 @@ WEBTOOLS/
 # Dependencies
 vendor/
 composer.lock
+node_modules/
+socket-server/node_modules/
 
 # Logs
 *.log
@@ -23,3 +25,5 @@ Thumbs.db
 # Cache
 cache/
 tmp/
+uploads/
+riderSide/sessions/
