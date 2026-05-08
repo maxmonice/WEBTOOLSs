@@ -504,19 +504,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.addEventListener('click', () => signInWithFacebook());
     });
 
+    // --- RECAPTCHA v3 HELPER ---
+    async function getRecaptchaToken(action = 'submit') {
+        try {
+            const token = await grecaptcha.execute('6LcpWt4sAAAAAMAw0Tq8RDUwcW-qAqZkyyRBJIGd', { action });
+            return token;
+        } catch (e) {
+            console.error('reCAPTCHA error:', e);
+            return null;
+        }
+    }
+
+    function showRecaptchaError(formType) {
+        const errorEl = document.getElementById(formType + 'RecaptchaError');
+        if (errorEl) {
+            errorEl.classList.add('visible');
+        }
+    }
+
+    function hideRecaptchaError(formType) {
+        const errorEl = document.getElementById(formType + 'RecaptchaError');
+        if (errorEl) {
+            errorEl.classList.remove('visible');
+        }
+    }
+
     // --- EMAIL LOGIN ---
     document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearError();
+        hideRecaptchaError('login');
         const email    = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value;
         const remember = document.getElementById('rememberMe')?.checked ?? false;
 
         if (!email || !password) { showError('Please fill in all fields.'); return; }
 
+        // Get reCAPTCHA v3 token
+        const recaptchaToken = await getRecaptchaToken('login');
+        if (!recaptchaToken) {
+            showRecaptchaError('login');
+            return;
+        }
+
         showLoading(true);
         try {
-            const result = await callAuth({ action: 'login', email, password, remember });
+            const result = await callAuth({ action: 'login', email, password, remember, recaptchaToken });
             if (result.success) {
                 onLoginSuccess(result); // routes to OTP overlay OR redirect directly for admin
             } else {
@@ -560,6 +593,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearError();
+        hideRecaptchaError('signup');
         const name     = document.getElementById('signupName').value.trim();
         const email    = document.getElementById('signupEmail').value.trim();
         const password = document.getElementById('signupPassword').value;
@@ -582,9 +616,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Hide password match error if passwords match
         document.getElementById('passwordMatchError').style.display = 'none';
 
+        // Get reCAPTCHA v3 token
+        const recaptchaToken = await getRecaptchaToken('signup');
+        if (!recaptchaToken) {
+            showRecaptchaError('signup');
+            return;
+        }
+
         showLoading(true);
         try {
-            const result = await callAuth({ action: 'signup', name, email, password });
+            const result = await callAuth({ action: 'signup', name, email, password, recaptchaToken });
             if (result.success) {
                 onLoginSuccess(result);
             } else {

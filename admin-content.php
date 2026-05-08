@@ -1654,7 +1654,7 @@ try {
 
       <div class="form-row">
 
-        <div class="form-group">
+        <div class="form-group" id="priceField">
 
           <label class="form-label">Price</label>
 
@@ -2964,11 +2964,14 @@ function openModalWithCategory(modalId, category) {
   // Set the category
   if (category === 'menu') {
     document.getElementById('contentCategory').value = 'A La Carte'; // Default menu category
-    showVariationsSection();
   } else if (category === 'gallery') {
     document.getElementById('contentCategory').value = 'gallery';
-    hideVariationsSection();
   }
+  
+  // Trigger category change event to update UI
+  const categorySelect = document.getElementById('contentCategory');
+  const changeEvent = new Event('change');
+  categorySelect.dispatchEvent(changeEvent);
   
   // Open modal
   document.getElementById(modalId).classList.add('open');
@@ -3037,10 +3040,25 @@ document.addEventListener('DOMContentLoaded', function() {
   if (categorySelect) {
     categorySelect.addEventListener('change', function() {
       const isMenuCategory = ['Salad', 'Fusion', 'A La Carte', 'Platters', 'Bento'].includes(this.value);
+      const isGalleryCategory = this.value === 'gallery';
+      
+      // Handle variations section
       if (isMenuCategory) {
         showVariationsSection();
       } else {
         hideVariationsSection();
+      }
+      
+      // Handle price field visibility
+      const priceField = document.getElementById('priceField');
+      const priceInput = document.getElementById('contentPrice');
+      if (isGalleryCategory) {
+        priceField.style.display = 'none';
+        priceInput.required = false;
+        priceInput.value = '';
+      } else {
+        priceField.style.display = 'block';
+        priceInput.required = true;
       }
     });
   }

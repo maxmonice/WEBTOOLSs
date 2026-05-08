@@ -34,6 +34,7 @@ function loadAccountEnv(string $envPath): void {
 }
 loadAccountEnv(__DIR__ . '/.env');
 $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav88iduut5ddf50ecgj0a.apps.googleusercontent.com';
+$recaptchaSiteKey = '6LcpWt4sAAAAAMAw0Tq8RDUwcW-qAqZkyyRBJIGd';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -46,6 +47,7 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="account.css">
+    <script src="https://www.google.com/recaptcha/api.js?render=6LcpWt4sAAAAAMAw0Tq8RDUwcW-qAqZkyyRBJIGd" async defer></script>
 
     <style>
         /* =====================================================
@@ -214,6 +216,23 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
             .otp-digit { width: 40px; height: 48px; font-size: 1.3rem; }
             .otp-digits { gap: 7px; }
         }
+
+        /* reCAPTCHA Error (v3 is invisible) */
+        .recaptcha-error {
+            color: #ff6b6b;
+            font-size: 0.85rem;
+            margin: 0 0 14px 0;
+            display: none;
+            text-align: center;
+        }
+        
+        .recaptcha-error.visible {
+            display: block;
+        }
+        
+        .g-recaptcha-badge {
+            visibility: hidden;
+        }
     </style>
 </head>
 <body>
@@ -281,6 +300,11 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
                     </label>
                     <a href="forgotpassword.php" class="forgot-link">Forgot Password?</a>
                 </div>
+
+                <div id="loginRecaptchaError" class="recaptcha-error">
+                    <i class="fas fa-exclamation-circle"></i> reCAPTCHA verification failed. Please try again.
+                </div>
+                <input type="hidden" id="loginRecaptchaToken" name="recaptchaToken" value="">
 
                 <button type="submit" class="btn-primary" id="loginSubmitBtn">
                     <span>Sign In</span>
@@ -352,6 +376,11 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
                         <i class="fas fa-exclamation-circle"></i> Passwords do not match
                     </div>
                 </div>
+
+                <div id="signupRecaptchaError" class="recaptcha-error">
+                    <i class="fas fa-exclamation-circle"></i> reCAPTCHA verification failed. Please try again.
+                </div>
+                <input type="hidden" id="signupRecaptchaToken" name="recaptchaToken" value="">
 
                 <button type="submit" class="btn-primary" id="signupSubmitBtn">
                     <span>Create Account</span>
@@ -429,6 +458,7 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
     <script>
         window.APP_CONFIG = window.APP_CONFIG || {};
         window.APP_CONFIG.googleClientId = <?php echo json_encode($googleClientIdForJs, JSON_UNESCAPED_SLASHES); ?>;
+        window.APP_CONFIG.recaptchaSiteKey = <?php echo json_encode($recaptchaSiteKey); ?>;
     </script>
     <script src="account.js"></script>
 </body>

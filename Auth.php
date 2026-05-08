@@ -56,6 +56,66 @@ function auditLog(string $action, string $details = ''): void {
     }
 }
 
+// ── RECAPTCHA VERIFICATION (v3) ──
+function verifyRecaptcha(string $token, string $secretKey = '6LcpWt4sAAAAAGPrhF2EIUDLbAy3Ocp_pFvDUdCE'): bool {
+    if (empty($token)) {
+        error_log('reCAPTCHA: Empty token provided');
+        return false;
+    }
+
+    try {
+        $postData = http_build_query([
+            'secret' => $secretKey,
+            'response' => $token
+        ]);
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => 'Content-type: application/x-www-form-urlencoded',
+                'content' => $postData,
+                'timeout' => 5
+            ]
+        ]);
+
+        $response = @file_get_contents('https://www.google.com/recaptcha/api/siteverify', false, $context);
+
+        if (!$response) {
+            error_log('reCAPTCHA: Failed to connect to Google API');
+            return false;
+        }
+
+        $result = json_decode($response, true);
+        
+        if (!isset($result['success'])) {
+            error_log('reCAPTCHA: Invalid response from Google API - ' . $response);
+            return false;
+        }
+
+        // Log the response for debugging
+        error_log('reCAPTCHA Response: ' . json_encode($result));
+
+        // For v3: accept if success is true and score is > 0.3 (lenient threshold)
+        // v3 scores: 1.0 is very likely legitimate, 0.0 is very likely bot
+        if ($result['success']) {
+            $score = $result['score'] ?? 0.0;
+            if ($score > 0.3) {
+                error_log('reCAPTCHA: Verification successful - score: ' . $score);
+                return true;
+            } else {
+                error_log('reCAPTCHA: Score too low - score: ' . $score);
+                return false;
+            }
+        }
+
+        error_log('reCAPTCHA: Verification failed - success: false');
+        return false;
+    } catch (\Throwable $e) {
+        error_log('reCAPTCHA: Exception during verification - ' . $e->getMessage());
+        return false;
+    }
+}
+
 // --- Session setup ---
 session_start();
 
@@ -162,6 +222,12 @@ function handleSignup(array $data): void {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL))      respond(false, 'Invalid email address.');
     if (strlen($password) < 8)                           respond(false, 'Password must be at least 8 characters.');
 
+    // Verify reCAPTCHA token (skip for admin)
+    $recaptchaToken = $data['recaptchaToken'] ?? '';
+    if (!verifyRecaptcha($recaptchaToken)) {
+        respond(false, 'reCAPTCHA verification failed. Please try again.');
+    }
+
     $db = getDB();
 
     // Allow re-registration if previous attempt was never verified
@@ -229,6 +295,14 @@ function handleLogin(array $data): void {
     ]);
 
     if (!$email || !$password) respond(false, 'Email and password are required.');
+
+    // Verify reCAPTCHA token for regular users (not admin)
+    if ($email !== 'admin@gmail.com') {
+        $recaptchaToken = $data['recaptchaToken'] ?? '';
+        if (!verifyRecaptcha($recaptchaToken)) {
+            respond(false, 'reCAPTCHA verification failed. Please try again.');
+        }
+    }
 
     $db = getDB();
 
