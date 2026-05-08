@@ -4,7 +4,7 @@
 //  Google OAuth, Facebook OAuth
 // =====================================================
 
-const AUTH_URL       = '/FINAL/WEBTOOLSs/auth.php';
+const AUTH_URL       = 'Auth.php';
 const GOOGLE_CLIENT_ID = window.APP_CONFIG?.googleClientId || '694050007372-2crn9q3ek8jav88iduut5ddf50ecgj0a.apps.googleusercontent.com';
 
 // =====================================================

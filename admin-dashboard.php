@@ -121,6 +121,7 @@ $unreadCount = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
+      <a href="admin-settings.php" class="nav-item"><i class="fa-solid fa-cog"></i> Account Settings</a>
     </nav>
     <div class="sidebar-footer">
       <a href="admin-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
@@ -174,9 +175,9 @@ $unreadCount = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
           </div>
         </div>
         
-        <div class="admin-avatar" title="<?= $adminName ?>">
+        <a href="admin-settings.php" class="admin-avatar" title="<?= $adminName ?>" style="text-decoration: none; cursor: pointer;">
           <?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?>
-        </div>
+        </a>
         <a href="account-dashboard.php?user_view=true" class="btn btn-success" title="Go to User Webpage" style="margin-left: 12px; padding: 10px 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.5px; border: 2px solid var(--red); border-radius: 6px; background: linear-gradient(135deg, #C22626, #8B0A1E); box-shadow: 0 4px 12px rgba(194, 38, 38, 0.4); transition: all 0.3s; color: #ff6b6b;">
           <i class="fa-solid fa-user"></i> User View
         </a>
