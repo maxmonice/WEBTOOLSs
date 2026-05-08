@@ -1,3 +1,51 @@
+<?php
+require_once 'Db.php';
+require_once 'Notifications.php';
+
+// Get database connection
+$pdo = getDB();
+
+// Ensure session is started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Check if user is logged in or allowed to view as admin/staff
+$isUserViewMode      = isset($_GET['user_view']) && $_GET['user_view'] === 'true';
+
+if (!isset($_SESSION['user_id'])) {
+    if ($isUserViewMode && isset($_SESSION['user_role']) && in_array($_SESSION['user_role'], ['admin', 'staff'])) {
+        // Allow admin/staff to view the customer dashboard area without forcing a logout
+    } else {
+        header('Location: account.php');
+        exit;
+    }
+}
+
+// Prepare user data for immediate server-side rendering (no JS loading placeholders)
+$renderName  = htmlspecialchars($_SESSION['user_name'] ?? 'Guest');
+$renderEmail = htmlspecialchars($_SESSION['user_email'] ?? '');
+$renderRole  = $_SESSION['user_role'] ?? '';
+
+$viewBannerText = '';
+$exitButtonText = 'Back to Dashboard';
+if ($isUserViewMode) {
+    $viewBannerText  = 'USER VIEW - Viewing Customer Side as ' . ucfirst($_SESSION['user_role']);
+}
+
+$notifications = new Notifications($pdo);
+$userNotifications = $notifications->getForUser('customer', $_SESSION['user_id'], 10);
+$unreadCount = $notifications->getUnreadCount('customer', $_SESSION['user_id']);
+
+// Helper function for PHP-side time formatting
+function timeAgoPhp(string $datetime): string {
+    $diff = time() - strtotime($datetime);
+    if ($diff < 60)   return 'just now';
+    if ($diff < 3600) return (int)($diff / 60) . ' min ago';
+    if ($diff < 86400) return (int)($diff / 3600) . ' hour' . ((int)($diff / 3600) > 1 ? 's' : '') . ' ago';
+    return (int)($diff / 86400) . ' day' . ((int)($diff / 86400) > 1 ? 's' : '') . ' ago';
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -169,6 +217,69 @@
             .edit-btn { width: 100%; justify-content: center; }
             .page { padding: 32px 16px 60px; }
         }
+
+        /* Notification Styles */
+        .nav-notifications {
+            position: relative; cursor: pointer; color: white; 
+            display: flex; align-items: center; justify-content: center;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(255,255,255,0.1); transition: all 0.3s;
+        }
+        .nav-notifications:hover { background: rgba(255,255,255,0.2); }
+        .notification-badge {
+            position: absolute; top: -5px; right: -5px; 
+            background: var(--red); color: white; border-radius: 10px; 
+            padding: 2px 5px; font-size: 0.7rem; font-weight: bold; 
+            min-width: 18px; text-align: center; line-height: 1;
+        }
+        .notification-dropdown {
+            position: absolute; top: 100%; right: 0; width: 320px;
+            background: #2a2a2a; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 1000; display: none; max-height: 400px; overflow-y: auto;
+        }
+        .notification-dropdown.show { display: block; }
+        .notification-header {
+            padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .notification-header h3 { margin: 0; font-size: 0.9rem; color: white; }
+        .notification-header .mark-all {
+            font-size: 0.75rem; color: var(--red); text-decoration: none;
+            background: transparent; border: none; cursor: pointer;
+        }
+        .notification-header .mark-all:hover { text-decoration: underline; }
+        .notification-item {
+            padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer; transition: background 0.2s;
+        }
+        .notification-item:hover { background: rgba(255,255,255,0.05); }
+        .notification-item:last-child { border-bottom: none; }
+        .notification-item.unread {
+            background: rgba(52,152,219,0.1); border-left: 3px solid #3498db;
+        }
+        .notification-content {
+            display: flex; gap: 12px; align-items: flex-start;
+        }
+        .notification-icon {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; font-size: 0.9rem;
+        }
+        .notification-text { flex: 1; }
+        .notification-title {
+            font-size: 0.85rem; font-weight: 600; color: white; margin-bottom: 4px;
+        }
+        .notification-message {
+            font-size: 0.78rem; color: rgba(255,255,255,0.7); line-height: 1.4;
+        }
+        .notification-time {
+            font-size: 0.72rem; color: rgba(255,255,255,0.5); margin-top: 4px;
+        }
+        .notification-empty {
+            padding: 24px; text-align: center; color: rgba(255,255,255,0.5);
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -188,11 +299,53 @@
                 <a href="account.php" class="nav-account-icon active" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
+                <div class="nav-notifications" style="position: relative;" onclick="toggleNotifications()">
+                    <i class="fas fa-bell"></i>
+                    <?php if ($unreadCount > 0): ?>
+                    <span class="notification-badge" id="notificationCount"><?= $unreadCount ?></span>
+                    <?php endif; ?>
+                </div>
+                
+                <!-- Notification Dropdown -->
+                <div class="notification-dropdown" id="notificationDropdown">
+                    <div class="notification-header">
+                        <h3>Notifications</h3>
+                        <button class="mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
+                    </div>
+                    <div id="notificationList">
+                        <?php if (empty($userNotifications)): ?>
+                            <div class="notification-empty">No notifications</div>
+                        <?php else: ?>
+                            <?php foreach ($userNotifications as $notif): ?>
+                                <div class="notification-item <?= !$notif['is_read'] ? 'unread' : '' ?>" onclick="markNotificationRead(<?= $notif['id'] ?>)">
+                                    <div class="notification-content">
+                                        <div class="notification-icon" style="background: <?= getNotificationColor($notif['type']) ?>20; color: <?= getNotificationColor($notif['type']) ?>;">
+                                            <i class="fa-solid <?= getNotificationIcon($notif['type']) ?>"></i>
+                                        </div>
+                                        <div class="notification-text">
+                                            <div class="notification-title"><?= htmlspecialchars($notif['title']) ?></div>
+                                            <div class="notification-message"><?= htmlspecialchars($notif['message']) ?></div>
+                                            <div class="notification-time"><?= timeAgoPhp($notif['created_at']) ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </nav>
         </div>
     </header>
 
     <main>
+        <?php if (!empty($viewBannerText)): ?>
+        <div style="background: linear-gradient(90deg, #C22626, #8B0A1E); color: white; padding: 12px 20px; margin: 0 auto; max-width: 900px; border-radius: 8px; font-size: 13px; margin-top: 20px; text-align: center; font-weight: 600; box-shadow: 0 4px 12px rgba(194, 38, 38, 0.4);">
+            <i class="fa-solid fa-eye" style="margin-right: 8px;"></i> <?= htmlspecialchars($viewBannerText) ?>
+            <button onclick="exitUserViewMode(this)" data-role="<?= htmlspecialchars($_SESSION['user_role'] ?? '') ?>" style="background: white; color: #C22626; border: none; padding: 8px 16px; border-radius: 6px; margin-left: 15px; cursor: pointer; font-weight: 700; font-size: 12px; transition: all 0.2s;">
+                <i class="fa-solid fa-arrow-left" style="margin-right: 5px;"></i> <?= htmlspecialchars($exitButtonText) ?>
+            </button>
+        </div>
+        <?php endif; ?>
         <div class="page">
             <p class="page-eyebrow">Logged In</p>
             <h1 class="page-title">My Account</h1>
@@ -202,21 +355,21 @@
                 <div class="section-label"><i class="fa-solid fa-user"></i> Profile &amp; Account Info</div>
                 <div class="profile-card">
                     <div class="avatar-wrap">
-                        <div class="avatar" id="avatarInitial">?</div>
+                        <div class="avatar" id="avatarInitial"><?= strtoupper(substr($renderName, 0, 1)) ?></div>
                         <div class="avatar-badge"></div>
                     </div>
                     <div class="profile-info">
-                        <div class="profile-name" id="displayName">Loading...</div>
-                        <div class="profile-email" id="displayEmail">Loading...</div>
+                        <div class="profile-name" id="displayName"><?= $renderName ?></div>
+                        <div class="profile-email" id="displayEmail"><?= $renderEmail ?></div>
                     </div>
                     <button class="edit-btn" onclick="openEdit()">
                         <i class="fa-solid fa-pen-to-square"></i> Edit Profile
                     </button>
                 </div>
                 <div class="detail-rows">
-                    <div class="detail-row"><span class="dr-label">Full Name</span><span class="dr-value" id="detailName">—</span></div>
-                    <div class="detail-row"><span class="dr-label">Email Address</span><span class="dr-value" id="detailEmail">—</span></div>
-                    <div class="detail-row"><span class="dr-label">Member Since</span><span class="dr-value" id="memberSince">—</span></div>
+                    <div class="detail-row"><span class="dr-label">Full Name</span><span class="dr-value" id="detailName"><?= $renderName ?></span></div>
+                    <div class="detail-row"><span class="dr-label">Email Address</span><span class="dr-value" id="detailEmail"><?= $renderEmail ?></span></div>
+                    <div class="detail-row"><span class="dr-label">Member Since</span><span class="dr-value" id="memberSince"><?= date('F Y') ?></span></div>
                 </div>
             </div>
 
@@ -271,7 +424,7 @@
             <div class="logout-block">
                 <button class="logout-btn" onclick="openLogout()">
                     <div class="logout-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
-                    <div class="logout-label">Log Out<small>Signed in as <span id="logoutEmail">—</span></small></div>
+                    <div class="logout-label">Log Out<small>Signed in as <span id="logoutEmail"><?= $renderEmail ?></span></small></div>
                     <i class="fa-solid fa-chevron-right" style="color:rgba(194,38,38,0.4);font-size:0.75rem;"></i>
                 </button>
             </div>
@@ -411,28 +564,179 @@
                 if (!data.success) { sessionStorage.clear(); window.location.href = 'account.php'; return; }
                 sessionStorage.setItem('user_name',  data.name  || '');
                 sessionStorage.setItem('user_email', data.email || '');
-            } catch (e) { sessionStorage.clear(); window.location.href = 'account.php'; }
+            } catch (e) { 
+                // Silent fail - page already has server-rendered data
+            }
         })().then(() => initDashboard());
 
         function initDashboard() {
-            userData.name  = sessionStorage.getItem('user_name')  || 'Guest';
-            userData.email = sessionStorage.getItem('user_email') || '';
+            // Only override if we have sessionStorage data; otherwise keep server-rendered values
+            const sName  = sessionStorage.getItem('user_name');
+            const sEmail = sessionStorage.getItem('user_email');
+            if (sName)  userData.name  = sName;
+            if (sEmail) userData.email = sEmail;
             updateUI();
         }
 
-        let userData = { name:'', email:'' };
+        let userData = { name:'<?= $renderName ?>', email:'<?= $renderEmail ?>' };
 
         function updateUI() {
             const initial = userData.name.trim().charAt(0).toUpperCase() || '?';
             document.getElementById('avatarInitial').textContent = initial;
-            document.getElementById('displayName').textContent   = userData.name;
-            document.getElementById('displayEmail').textContent  = userData.email;
-            document.getElementById('detailName').textContent    = userData.name;
-            document.getElementById('detailEmail').textContent   = userData.email;
-            document.getElementById('logoutEmail').textContent   = userData.email;
+            // Only update if elements still have placeholder values or different values
+            const dName = document.getElementById('displayName');
+            const dEmail = document.getElementById('displayEmail');
+            if (dName && (dName.textContent === 'Loading...' || dName.textContent === '—')) dName.textContent = userData.name;
+            if (dEmail && (dEmail.textContent === 'Loading...' || dEmail.textContent === '—')) dEmail.textContent = userData.email;
+            
+            const deName = document.getElementById('detailName');
+            const deEmail = document.getElementById('detailEmail');
+            if (deName && deName.textContent === '—') deName.textContent = userData.name;
+            if (deEmail && deEmail.textContent === '—') deEmail.textContent = userData.email;
+            
+            const logoutEmail = document.getElementById('logoutEmail');
+            if (logoutEmail && (logoutEmail.textContent === '—' || logoutEmail.textContent === '')) logoutEmail.textContent = userData.email;
+            
+            // Load notifications
+            loadNotifications();
+        }
+
+        // Notification functions
+        function toggleNotifications() {
+            const dropdown = document.getElementById('notificationDropdown');
+            dropdown.classList.toggle('show');
+            
+            // Close dropdown when clicking outside
+            if (!dropdown.dataset.listenerAdded) {
+                dropdown.dataset.listenerAdded = 'true';
+                document.addEventListener('click', function(e) {
+                    if (!dropdown.contains(e.target) && !e.target.closest('.nav-notifications')) {
+                        dropdown.classList.remove('show');
+                    }
+                });
+            }
+        }
+
+        function loadNotifications() {
+            fetch('account-handle-notifications.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_notifications' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.notifications) {
+                    updateNotificationDisplay(data.notifications);
+                    updateNotificationCount();
+                }
+            });
+        }
+
+        function updateNotificationDisplay(notifications) {
+            const list = document.getElementById('notificationList');
+            if (notifications.length === 0) {
+                list.innerHTML = '<div class="notification-empty">No notifications</div>';
+            } else {
+                list.innerHTML = notifications.map(notif => `
+                    <div class="notification-item ${!notif.is_read ? 'unread' : ''}" onclick="markNotificationRead(${notif.id})">
+                        <div class="notification-content">
+                            <div class="notification-icon" style="background: ${getNotificationColor(notif.type)}20; color: ${getNotificationColor(notif.type)};">
+                                <i class="fa-solid ${getNotificationIcon(notif.type)}"></i>
+                            </div>
+                            <div class="notification-text">
+                                <div class="notification-title">${notif.title}</div>
+                                <div class="notification-message">${notif.message}</div>
+                                <div class="notification-time">${timeAgo(notif.created_at)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function markNotificationRead(notificationId) {
+            fetch('account-handle-notifications.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mark_read', notification_id: notificationId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const item = document.querySelector(`[onclick="markNotificationRead(${notificationId})"]`);
+                    if (item) {
+                        item.classList.remove('unread');
+                    }
+                    updateNotificationCount();
+                }
+            });
+        }
+
+        function markAllNotificationsRead() {
+            fetch('account-handle-notifications.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mark_all_read' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.querySelectorAll('.notification-item.unread').forEach(item => {
+                        item.classList.remove('unread');
+                    });
+                    updateNotificationCount();
+                }
+            });
+        }
+
+        function updateNotificationCount() {
+            const count = document.querySelectorAll('.notification-item.unread').length;
+            const countElement = document.getElementById('notificationCount');
+            const badge = document.getElementById('notificationCount');
+            
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function getNotificationIcon(type) {
+            const icons = {
+                'info': 'fa-info-circle',
+                'success': 'fa-check-circle',
+                'warning': 'fa-exclamation-triangle',
+                'error': 'fa-times-circle',
+                'booking': 'fa-calendar-days',
+                'order': 'fa-bag-shopping',
+                'user': 'fa-user-plus'
+            };
+            return icons[type] || 'fa-info-circle';
+        }
+
+        function getNotificationColor(type) {
+            const colors = {
+                'info': '#3498db',
+                'success': '#2ecc71',
+                'warning': '#f39c12',
+                'error': '#e74c3c',
+                'booking': '#9b59b6',
+                'order': '#e67e22',
+                'user': '#1abc9c'
+            };
+            return colors[type] || '#3498db';
+        }
+
+        function timeAgo(dateString) {
+            const date = new Date(dateString);
             const now = new Date();
-            document.getElementById('memberSince').textContent =
-                now.toLocaleString('default', { month:'long', year:'numeric' });
+            const seconds = Math.floor((now - date) / 1000);
+            
+            if (seconds < 60) return 'Just now';
+            if (seconds < 3600) return Math.floor(seconds / 60) + ' minutes ago';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
+            return Math.floor(seconds / 86400) + ' days ago';
         }
 
         // ── Edit Profile ──
@@ -504,6 +808,20 @@
                 else { showToast(data.message || 'Failed to update password.', true); }
             } catch (e) { showToast('Network error. Please try again.', true); }
             finally { btn.disabled = false; btn.textContent = 'Update Password'; }
+        }
+
+        // ── User View Mode ──
+        function exitUserViewMode(button) {
+            const role = button?.dataset?.role || '';
+            console.log('Exiting customer view mode, role:', role);
+
+            if (role === 'admin') {
+                window.location.href = '/FINAL/WEBTOOLSs/admin-dashboard.php';
+            } else if (role === 'staff') {
+                window.location.href = '/FINAL/WEBTOOLSs/staff-dashboard.php';
+            } else {
+                window.location.href = 'account.php';
+            }
         }
 
         // ── Logout ──

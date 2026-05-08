@@ -17,6 +17,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <link rel="stylesheet" href="bookbar.css">
+    
+    <?php // Check session for logged-in users ?>
 
     <style>
         /* ── AUTH GUARD MODAL ── */
@@ -48,6 +50,10 @@
             position: absolute; top: 0; left: 0; right: 0; height: 3px;
             background: linear-gradient(to right, #8B0A1E, #C22626);
             border-radius: 20px 20px 0 0;
+        }
+        .header-nav-right {
+            display: flex; gap: 20px; align-items: center;
+        }
         }
         @keyframes authSlideUp {
             from { opacity: 0; transform: translateY(28px); }
@@ -167,9 +173,15 @@
                 <a href="bookBar.php" class="active">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                <a href="account-dashboard.php" class="nav-account-icon" title="My Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
+                <?php else: ?>
                 <a href="account.php" class="nav-account-icon" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>

@@ -57,9 +57,55 @@ if (session_status() === PHP_SESSION_NONE) {
 //  authenticated admin.
 // =====================================================
 function requireAdmin(): void {
-    if (empty($_SESSION['is_admin']) || empty($_SESSION['user_id'])) {
+    if (empty($_SESSION['user_id']) || empty($_SESSION['user_role'])) {
         header('Location: account.php');
         exit;
+    }
+    
+    // Check if user has admin role
+    if ($_SESSION['user_role'] !== 'admin') {
+        // If user is staff, redirect to staff page
+        if ($_SESSION['user_role'] === 'staff') {
+            header('Location: staff.php');
+            exit;
+        }
+        // Otherwise redirect to account
+        header('Location: account.php');
+        exit;
+    }
+}
+
+// =====================================================
+//  AUDIT LOG HELPER
+//  Records admin actions to the audit_logs table.
+//  Call logAdminActivity($pdo, 'action_name', 'details')
+//  after any significant admin operation.
+// =====================================================
+function logAdminActivity(PDO $pdo, string $action, string $details = ''): void {
+    try {
+        // Ensure audit_logs table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            action VARCHAR(100) NOT NULL,
+            details TEXT,
+            user_email VARCHAR(255),
+            user_name VARCHAR(255),
+            ip_address VARCHAR(45),
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+
+        $stmt = $pdo->prepare("INSERT INTO audit_logs (action, details, user_email, user_name, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([
+            $action,
+            $details,
+            $_SESSION['user_email'] ?? ($_SESSION['email'] ?? 'unknown'),
+            $_SESSION['user_name'] ?? 'System',
+            $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
+            $_SERVER['HTTP_USER_AGENT'] ?? ''
+        ]);
+    } catch (\Throwable $_) {
+        // Silently fail so admin operations never break
     }
 }
 

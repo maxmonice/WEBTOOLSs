@@ -25,7 +25,11 @@
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                <a href="account-dashboard.php" class="nav-account-icon" title="My Account"><i class="fas fa-user-circle"></i></a>
+                <?php else: ?>
                 <a href="account.php" class="nav-account-icon" title="Account"><i class="fas fa-user-circle"></i></a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>
@@ -233,7 +237,7 @@
             <button class="carousel-arrow next" id="nextBtn">›</button>
         </div>
         <div class="carousel-dots" id="carouselDots"></div>
-        <a href="gallery.html" class="view-all-btn">View All Gallery</a>
+        <a href="gallery.php" class="view-all-btn">View All Gallery</a>
     </section>
 
     <!-- FOOTER -->

@@ -1,11 +1,17 @@
 <?php
 require_once 'admin-config.php';
+require_once 'Notifications.php';
 requireAdmin();  // 🔒 redirects to account.php if not admin
 
 $stats    = getAdminStats($pdo);
 $activity = getRecentActivity($pdo, 6);
 $orders   = getRecentOrders($pdo, 5);
 $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
+
+// Initialize notifications
+$notifications = new Notifications($pdo);
+$userNotifications = $notifications->getForUser('admin', $_SESSION['user_id'], 5);
+$unreadCount = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,6 +50,56 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 .quick-action i { font-size: 1.4rem; color: var(--red); }
 .quick-action:hover { border-color: var(--red); color: #fff; background: rgba(194,38,38,0.08); transform: translateY(-2px); }
 .empty-feed { padding: 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+
+/* Notification Styles */
+.notification-dropdown {
+    position: absolute; top: 100%; right: 0; width: 320px;
+    background: var(--card2); border: 1px solid var(--line-w);
+    border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 1000; display: none; max-height: 400px; overflow-y: auto;
+}
+.notification-dropdown.show { display: block; }
+.notification-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--line-w);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.notification-header h3 { margin: 0; font-size: 0.9rem; color: #fff; }
+.notification-header .mark-all {
+    font-size: 0.75rem; color: var(--red); text-decoration: none;
+    background: transparent; border: none; cursor: pointer;
+}
+.notification-header .mark-all:hover { text-decoration: underline; }
+.notification-item {
+    padding: 12px 16px; border-bottom: 1px solid var(--line-w);
+    cursor: pointer; transition: background 0.2s;
+}
+.notification-item:hover { background: rgba(194,38,38,0.05); }
+.notification-item:last-child { border-bottom: none; }
+.notification-item.unread {
+    background: rgba(52,152,219,0.08); border-left: 3px solid #3498db;
+}
+.notification-content {
+    display: flex; gap: 12px; align-items: flex-start;
+}
+.notification-icon {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 0.9rem;
+}
+.notification-text { flex: 1; }
+.notification-title {
+    font-size: 0.85rem; font-weight: 600; color: #fff; margin-bottom: 4px;
+}
+.notification-message {
+    font-size: 0.78rem; color: var(--muted); line-height: 1.4;
+}
+.notification-time {
+    font-size: 0.72rem; color: var(--muted); margin-top: 4px;
+}
+.notification-empty {
+    padding: 24px; text-align: center; color: var(--muted);
+    font-size: 0.85rem;
+}
 </style>
 </head>
 <body>
@@ -82,14 +138,48 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i>
-          <?php if ($stats['pending_orders'] > 0): ?>
-          <span class="badge-dot"></span>
+        <div class="topbar-badge" style="position: relative;" onclick="toggleNotifications()">
+          <i class="fa-regular fa-bell"></i>
+          <?php if ($unreadCount > 0): ?>
+          <span class="badge-dot" style="background: var(--red);"></span>
+          <span class="notification-count" style="position: absolute; top: -8px; right: -8px; background: var(--red); color: white; border-radius: 10px; padding: 2px 6px; font-size: 0.7rem; font-weight: bold; min-width: 18px; text-align: center;"><?= $unreadCount ?></span>
           <?php endif; ?>
         </div>
+        
+        <!-- Notification Dropdown -->
+        <div class="notification-dropdown" id="notificationDropdown">
+          <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
+          </div>
+          <div id="notificationList">
+            <?php if (empty($userNotifications)): ?>
+              <div class="notification-empty">No notifications</div>
+            <?php else: ?>
+              <?php foreach ($userNotifications as $notif): ?>
+                <div class="notification-item <?= !$notif['is_read'] ? 'unread' : '' ?>" onclick="markNotificationRead(<?= $notif['id'] ?>)">
+                  <div class="notification-content">
+                    <div class="notification-icon" style="background: <?= getNotificationColor($notif['type']) ?>20; color: <?= getNotificationColor($notif['type']) ?>;">
+                      <i class="fa-solid <?= getNotificationIcon($notif['type']) ?>"></i>
+                    </div>
+                    <div class="notification-text">
+                      <div class="notification-title"><?= htmlspecialchars($notif['title']) ?></div>
+                      <div class="notification-message"><?= htmlspecialchars($notif['message']) ?></div>
+                      <div class="notification-time"><?= timeAgo($notif['created_at']) ?></div>
+                    </div>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </div>
+        </div>
+        
         <div class="admin-avatar" title="<?= $adminName ?>">
           <?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?>
         </div>
+        <a href="account-dashboard.php?user_view=true" class="btn btn-success" title="Go to User Webpage" style="margin-left: 12px; padding: 10px 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.5px; border: 2px solid var(--red); border-radius: 6px; background: linear-gradient(135deg, #C22626, #8B0A1E); box-shadow: 0 4px 12px rgba(194, 38, 38, 0.4); transition: all 0.3s; color: #ff6b6b;">
+          <i class="fa-solid fa-user"></i> User View
+        </a>
       </div>
     </header>
 
@@ -242,6 +332,78 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 <script>
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
+}
+
+// Notification functions
+function toggleNotifications() {
+  const dropdown = document.getElementById('notificationDropdown');
+  dropdown.classList.toggle('show');
+  
+  // Close dropdown when clicking outside
+  if (!dropdown.dataset.listenerAdded) {
+    dropdown.dataset.listenerAdded = 'true';
+    document.addEventListener('click', function(e) {
+      if (!dropdown.contains(e.target) && !e.target.closest('.topbar-badge')) {
+        dropdown.classList.remove('show');
+      }
+    });
+  }
+}
+
+function markNotificationRead(notificationId) {
+  fetch('admin-handle-notifications.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'mark_read', notification_id: notificationId })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const item = document.querySelector(`[onclick="markNotificationRead(${notificationId})"]`);
+      if (item) {
+        item.classList.remove('unread');
+      }
+      updateNotificationCount();
+    }
+  });
+}
+
+function markAllNotificationsRead() {
+  fetch('admin-handle-notifications.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'mark_all_read' })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      document.querySelectorAll('.notification-item.unread').forEach(item => {
+        item.classList.remove('unread');
+      });
+      updateNotificationCount();
+    }
+  });
+}
+
+function updateNotificationCount() {
+  const count = document.querySelectorAll('.notification-item.unread').length;
+  const countElement = document.querySelector('.notification-count');
+  const badgeDot = document.querySelector('.badge-dot');
+  
+  if (countElement) {
+    if (count > 0) {
+      countElement.textContent = count;
+      countElement.style.display = 'block';
+      if (badgeDot) badgeDot.style.display = 'block';
+    } else {
+      countElement.style.display = 'none';
+      if (badgeDot) badgeDot.style.display = 'none';
+    }
+  }
+}
+
+function goToUserWebpage() {
+  window.location.href = '/FINAL/WEBTOOLSs/account-dashboard.php?user_view=true';
 }
 </script>
 </body>

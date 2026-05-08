@@ -1,6 +1,7 @@
 <?php
 
 require_once 'admin-config.php';
+require_once 'Notifications.php';
 
 requireAdmin();
 
@@ -26,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         $image = $data['image'] ?? '';
 
+        $variations = $data['variations'] ?? [];
+
         
 
         $stmt = $pdo->prepare("
@@ -43,6 +46,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         try {
 
             $stmt->execute([$name, $description, $price, $category, $image]);
+
+            $contentId = $pdo->lastInsertId();
+
+            // Create notifications for content creation
+            $notifications = new Notifications($pdo);
+            
+            if ($category === 'menu') {
+                $notifications->autoNotify('menu_item_added', [
+                    'name' => $name,
+                    'price' => $price,
+                    'description' => $description
+                ]);
+            } elseif ($category === 'gallery') {
+                $notifications->autoNotify('gallery_item_added', [
+                    'title' => $name,
+                    'description' => $description
+                ]);
+            }
+
+            // Save variations if provided
+            if (!empty($variations) && is_array($variations)) {
+                $varStmt = $pdo->prepare("
+                    INSERT INTO content_variations (content_id, variation_name, variation_price, created_at)
+                    VALUES (?, ?, ?, NOW())
+                ");
+                
+                foreach ($variations as $variation) {
+                    if (!empty($variation['name']) && isset($variation['price'])) {
+                        $varStmt->execute([
+                            $contentId,
+                            $variation['name'],
+                            $variation['price']
+                        ]);
+                    }
+                }
+            }
+            
+            // Audit log
+            logAdminActivity($pdo, 'content_created', "Created content item '{$name}' (ID: {$contentId}) in category {$category}");
 
             echo json_encode(['success' => true, 'message' => 'Content item created successfully']);
 
@@ -92,6 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
             $stmt->execute([$name, $description, $price, $category, $image, $id]);
 
+            // Audit log
+            logAdminActivity($pdo, 'content_updated', "Updated content item '{$name}' (ID: {$id}) in category {$category}");
+
             echo json_encode(['success' => true, 'message' => 'Content item updated successfully']);
 
             exit;
@@ -114,14 +159,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         
 
+        // Get content info before deletion for audit log
+        $infoStmt = $pdo->prepare("SELECT name, category FROM content_items WHERE id = ?");
+        $infoStmt->execute([$id]);
+        $contentInfo = $infoStmt->fetch(PDO::FETCH_ASSOC);
+        
         $stmt = $pdo->prepare("DELETE FROM content_items WHERE id = ?");
 
         try {
 
             $stmt->execute([$id]);
-
+            
+            // Audit log
+            $contentName = $contentInfo['name'] ?? 'Unknown';
+            $contentCat = $contentInfo['category'] ?? 'unknown';
+            logAdminActivity($pdo, 'content_deleted', "Deleted content item '{$contentName}' (ID: {$id}) from category {$contentCat}");
+            
             echo json_encode(['success' => true, 'message' => 'Content item deleted successfully']);
-
             exit;
 
         } catch (PDOException $e) {
@@ -162,6 +216,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         }
 
+    }
+
+    // Handle file upload
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['image'])) {
+        $file = $_FILES['image'];
+        
+        // Validate file
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($file['type'], $allowed_types)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid file type. Allowed: JPG, PNG, GIF, WebP']);
+            exit;
+        }
+        
+        if ($file['size'] > 5 * 1024 * 1024) { // 5MB limit
+            echo json_encode(['success' => false, 'message' => 'File size exceeds 5MB limit']);
+            exit;
+        }
+        
+        // Create uploads directory if it doesn't exist
+        $upload_dir = 'uploads/content/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+        
+        // Generate unique filename
+        $filename = time() . '_' . bin2hex(random_bytes(8)) . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filepath = $upload_dir . $filename;
+        
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            echo json_encode(['success' => true, 'image_path' => $filepath, 'message' => 'Image uploaded successfully']);
+            logAdminActivity($pdo, 'image_uploaded', "Uploaded image: {$filename}");
+            exit;
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to upload image']);
+            exit;
+        }
     }
 
 }
@@ -207,6 +297,19 @@ try {
     ";
 
     $pdo->exec($createTableSQL);
+
+    // Create variations table for menu items
+    $createVariationsSQL = "
+        CREATE TABLE IF NOT EXISTS content_variations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            content_id INT NOT NULL,
+            variation_name VARCHAR(255) NOT NULL,
+            variation_price DECIMAL(10,2) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (content_id) REFERENCES content_items(id) ON DELETE CASCADE
+        )
+    ";
+    $pdo->exec($createVariationsSQL);
 
 }
 
@@ -1108,7 +1211,15 @@ try {
 
         </div>
 
-        <button class="btn btn-primary" onclick="openModal('contentModal')"><i class="fa-solid fa-plus"></i> Add Content</button>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+
+          <button class="btn btn-success" onclick="openModalWithCategory('contentModal', 'menu')"><i class="fa-solid fa-utensils"></i> Add to Menu</button>
+
+          <button class="btn btn-info" onclick="openModalWithCategory('contentModal', 'gallery')"><i class="fa-solid fa-images"></i> Add to Gallery</button>
+
+          <button class="btn btn-primary" onclick="openModal('contentModal')"><i class="fa-solid fa-plus"></i> Add Content</button>
+
+        </div>
 
       </div>
 
@@ -1292,15 +1403,18 @@ try {
 
             <option value="">Select category</option>
 
-            <option value="Salad">Salad</option>
-
-            <option value="Fusion">Fusion Rolls & Sushi</option>
-
-            <option value="A La Carte">A La Carte</option>
-
-            <option value="Platters">Platters</option>
-
-            <option value="Bento">Bento Boxes</option>
+            <optgroup label="Menu Categories">
+              <option value="Salad">Salad</option>
+              <option value="Fusion">Fusion Rolls & Sushi</option>
+              <option value="A La Carte">A La Carte</option>
+              <option value="Platters">Platters</option>
+              <option value="Bento">Bento Boxes</option>
+            </optgroup>
+            <optgroup label="Content Categories">
+              <option value="gallery">Gallery Item</option>
+              <option value="promotion">Promotion</option>
+              <option value="event">Event</option>
+            </optgroup>
 
           </select>
 
@@ -1314,6 +1428,17 @@ try {
 
         <textarea class="form-control" id="contentDescription" rows="4" placeholder="Item description..."></textarea>
 
+      </div>
+
+      <!-- Variations Section (for menu items) -->
+      <div class="form-group" id="variationsSection" style="display: none;">
+        <label class="form-label">Variations (Optional)</label>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+          <div id="variationsList" style="margin-bottom: 10px;"></div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="addVariation()">
+            <i class="fa-solid fa-plus"></i> Add Variation
+          </button>
+        </div>
       </div>
 
       <div class="form-group">
@@ -1671,127 +1796,81 @@ function switchImageTab(source) {
 // Handle file upload
 
 function handleImageUpload(event) {
-
   const file = event.target.files[0];
-
   if (!file) return;
-
   
-
   // Validate file
-
   if (!file.type.startsWith('image/')) {
-
     showToast('Please select an image file (JPG, PNG, GIF)', 'error');
-
     return;
-
   }
-
   
-
   if (file.size > 5 * 1024 * 1024) { // 5MB
-
     showToast('File size must be less than 5MB', 'error');
-
     return;
-
   }
-
   
-
   // Show progress
-
   document.getElementById('uploadProgress').style.display = 'block';
-
   document.getElementById('uploadStatus').textContent = 'Uploading...';
-
   document.getElementById('progressFill').style.width = '0%';
-
   
-
   // Create FormData for file upload
-
   const formData = new FormData();
-
   formData.append('image', file);
-
   
-
-  // Simulate upload progress (in real implementation, this would be handled by the server)
-
-  let progress = 0;
-
-  const progressInterval = setInterval(() => {
-
-    progress += Math.random() * 20;
-
-    if (progress > 90) progress = 90;
-
-    document.getElementById('progressFill').style.width = progress + '%';
-
-    document.getElementById('uploadStatus').textContent = `Uploading... ${Math.round(progress)}%`;
-
-  }, 200);
-
+  // Upload with progress
+  const xhr = new XMLHttpRequest();
   
-
-  // For demo purposes, we'll simulate a successful upload
-
-  // In production, this would be an actual fetch call to upload endpoint
-
-  setTimeout(() => {
-
-    clearInterval(progressInterval);
-
-    document.getElementById('progressFill').style.width = '100%';
-
-    document.getElementById('uploadStatus').textContent = 'Upload complete!';
-
-    
-
-    // Create a temporary URL for the uploaded image (in production, this would come from server)
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-
-      const imageUrl = e.target.result;
-
-      uploadedImagePath = imageUrl; // Store the base64 or temp URL
-
-      
-
-      // Update the image input field
-
-      document.getElementById('contentImage').value = imageUrl;
-
-      
-
-      // Show preview
-
-      document.getElementById('imagePreview').style.display = 'block';
-
-      document.getElementById('previewImg').src = imageUrl;
-
-      
-
-      // Hide progress after a delay
-
-      setTimeout(() => {
-
+  xhr.upload.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const percentComplete = Math.round((e.loaded / e.total) * 100);
+      document.getElementById('progressFill').style.width = percentComplete + '%';
+      document.getElementById('uploadStatus').textContent = `Uploading... ${percentComplete}%`;
+    }
+  });
+  
+  xhr.addEventListener('load', () => {
+    if (xhr.status === 200) {
+      try {
+        const response = JSON.parse(xhr.responseText);
+        if (response.success) {
+          document.getElementById('progressFill').style.width = '100%';
+          document.getElementById('uploadStatus').textContent = 'Upload complete!';
+          
+          // Update the image input field with the server path
+          document.getElementById('contentImage').value = response.image_path;
+          
+          // Show preview
+          document.getElementById('imagePreview').style.display = 'block';
+          document.getElementById('previewImg').src = response.image_path;
+          
+          // Hide progress after a delay
+          setTimeout(() => {
+            document.getElementById('uploadProgress').style.display = 'none';
+            showToast('Image uploaded successfully!', 'success');
+          }, 1000);
+        } else {
+          showToast(response.message || 'Upload failed', 'error');
+          document.getElementById('uploadProgress').style.display = 'none';
+        }
+      } catch (e) {
+        showToast('Invalid server response', 'error');
         document.getElementById('uploadProgress').style.display = 'none';
-
-        showToast('Image uploaded successfully!', 'success');
-
-      }, 1000);
-
-    };
-
-    reader.readAsDataURL(file);
-
-  }, 2000);
-
+      }
+    } else {
+      showToast('Upload failed: ' + xhr.statusText, 'error');
+      document.getElementById('uploadProgress').style.display = 'none';
+    }
+  });
+  
+  xhr.addEventListener('error', () => {
+    showToast('Upload error: Network error', 'error');
+    document.getElementById('uploadProgress').style.display = 'none';
+  });
+  
+  xhr.open('POST', 'admin-content.php', true);
+  xhr.send(formData);
 }
 
 
@@ -2474,7 +2553,9 @@ document.getElementById('contentForm').addEventListener('submit', function(e) {
 
     description: document.getElementById('contentDescription').value,
 
-    image: document.getElementById('contentImage').value
+    image: document.getElementById('contentImage').value,
+
+    variations: variationsArray
 
   };
 
@@ -2506,6 +2587,8 @@ document.getElementById('contentForm').addEventListener('submit', function(e) {
 
       uploadedImagePath = null;
 
+      variationsArray = [];
+
       location.reload();
 
     } else {
@@ -2527,6 +2610,99 @@ document.getElementById('contentForm').addEventListener('submit', function(e) {
 });
 
 
+
+function openModalWithCategory(modalId, category) {
+  // Reset form first
+  document.getElementById('contentForm').reset();
+  editingContentId = null;
+  uploadedImagePath = null;
+  variationsArray = []; // Reset variations
+  document.getElementById('variationsList').innerHTML = ''; // Clear variations list
+  
+  // Set the category
+  if (category === 'menu') {
+    document.getElementById('contentCategory').value = 'A La Carte'; // Default menu category
+    showVariationsSection();
+  } else if (category === 'gallery') {
+    document.getElementById('contentCategory').value = 'gallery';
+    hideVariationsSection();
+  }
+  
+  // Open modal
+  document.getElementById(modalId).classList.add('open');
+}
+
+// Variations management
+let variationsArray = [];
+
+function showVariationsSection() {
+  document.getElementById('variationsSection').style.display = 'block';
+}
+
+function hideVariationsSection() {
+  document.getElementById('variationsSection').style.display = 'none';
+}
+
+function addVariation() {
+  const variation = {
+    id: Date.now(),
+    name: '',
+    price: 0
+  };
+  variationsArray.push(variation);
+  renderVariations();
+}
+
+function removeVariation(id) {
+  variationsArray = variationsArray.filter(v => v.id !== id);
+  renderVariations();
+}
+
+function updateVariation(id, field, value) {
+  const variation = variationsArray.find(v => v.id === id);
+  if (variation) {
+    variation[field] = value;
+  }
+}
+
+function renderVariations() {
+  const list = document.getElementById('variationsList');
+  if (variationsArray.length === 0) {
+    list.innerHTML = '<p style="color: #999; margin: 0;">No variations added yet</p>';
+    return;
+  }
+  
+  list.innerHTML = variationsArray.map(variation => `
+    <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end;">
+      <div style="flex: 1;">
+        <label style="font-size: 0.85rem; color: #666;">Variation Name</label>
+        <input type="text" class="form-control" value="${variation.name || ''}" onchange="updateVariation(${variation.id}, 'name', this.value)" placeholder="e.g., Large, Small, Spicy" style="padding: 8px;">
+      </div>
+      <div style="width: 120px;">
+        <label style="font-size: 0.85rem; color: #666;">Price</label>
+        <input type="number" class="form-control" value="${variation.price || 0}" onchange="updateVariation(${variation.id}, 'price', this.value)" step="0.01" min="0" placeholder="0.00" style="padding: 8px;">
+      </div>
+      <button type="button" class="btn btn-danger btn-sm" onclick="removeVariation(${variation.id})" style="padding: 8px 12px;">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+// Show/hide variations based on category
+document.addEventListener('DOMContentLoaded', function() {
+  const categorySelect = document.getElementById('contentCategory');
+  if (categorySelect) {
+    categorySelect.addEventListener('change', function() {
+      const isMenuCategory = ['Salad', 'Fusion', 'A La Carte', 'Platters', 'Bento'].includes(this.value);
+      if (isMenuCategory) {
+        showVariationsSection();
+      } else {
+        hideVariationsSection();
+      }
+    });
+  }
+});
 
 document.querySelectorAll('.modal-overlay').forEach(o => {
 

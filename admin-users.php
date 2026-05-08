@@ -1,5 +1,6 @@
 <?php
 require_once 'admin-config.php';
+require_once 'Notifications.php';
 requireAdmin();  // 🔒 must be admin
 
 // Handle user actions via POST
@@ -14,21 +15,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email    = strtolower(trim($_POST['email'] ?? ''));
         $role     = trim($_POST['role'] ?? 'customer');
         $password = $_POST['password'] ?? '';
+        $confirmPassword = $_POST['confirmPassword'] ?? '';
 
-        if (!$name || !$email || !$password) {
+        if (empty($name) || empty($email) || empty($password) || empty($confirmPassword)) {
             $errorMsg = 'All fields are required.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errorMsg = 'Invalid email address.';
         } elseif (strlen($password) < 8) {
             $errorMsg = 'Password must be at least 8 characters.';
+        } elseif ($password !== $confirmPassword) {
+            $errorMsg = 'Passwords do not match.';
         } else {
             try {
                 $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
                 $pdo->prepare(
-                    'INSERT INTO users (name, email, password_hash, provider, email_verified, created_at)
-                     VALUES (?, ?, ?, ?, 1, NOW())'
-                )->execute([$name, $email, $hash, 'email']);
+                    'INSERT INTO users (name, email, password_hash, provider, role, email_verified, created_at)
+                     VALUES (?, ?, ?, ?, ?, 1, NOW())'
+                )->execute([$name, $email, $hash, 'email', $role]);
                 $successMsg = "User <strong>" . htmlspecialchars($name) . "</strong> added successfully.";
+                
+                // Audit log
+                logAdminActivity($pdo, 'user_created', "Created user {$name} ({$email}) with role {$role}");
+                
+                // Get the new user ID
+                $newUserId = $pdo->lastInsertId();
+                
+                // Create comprehensive notifications
+                $notifications = new Notifications($pdo);
+                $notifications->autoNotify('admin_created_user', [
+                    'admin_name' => $_SESSION['user_name'] ?? 'Admin',
+                    'name' => $name,
+                    'email' => $email,
+                    'role' => $role,
+                    'user_id' => $newUserId
+                ]);
             } catch (\Throwable $e) {
                 $errorMsg = 'Error: ' . $e->getMessage();
             }
@@ -57,6 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // If no status column, skip
                     }
                     $successMsg = "User <strong>" . htmlspecialchars($u['name']) . "</strong> updated.";
+                    
+                    // Audit log
+                    logAdminActivity($pdo, 'user_updated', "Toggled status for user {$u['name']} (ID: {$uid}) to {$newStatus}");
                 }
             } catch (\Throwable $e) {
                 $errorMsg = 'Error: ' . $e->getMessage();
@@ -75,6 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('DELETE FROM users WHERE id = ? AND email != ?')
                     ->execute([$uid, 'admin@gmail.com']);
                 $successMsg = "User <strong>" . htmlspecialchars($u['name'] ?? '') . "</strong> deleted.";
+                
+                // Audit log
+                logAdminActivity($pdo, 'user_deleted', "Deleted user {$u['name']} (ID: {$uid})");
             } catch (\Throwable $e) {
                 $errorMsg = 'Error: ' . $e->getMessage();
             }
@@ -101,7 +127,7 @@ if ($provider !== '') {
 
 try {
     $stmt = $pdo->prepare(
-        "SELECT id, name, email, provider, email_verified, created_at
+        "SELECT id, name, email, provider, role, email_verified, created_at
          FROM users $whereClause
          ORDER BY created_at DESC"
     );
@@ -143,6 +169,14 @@ try {
 .provider-email    { background:rgba(194,38,38,0.18); color:#ff8080; border:1px solid rgba(194,38,38,0.3); }
 .provider-google   { background:rgba(66,133,244,0.15); color:#6aa0f7; border:1px solid rgba(66,133,244,0.25); }
 .provider-facebook { background:rgba(24,119,242,0.15); color:#60a0f7; border:1px solid rgba(24,119,242,0.25); }
+.role-tag {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:100px; font-size:0.7rem; font-weight:700;
+    letter-spacing:0.06em; text-transform:uppercase;
+}
+.role-customer { background:rgba(107,114,128,0.15); color:#6b7280; border:1px solid rgba(107,114,128,0.25); }
+.role-staff    { background:rgba(59,130,246,0.15); color:#3b82f6; border:1px solid rgba(59,130,246,0.25); }
+.role-admin    { background:rgba(220,38,38,0.15); color:#dc2626; border:1px solid rgba(220,38,38,0.25); }
 .verified-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
 .dot-yes { background:#22c55e; }
 .dot-no  { background:#ef4444; }
@@ -153,6 +187,13 @@ try {
 }
 .action-btn:hover { border-color:var(--red); color:#ff6b6b; background:rgba(194,38,38,0.1); }
 .action-btn.edit:hover { border-color:#3498db; color:#3498db; background:rgba(52,152,219,0.1); }
+.password-toggle {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: transparent; border: none; color: var(--muted);
+    cursor: pointer; padding: 8px; font-size: 0.9rem;
+    transition: color 0.2s;
+}
+.password-toggle:hover { color: var(--red); }
 .alert { padding:12px 16px; border-radius:8px; margin-bottom:16px; display:flex; align-items:center; gap:10px; font-size:0.86rem; }
 .alert-success { background:rgba(46,204,113,0.12); color:#2ecc71; border:1px solid rgba(46,204,113,0.25); }
 .alert-error   { background:rgba(194,38,38,0.12);  color:#ff6b6b; border:1px solid rgba(194,38,38,0.25); }
@@ -288,6 +329,7 @@ try {
                 <th>User</th>
                 <th>Email</th>
                 <th>Provider</th>
+                <th>Role</th>
                 <th>Verified</th>
                 <th>Joined</th>
                 <th>Actions</th>
@@ -296,7 +338,7 @@ try {
             <tbody>
               <?php if (empty($users)): ?>
               <tr>
-                <td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">
+                <td colspan="7" style="text-align:center;padding:24px;color:var(--muted);">
                   <?= $search || $provider ? 'No users match your filters.' : 'No users registered yet.' ?>
                 </td>
               </tr>
@@ -317,6 +359,13 @@ try {
                     <i class="fa-<?= $u['provider'] === 'google' ? 'brands fa-google'
                                   : ($u['provider'] === 'facebook' ? 'brands fa-facebook' : 'solid fa-envelope') ?>"></i>
                     <?= htmlspecialchars(ucfirst($u['provider'] ?? 'email')) ?>
+                  </span>
+                </td>
+                <td>
+                  <span class="role-tag role-<?= htmlspecialchars($u['role'] ?? 'customer') ?>">
+                    <i class="fa-solid fa-<?= $u['role'] === 'admin' ? 'user-shield' 
+                                  : ($u['role'] === 'staff' ? 'user-tie' : 'user') ?>"></i>
+                    <?= htmlspecialchars(ucfirst($u['role'] ?? 'customer')) ?>
                   </span>
                 </td>
                 <td>
@@ -375,7 +424,29 @@ try {
       </div>
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-control" placeholder="At least 8 characters" required/>
+        <div style="position: relative;">
+          <input type="password" name="password" id="password" class="form-control" placeholder="At least 8 characters" required/>
+          <button type="button" class="password-toggle" onclick="togglePassword('password')">
+            <i class="fa-solid fa-eye" id="password-icon"></i>
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <div style="position: relative;">
+          <input type="password" name="confirmPassword" id="confirm_password" class="form-control" placeholder="Confirm password" required/>
+          <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
+            <i class="fa-solid fa-eye" id="confirm_password-icon"></i>
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">User Role</label>
+        <select name="role" class="form-control" required>
+          <option value="customer">Customer</option>
+          <option value="staff">Staff</option>
+          <option value="admin">Admin</option>
+        </select>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="closeModal('addUserModal')">Cancel</button>
@@ -389,6 +460,19 @@ try {
 <script>
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 function openModal(id)   { document.getElementById(id).classList.add('open'); }
+function togglePassword(fieldId) {
+  const field = document.getElementById(fieldId);
+  const icon = document.getElementById(fieldId + '-icon');
+  
+  if (field.type === 'password') {
+    field.type = 'text';
+    icon.className = 'fa-solid fa-eye-slash';
+  } else {
+    field.type = 'password';
+    icon.className = 'fa-solid fa-eye';
+  }
+}
+
 function closeModal(id)  { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); });

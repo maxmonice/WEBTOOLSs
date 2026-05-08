@@ -4,7 +4,7 @@
 //  Google OAuth, Facebook OAuth
 // =====================================================
 
-const AUTH_URL       = 'auth.php';
+const AUTH_URL       = '/FINAL/WEBTOOLSs/auth.php';
 const GOOGLE_CLIENT_ID = window.APP_CONFIG?.googleClientId || '694050007372-2crn9q3ek8jav88iduut5ddf50ecgj0a.apps.googleusercontent.com';
 
 // =====================================================
@@ -175,7 +175,7 @@ function onLoginSuccess(result) {
     // result.redirect is set by the server for special accounts (admin)
     const redirect = result.redirect
         || sessionStorage.getItem('redirect_after_login')
-        || 'account-dashboard.php';
+        || '/FINAL/WEBTOOLSs/account-dashboard.php';
     sessionStorage.removeItem('redirect_after_login');
     window.location.href = redirect;
 }
@@ -350,7 +350,7 @@ async function submitOtp() {
             sessionStorage.setItem('user_email', result.email || '');
             const redirect = result.redirect
                 || sessionStorage.getItem('redirect_after_login')
-                || 'account-dashboard.php';
+                || '/FINAL/WEBTOOLSs/account-dashboard.php';
             sessionStorage.removeItem('redirect_after_login');
             setTimeout(() => { window.location.href = redirect; }, 700);
         } else {
@@ -598,23 +598,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // --- CHECK SESSION ON PAGE LOAD ---
-    try {
-        const session = await callAuth({ action: 'check_session' });
-        if (session.success) {
-            sessionStorage.setItem('user_name',  session.name  || '');
-            sessionStorage.setItem('user_email', session.email || '');
-            const redirect = session.redirect
-                || sessionStorage.getItem('redirect_after_login')
-                || 'account-dashboard.php';
-            sessionStorage.removeItem('redirect_after_login');
-            window.location.href = redirect;
-        } else {
+    // Skip redirect if user_view parameter is present for admin/staff viewing customer dashboard
+    const urlParams = new URLSearchParams(window.location.search);
+    const isUserViewMode = urlParams.get('user_view') === 'true';
+    
+    if (!isUserViewMode) {
+        try {
+            const session = await callAuth({ action: 'check_session' });
+            if (session.success) {
+                sessionStorage.setItem('user_name',  session.name  || '');
+                sessionStorage.setItem('user_email', session.email || '');
+                const redirect = session.redirect
+                    || sessionStorage.getItem('redirect_after_login')
+                    || '/FINAL/WEBTOOLSs/account-dashboard.php';
+                sessionStorage.removeItem('redirect_after_login');
+                window.location.href = redirect;
+            } else {
+                sessionStorage.removeItem('user_name');
+                sessionStorage.removeItem('user_email');
+            }
+        } catch (e) {
             sessionStorage.removeItem('user_name');
             sessionStorage.removeItem('user_email');
+            console.warn('Session check failed:', e.message);
         }
-    } catch (e) {
-        sessionStorage.removeItem('user_name');
-        sessionStorage.removeItem('user_email');
-        console.warn('Session check failed:', e.message);
     }
 });

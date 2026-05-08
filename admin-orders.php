@@ -1,5 +1,6 @@
 <?php
 require_once 'admin-config.php';
+require_once 'Notifications.php';
 requireAdmin();
 
 // Handle order creation from frontend
@@ -56,6 +57,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $subtotal, $shipping, $total, $userEmail, $userName
             ]);
             
+            $orderId = $pdo->lastInsertId();
+            
+            // Get user ID for customer notification
+            $userId = null;
+            if (!empty($userEmail)) {
+                $userStmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                $userStmt->execute([$userEmail]);
+                $userData = $userStmt->fetch();
+                $userId = $userData['id'] ?? null;
+            }
+            
+            // Create comprehensive notifications for new order
+            $notifications = new Notifications($pdo);
+            $notifications->autoNotify('new_order', [
+                'id' => $orderId,
+                'customer_name' => $userName,
+                'customer_email' => $userEmail,
+                'total' => $total,
+                'items_count' => count($items),
+                'payment_method' => $paymentMethod,
+                'user_id' => $userId
+            ]);
+            
+            // Audit log
+            logAdminActivity($pdo, 'order_created', "Created order #{$orderId} for {$userName} ({$userEmail}) with total ₱{$total}");
+
             echo json_encode(['success' => true, 'message' => 'Order created successfully']);
             exit;
         } catch (PDOException $e) {

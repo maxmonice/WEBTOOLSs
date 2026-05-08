@@ -1,3 +1,35 @@
+<?php
+session_start();
+require_once 'Db.php';
+
+$pdo = getDB();
+$menuItems = [];
+$categories = ['Salad' => 'Salad', 'Fusion' => 'Fusion Rolls & Sushi', 'A La Carte' => 'A La Carte', 'Platters' => 'Platters', 'Bento' => 'Bento Boxes'];
+
+try {
+    $stmt = $pdo->prepare("SELECT id, name, description, price, category, image FROM content_items WHERE category IN ('Salad', 'Fusion', 'A La Carte', 'Platters', 'Bento') ORDER BY category ASC, created_at DESC");
+    $stmt->execute();
+    $allItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Group items by category and fetch variations
+    foreach ($allItems as $item) {
+        // Fetch variations for this item
+        $varStmt = $pdo->prepare("SELECT variation_name, variation_price FROM content_variations WHERE content_id = ? ORDER BY created_at ASC");
+        $varStmt->execute([$item['id']]);
+        $variations = $varStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Add variations array to item
+        $item['variations'] = $variations;
+        
+        if (!isset($menuItems[$item['category']])) {
+            $menuItems[$item['category']] = [];
+        }
+        $menuItems[$item['category']][] = $item;
+    }
+} catch (Exception $e) {
+    // Silently fail - will show hardcoded fallback
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>  
@@ -29,9 +61,15 @@
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                <a href="account-dashboard.php" class="nav-account-icon" title="My Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
+                <?php else: ?>
                 <a href="account.php" class="nav-account-icon" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>
@@ -65,69 +103,127 @@
 
             <!-- ── SALAD ── -->
             <h2 class="category-heading" id="salad-section">Salad</h2>
-            <div class="menu-grid single-column"> 
-                <div class="menu-item" data-item='{"name":"Kani Mango Salad","price":"₱175","image":"images/kani.webp","variations":["150 Grams","300 Grams"]}'>
-                    <img src="images/kani.webp" alt="Kani Mango Salad" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Kani Mango Salad</div>
-                        <div class="item-price">₱175</div>
+            <div class="menu-grid single-column">
+                <?php if (!empty($menuItems['Salad'])): ?>
+                    <?php foreach ($menuItems['Salad'] as $item): ?>
+                        <?php 
+                            $variations = [];
+                            if (!empty($item['variations'])) {
+                                foreach ($item['variations'] as $var) {
+                                    $variations[] = $var['variation_name'];
+                                }
+                            }
+                            $dataItem = [
+                                'name' => $item['name'],
+                                'price' => '₱' . number_format($item['price'], 2),
+                                'image' => $item['image'] ?? 'images/placeholder.webp'
+                            ];
+                            if (!empty($variations)) {
+                                $dataItem['variations'] = $variations;
+                            }
+                        ?>
+                        <div class="menu-item" data-item='<?= json_encode($dataItem) ?>'>
+                            <img src="<?= htmlspecialchars($item['image'] ?? 'images/placeholder.webp') ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="item-image-placeholder">
+                            <div class="item-details">
+                                <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
+                                <div class="item-price">₱<?= number_format($item['price'], 2) ?></div>
+                            </div>
+                            <div class="item-rating" aria-label="Five stars">★★★★★</div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="menu-item" data-item='{"name":"Kani Mango Salad","price":"₱175","image":"images/kani.webp","variations":["150 Grams","300 Grams"]}'>
+                        <img src="images/kani.webp" alt="Kani Mango Salad" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Kani Mango Salad</div>
+                            <div class="item-price">₱175</div>
+                        </div>
+                        <div class="item-rating" aria-label="Five stars">★★★★★</div>
                     </div>
-                    <div class="item-rating" aria-label="Five stars">★★★★★</div>
-                </div>
+                <?php endif; ?>
             </div>
 
             <!-- ── FUSION ROLLS & SUSHI ── -->
             <h2 class="category-heading" id="fusion-section">Fusion Rolls & Sushi</h2>
             <div class="menu-grid">
-                <div class="menu-item" data-item='{"name":"California Maki","price":"₱169","image":"images/california.webp","variations":["8 Pieces","16 Pieces","24 Pieces","50 Pieces"]}'>
-                    <img src="images/california.webp" alt="California Maki" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">California Maki</div>
-                        <div class="item-price">₱169</div>
+                <?php if (!empty($menuItems['Fusion'])): ?>
+                    <?php foreach ($menuItems['Fusion'] as $item): ?>
+                        <?php 
+                            $variations = [];
+                            if (!empty($item['variations'])) {
+                                foreach ($item['variations'] as $var) {
+                                    $variations[] = $var['variation_name'];
+                                }
+                            }
+                            $dataItem = [
+                                'name' => $item['name'],
+                                'price' => '₱' . number_format($item['price'], 2),
+                                'image' => $item['image'] ?? 'images/placeholder.webp'
+                            ];
+                            if (!empty($variations)) {
+                                $dataItem['variations'] = $variations;
+                            }
+                        ?>
+                        <div class="menu-item" data-item='<?= json_encode($dataItem) ?>'>
+                            <img src="<?= htmlspecialchars($item['image'] ?? 'images/placeholder.webp') ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="item-image-placeholder">
+                            <div class="item-details">
+                                <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
+                                <div class="item-price">₱<?= number_format($item['price'], 2) ?></div>
+                            </div>
+                            <div class="item-rating">★★★★★</div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <!-- Fallback hardcoded items -->
+                    <div class="menu-item" data-item='{"name":"California Maki","price":"₱169","image":"images/california.webp","variations":["8 Pieces","16 Pieces","24 Pieces","50 Pieces"]}'>
+                        <img src="images/california.webp" alt="California Maki" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">California Maki</div>
+                            <div class="item-price">₱169</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Crazy Maki","price":"₱195","pieces":"8 Pcs","image":"images/crazy.webp"}'>
-                    <img src="images/crazy.webp" alt="Crazy Maki" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Crazy Maki</div>
-                        <div class="item-price">₱195</div>
+                    <div class="menu-item" data-item='{"name":"Crazy Maki","price":"₱195","pieces":"8 Pcs","image":"images/crazy.webp"}'>
+                        <img src="images/crazy.webp" alt="Crazy Maki" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Crazy Maki</div>
+                            <div class="item-price">₱195</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Mango Roll","price":"₱195","pieces":"8 Pcs","image":"images/mango.webp"}'>
-                    <img src="images/mango.webp" alt="Mango Roll" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Mango Roll</div>
-                        <div class="item-price">₱195</div>
+                    <div class="menu-item" data-item='{"name":"Mango Roll","price":"₱195","pieces":"8 Pcs","image":"images/mango.webp"}'>
+                        <img src="images/mango.webp" alt="Mango Roll" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Mango Roll</div>
+                            <div class="item-price">₱195</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Spicy Salmon","price":"₱195","pieces":"8 Pcs","image":"images/spicysalmon.webp"}'>
-                    <img src="images/spicysalmon.webp" alt="Spicy Salmon Roll" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Spicy Salmon</div>
-                        <div class="item-price">₱195</div>
+                    <div class="menu-item" data-item='{"name":"Spicy Salmon","price":"₱195","pieces":"8 Pcs","image":"images/spicysalmon.webp"}'>
+                        <img src="images/spicysalmon.webp" alt="Spicy Salmon Roll" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Spicy Salmon</div>
+                            <div class="item-price">₱195</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Ebi Tempura Maki","price":"₱150","pieces":"8 Pcs","image":"images/ebi.webp"}'>
-                    <img src="images/ebi.webp" alt="Ebi Tempura Maki" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Ebi Tempura Maki</div>
-                        <div class="item-price">₱150</div>
+                    <div class="menu-item" data-item='{"name":"Ebi Tempura Maki","price":"₱150","pieces":"8 Pcs","image":"images/ebi.webp"}'>
+                        <img src="images/ebi.webp" alt="Ebi Tempura Maki" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Ebi Tempura Maki</div>
+                            <div class="item-price">₱150</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Avocado Dragon Roll","price":"₱312","pieces":"8 Pcs","image":"images/avocado.webp"}'>
-                    <img src="images/avocado.webp" alt="Avocado Dragon Roll" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Avocado Dragon Roll</div>
-                        <div class="item-price">₱312</div>
+                    <div class="menu-item" data-item='{"name":"Avocado Dragon Roll","price":"₱312","pieces":"8 Pcs","image":"images/avocado.webp"}'>
+                        <img src="images/avocado.webp" alt="Avocado Dragon Roll" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Avocado Dragon Roll</div>
+                            <div class="item-price">₱312</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Ebi Sushi","price":"₱208","pieces":"4 Pcs","image":"images/ebisushi.webp"}'>
+                    <div class="menu-item" data-item='{"name":"Ebi Sushi","price":"₱208","pieces":"4 Pcs","image":"images/ebisushi.webp"}'>
                     <img src="images/ebisushi.webp" alt="Ebi Sushi" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Ebi Sushi</div>
@@ -148,90 +244,176 @@
             <!-- ── A LA CARTE ── -->
             <h2 class="category-heading" id="a-la-carte-section">A La Carte</h2>
             <div class="menu-grid single-column">
-                <div class="menu-item" data-item='{"name":"Tempura","price":"₱221","image":"images/tempura.webp","variations":["150 Grams","300 Grams"]}'>
-                    <img src="images/tempura.webp" alt="Tempura" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Tempura</div>
-                        <div class="item-price">₱221</div>
+                <?php if (!empty($menuItems['A La Carte'])): ?>
+                    <?php foreach ($menuItems['A La Carte'] as $item): ?>
+                        <?php 
+                            $variations = [];
+                            if (!empty($item['variations'])) {
+                                foreach ($item['variations'] as $var) {
+                                    $variations[] = $var['variation_name'];
+                                }
+                            }
+                            $dataItem = [
+                                'name' => $item['name'],
+                                'price' => '₱' . number_format($item['price'], 2),
+                                'image' => $item['image'] ?? 'images/placeholder.webp'
+                            ];
+                            if (!empty($variations)) {
+                                $dataItem['variations'] = $variations;
+                            }
+                        ?>
+                        <div class="menu-item" data-item='<?= json_encode($dataItem) ?>'>
+                            <img src="<?= htmlspecialchars($item['image'] ?? 'images/placeholder.webp') ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="item-image-placeholder">
+                            <div class="item-details">
+                                <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
+                                <div class="item-price">₱<?= number_format($item['price'], 2) ?></div>
+                            </div>
+                            <div class="item-rating">★★★★★</div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="menu-item" data-item='{"name":"Tempura","price":"₱221","image":"images/tempura.webp","variations":["150 Grams","300 Grams"]}'>
+                        <img src="images/tempura.webp" alt="Tempura" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Tempura</div>
+                            <div class="item-price">₱221</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
+                <?php endif; ?>
             </div>
 
             <!-- ── PLATTERS ── -->
             <h2 class="category-heading" id="platters-section">Platters</h2>
             <div class="menu-grid">
-                <div class="menu-item" data-item='{"name":"Square Platter A","price":"₱539.50","pieces":"14 Pcs","image":"images/a.webp"}'>
-                    <img src="images/a.webp" alt="Square Platter A" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Square Platter A</div>
-                        <div class="item-price">₱539.50</div>
+                <?php if (!empty($menuItems['Platters'])): ?>
+                    <?php foreach ($menuItems['Platters'] as $item): ?>
+                        <?php 
+                            $variations = [];
+                            if (!empty($item['variations'])) {
+                                foreach ($item['variations'] as $var) {
+                                    $variations[] = $var['variation_name'];
+                                }
+                            }
+                            $dataItem = [
+                                'name' => $item['name'],
+                                'price' => '₱' . number_format($item['price'], 2),
+                                'image' => $item['image'] ?? 'images/placeholder.webp'
+                            ];
+                            if (!empty($variations)) {
+                                $dataItem['variations'] = $variations;
+                            }
+                        ?>
+                        <div class="menu-item" data-item='<?= json_encode($dataItem) ?>'>
+                            <img src="<?= htmlspecialchars($item['image'] ?? 'images/placeholder.webp') ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="item-image-placeholder">
+                            <div class="item-details">
+                                <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
+                                <div class="item-price">₱<?= number_format($item['price'], 2) ?></div>
+                            </div>
+                            <div class="item-rating">★★★★★</div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="menu-item" data-item='{"name":"Square Platter A","price":"₱539.50","pieces":"14 Pcs","image":"images/a.webp"}'>
+                        <img src="images/a.webp" alt="Square Platter A" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Square Platter A</div>
+                            <div class="item-price">₱539.50</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Square Platter B","price":"₱487.50","pieces":"18 Pcs","image":"images/b.webp"}'>
-                    <img src="images/b.webp" alt="Square Platter B" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Square Platter B</div>
-                        <div class="item-price">₱487.50</div>
+                    <div class="menu-item" data-item='{"name":"Square Platter B","price":"₱487.50","pieces":"18 Pcs","image":"images/b.webp"}'>
+                        <img src="images/b.webp" alt="Square Platter B" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Square Platter B</div>
+                            <div class="item-price">₱487.50</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Sushi Boat A","price":"₱1,558.70","pieces":"58 Pcs","image":"images/boata.webp"}'>
-                    <img src="images/boata.webp" alt="Sushi Boat A" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Sushi Boat A</div>
-                        <div class="item-price">₱1,558.70</div>
+                    <div class="menu-item" data-item='{"name":"Sushi Boat A","price":"₱1,558.70","pieces":"58 Pcs","image":"images/boata.webp"}'>
+                        <img src="images/boata.webp" alt="Sushi Boat A" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Sushi Boat A</div>
+                            <div class="item-price">₱1,558.70</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Sushi Boat B","price":"₱2,078.70","pieces":"57 Pcs","image":"images/boatb.webp"}'>
-                    <img src="images/boatb.webp" alt="Sushi Boat B" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Sushi Boat B</div>
-                        <div class="item-price">₱2,078.70</div>
+                    <div class="menu-item" data-item='{"name":"Sushi Boat B","price":"₱2,078.70","pieces":"57 Pcs","image":"images/boatb.webp"}'>
+                        <img src="images/boatb.webp" alt="Sushi Boat B" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Sushi Boat B</div>
+                            <div class="item-price">₱2,078.70</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Tempura Boat","price":"₱1,168.70","pieces":"20 Pcs","image":"images/tempuraboat.webp"}'>
-                    <img src="images/tempuraboat.webp" alt="Tempura Boat" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Tempura Boat</div>
-                        <div class="item-price">₱1,168.70</div>
+                    <div class="menu-item" data-item='{"name":"Tempura Boat","price":"₱1,168.70","pieces":"20 Pcs","image":"images/tempuraboat.webp"}'>
+                        <img src="images/tempuraboat.webp" alt="Tempura Boat" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Tempura Boat</div>
+                            <div class="item-price">₱1,168.70</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Cali Maki","price":"₱312","image":"images/calimaki.png","variations":["16 Pieces","24 Pieces","50 Pieces"]}'>
-                    <img src="images/calimaki.png" alt="Cali Maki Platter" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Cali Maki</div>
-                        <div class="item-price">₱312</div>
+                    <div class="menu-item" data-item='{"name":"Cali Maki","price":"₱312","image":"images/calimaki.png","variations":["16 Pieces","24 Pieces","50 Pieces"]}'>
+                        <img src="images/calimaki.png" alt="Cali Maki Platter" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Cali Maki</div>
+                            <div class="item-price">₱312</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Mixed Maki Platter","price":"₱1,168.70","pieces":"48 Pcs","image":"images/mixedmaki.webp"}'>
-                    <img src="images/mixedmaki.webp" alt="Mixed Maki Platter" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Mixed Maki Platter</div>
-                        <div class="item-price">₱1,168.70</div>
+                    <div class="menu-item" data-item='{"name":"Mixed Maki Platter","price":"₱1,168.70","pieces":"48 Pcs","image":"images/mixedmaki.webp"}'>
+                        <img src="images/mixedmaki.webp" alt="Mixed Maki Platter" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Mixed Maki Platter</div>
+                            <div class="item-price">₱1,168.70</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
+                <?php endif; ?>
             </div>
 
             <!-- ── BENTO BOXES ── -->
             <h2 class="category-heading" id="bento-section">Bento Boxes</h2>
             <div class="menu-grid three-columns">
-                <div class="menu-item" data-item='{"name":"Tuna Steak in Oyster Sauce","price":"₱379","image":"images/tunasteak.webp"}'>
-                    <img src="images/tunasteak.webp" alt="Tuna Steak in Oyster Sauce Bento" class="item-image-placeholder">
-                    <div class="item-details">
-                        <div class="item-name">Tuna Steak in Oyster Sauce</div>
-                        <div class="item-price">₱379</div>
+                <?php if (!empty($menuItems['Bento'])): ?>
+                    <?php foreach ($menuItems['Bento'] as $item): ?>
+                        <?php 
+                            $variations = [];
+                            if (!empty($item['variations'])) {
+                                foreach ($item['variations'] as $var) {
+                                    $variations[] = $var['variation_name'];
+                                }
+                            }
+                            $dataItem = [
+                                'name' => $item['name'],
+                                'price' => '₱' . number_format($item['price'], 2),
+                                'image' => $item['image'] ?? 'images/placeholder.webp'
+                            ];
+                            if (!empty($variations)) {
+                                $dataItem['variations'] = $variations;
+                            }
+                        ?>
+                        <div class="menu-item" data-item='<?= json_encode($dataItem) ?>'>
+                            <img src="<?= htmlspecialchars($item['image'] ?? 'images/placeholder.webp') ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="item-image-placeholder">
+                            <div class="item-details">
+                                <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
+                                <div class="item-price">₱<?= number_format($item['price'], 2) ?></div>
+                            </div>
+                            <div class="item-rating">★★★★★</div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="menu-item" data-item='{"name":"Tuna Steak in Oyster Sauce","price":"₱379","image":"images/tunasteak.webp"}'>
+                        <img src="images/tunasteak.webp" alt="Tuna Steak in Oyster Sauce Bento" class="item-image-placeholder">
+                        <div class="item-details">
+                            <div class="item-name">Tuna Steak in Oyster Sauce</div>
+                            <div class="item-price">₱379</div>
+                        </div>
+                        <div class="item-rating">★★★★★</div>
                     </div>
-                    <div class="item-rating">★★★★★</div>
-                </div>
-                <div class="menu-item" data-item='{"name":"Garlic Buttered Salmon","price":"₱239","image":"images/garlic.webp"}'>
-                    <img src="images/garlic.webp" alt="Garlic Buttered Salmon Bento" class="item-image-placeholder">
+                    <div class="menu-item" data-item='{"name":"Garlic Buttered Salmon","price":"₱239","image":"images/garlic.webp"}'>
+                        <img src="images/garlic.webp" alt="Garlic Buttered Salmon Bento" class="item-image-placeholder">
                     <div class="item-details">
                         <div class="item-name">Garlic Buttered Salmon</div>
                         <div class="item-price">₱239</div>

@@ -22,9 +22,16 @@
     <header>
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
-            <a href="menu.php" class="nav-menu" id="backToMenuLink">
-                <span>← Back to Menu</span>
-            </a>
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <a href="menu.php" class="nav-menu" id="backToMenuLink" style="gap: 0;">
+                    <span>← Back to Menu</span>
+                </a>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                <a href="account-dashboard.php" style="color: rgba(255,255,255,0.88); text-decoration: none; font-weight: 500; font-size: 0.95rem;" title="Go to My Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
+                <?php endif; ?>
+            </div>
         </div>
     </header>
 

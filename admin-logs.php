@@ -1,5 +1,6 @@
 <?php
 require_once 'admin-config.php';
+require_once 'Notifications.php';
 requireAdmin();
 
 // Handle log operations
@@ -22,6 +23,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         
         try {
             $stmt->execute([$action, $details, $userEmail, $userName, $ipAddress, $userAgent]);
+            
+            // Create security notifications for important log events
+            $notifications = new Notifications($pdo);
+            
+            // Trigger notifications for suspicious activities
+            if (in_array($action, ['failed_login', 'unauthorized_access', 'suspicious_activity'])) {
+                $notifications->autoNotify('security_alert', [
+                    'message' => "Security Alert: {$action} - {$details} from IP {$ipAddress}"
+                ]);
+            }
+            
+            // Log successful admin actions
+            if (in_array($action, ['user_created', 'booking_updated', 'order_processed'])) {
+                $notifications->autoNotify('login_attempt', [
+                    'success' => true,
+                    'email' => $userEmail,
+                    'action' => $action,
+                    'ip' => $ipAddress
+                ]);
+            }
+            
             echo json_encode(['success' => true, 'message' => 'Log entry created successfully']);
             exit;
         } catch (PDOException $e) {

@@ -1,6 +1,7 @@
 <?php
 
 require_once 'admin-config.php';
+require_once 'Notifications.php';
 
 requireAdmin();
 
@@ -244,6 +245,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $bookingId = $pdo->lastInsertId();
 
+                // Create comprehensive notifications for new booking
+                $notifications = new Notifications($pdo);
+                
+                // Get user ID if logged in user
+                $userId = null;
+                if (!empty($userEmail)) {
+                    $userStmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                    $userStmt->execute([$userEmail]);
+                    $userData = $userStmt->fetch();
+                    $userId = $userData['id'] ?? null;
+                }
+
+                $notifications->autoNotify('new_booking', [
+                    'id' => $bookingId,
+                    'customer_name' => $fullName,
+                    'customer_email' => $emailAddress,
+                    'date' => $formattedDate,
+                    'time' => $formattedTime,
+                    'event_type' => $eventType,
+                    'num_guests' => $numGuests,
+                    'user_id' => $userId
+                ]);
+
+                // Audit log
+                logAdminActivity($pdo, 'booking_created', "Created booking #{$bookingId} for {$fullName} ({$emailAddress}) on {$formattedDate} at {$formattedTime}");
+
                 echo json_encode(['success' => true, 'message' => 'Booking created successfully', 'booking_id' => $bookingId]);
 
             } else {
@@ -296,6 +323,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt->execute([$status, $bookingId]);
 
+            // Get booking details for notification
+            $bookingStmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+            $bookingStmt->execute([$bookingId]);
+            $booking = $bookingStmt->fetch();
+
+            if ($booking) {
+                // Get user ID for customer notification
+                $userId = null;
+                if (!empty($booking['user_email'])) {
+                    $userStmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                    $userStmt->execute([$booking['user_email']]);
+                    $userData = $userStmt->fetch();
+                    $userId = $userData['id'] ?? null;
+                }
+
+                // Create notifications for status change
+                $notifications = new Notifications($pdo);
+                
+                if ($status === 'confirmed') {
+                    $notifications->autoNotify('booking_confirmed', [
+                        'id' => $bookingId,
+                        'customer_name' => $booking['full_name'],
+                        'date' => $booking['event_date'],
+                        'time' => $booking['event_time'],
+                        'user_id' => $userId
+                    ]);
+                } elseif ($status === 'cancelled') {
+                    $notifications->autoNotify('booking_cancelled', [
+                        'id' => $bookingId,
+                        'customer_name' => $booking['full_name'],
+                        'date' => $booking['event_date'],
+                        'time' => $booking['event_time'],
+                        'user_id' => $userId
+                    ]);
+                }
+            }
+
+            // Audit log
+            $bookingInfo = $booking ? "#{$bookingId} ({$booking['full_name']})" : "#{$bookingId}";
+            logAdminActivity($pdo, 'booking_status_updated', "Updated booking {$bookingInfo} status to {$status}");
+
             echo json_encode(['success' => true, 'message' => "Booking $status successfully"]);
 
             exit;
@@ -312,6 +380,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     
 
+    if ($data['action'] === 'reschedule_booking') {
+        $bookingId = $data['booking_id'] ?? 0;
+        $newDate = $data['new_date'] ?? '';
+        $newTime = $data['new_time'] ?? '';
+
+        if (empty($bookingId) || empty($newDate) || empty($newTime)) {
+            echo json_encode(['success' => false, 'message' => 'Missing booking ID, new date, or new time']);
+            exit;
+        }
+
+        // Validate date format
+        $dateObj = DateTime::createFromFormat('Y-m-d', $newDate);
+        if (!$dateObj) {
+            echo json_encode(['success' => false, 'message' => 'Invalid date format. Use YYYY-MM-DD format.']);
+            exit;
+        }
+
+        // Validate time format
+        $timeObj = DateTime::createFromFormat('H:i', $newTime);
+        if (!$timeObj) {
+            echo json_encode(['success' => false, 'message' => 'Invalid time format. Use HH:MM format.']);
+            exit;
+        }
+
+        $formattedDate = $dateObj->format('Y-m-d');
+        $formattedTime = $timeObj->format('H:i');
+
+        // Get current booking details before updating
+        $currentStmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+        $currentStmt->execute([$bookingId]);
+        $currentBooking = $currentStmt->fetch();
+
+        if (!$currentBooking) {
+            echo json_encode(['success' => false, 'message' => 'Booking not found']);
+            exit;
+        }
+
+        // Update booking
+        $stmt = $pdo->prepare("UPDATE bookings SET event_date = ?, event_time = ? WHERE id = ?");
+        try {
+            $stmt->execute([$formattedDate, $formattedTime, $bookingId]);
+
+            // Get user ID for customer notification
+            $userId = null;
+            if (!empty($currentBooking['user_email'])) {
+                $userStmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                $userStmt->execute([$currentBooking['user_email']]);
+                $userData = $userStmt->fetch();
+                $userId = $userData['id'] ?? null;
+            }
+
+            // Create notifications for rescheduling
+            $notifications = new Notifications($pdo);
+            $notifications->autoNotify('booking_rescheduled', [
+                'id' => $bookingId,
+                'customer_name' => $currentBooking['full_name'],
+                'old_date' => $currentBooking['event_date'],
+                'old_time' => $currentBooking['event_time'],
+                'new_date' => $formattedDate,
+                'new_time' => $formattedTime,
+                'user_id' => $userId
+            ]);
+
+            // Audit log
+            logAdminActivity($pdo, 'booking_rescheduled', "Rescheduled booking #{$bookingId} ({$currentBooking['full_name']}) from {$currentBooking['event_date']} {$currentBooking['event_time']} to {$formattedDate} {$formattedTime}");
+
+            echo json_encode(['success' => true, 'message' => 'Booking rescheduled successfully']);
+            exit;
+
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
+    
+
     if ($data['action'] === 'clear_bookings') {
 
         try {
@@ -319,6 +464,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("DELETE FROM bookings");
 
             $stmt->execute();
+
+            // Audit log
+            logAdminActivity($pdo, 'bookings_cleared', 'Cleared all bookings from the system');
 
             echo json_encode(['success' => true, 'message' => 'All bookings cleared successfully']);
 

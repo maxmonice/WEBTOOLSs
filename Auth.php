@@ -6,6 +6,7 @@
 // =====================================================
 
 require_once 'db.php';
+require_once 'Notifications.php';
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
 }
@@ -27,6 +28,33 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST')    { respond(false, 'Method not allowed.'); }
+
+// ── AUDIT LOG HELPER ──
+function auditLog(string $action, string $details = ''): void {
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            action VARCHAR(100) NOT NULL,
+            details TEXT,
+            user_email VARCHAR(255),
+            user_name VARCHAR(255),
+            ip_address VARCHAR(45),
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+        $stmt = $db->prepare("INSERT INTO audit_logs (action, details, user_email, user_name, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([
+            $action, $details,
+            $_SESSION['user_email'] ?? ($_SESSION['email'] ?? 'unknown'),
+            $_SESSION['user_name'] ?? 'System',
+            $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
+            $_SERVER['HTTP_USER_AGENT'] ?? ''
+        ]);
+    } catch (\Throwable $_) {
+        // Silently fail
+    }
+}
 
 // --- Session setup ---
 session_start();
@@ -206,7 +234,7 @@ function handleLogin(array $data): void {
     }
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, password_hash, provider FROM users WHERE email = ?'
+        'SELECT id, name, email, password_hash, provider, role FROM users WHERE email = ?'
     );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -217,7 +245,21 @@ function handleLogin(array $data): void {
         'userProvider' => $user['provider'] ?? null,
     ]);
 
-    // ── ADMIN BYPASS: skip OTP entirely for the special admin account ──
+    // ── LOGIN NOTIFICATIONS ──
+    $notifications = new Notifications($db);
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '';
+    
+    // Handle failed login attempts
+    if (!$user) {
+        $notifications->autoNotify('login_attempt', [
+            'success' => false,
+            'email' => $email,
+            'ip' => $ipAddress
+        ]);
+        auditLog('failed_login', "Failed login attempt - user not found: {$email}");
+    }
+
+    // ── ADMIN & STAFF BYPASS: skip OTP entirely for admin and staff accounts ──
     if ($email === 'admin@gmail.com') {
         debugLog($runId, 'H1', 'Auth.php:handleLogin:adminCheck', 'ADMIN CHECK PASSED - Email matches admin@gmail.com', [
             'email' => $email,
@@ -236,6 +278,7 @@ function handleLogin(array $data): void {
         ]);
         if (!$passwordMatch) {
             debugLog($runId, 'H1', 'Auth.php:handleLogin:adminWrongPassword', 'Admin password did not match', []);
+            auditLog('failed_login', "Failed admin login attempt for {$email} - incorrect password");
             respond(false, 'Incorrect password.');
         }
         debugLog($runId, 'H1', 'Auth.php:handleLogin:admin', 'Admin login — bypassing OTP', [
@@ -245,12 +288,21 @@ function handleLogin(array $data): void {
         $_SESSION['user_id']    = (int) $user['id'];
         $_SESSION['user_name']  = $user['name'];
         $_SESSION['user_email'] = $user['email'];
-        $_SESSION['is_admin']   = true;
+        $_SESSION['user_role']  = 'admin';
+
+        // Create successful login notification
+        $notifications->autoNotify('login_attempt', [
+            'success' => true,
+            'email' => $email,
+            'ip' => $ipAddress
+        ]);
+
+        auditLog('login_success', "Admin {$email} logged in successfully");
         respond(true, 'Welcome, Administrator!', [
             'requires_2fa' => false,
             'name'     => $user['name'],
             'email'    => $user['email'],
-            'redirect' => 'admin-dashboard.php',
+            'redirect' => '/FINAL/WEBTOOLSs/admin-dashboard.php',
         ]);
     } else {
         debugLog($runId, 'H1', 'Auth.php:handleLogin:notAdmin', 'Admin check FAILED - email does NOT match admin@gmail.com', [
@@ -260,12 +312,48 @@ function handleLogin(array $data): void {
         ]);
     }
 
+    // ── STAFF BYPASS: skip OTP for staff accounts ──
+    if ($user && $user['role'] === 'staff') {
+        debugLog($runId, 'H1', 'Auth.php:handleLogin:staffCheck', 'STAFF CHECK PASSED - User role is staff', [
+            'email' => $email,
+            'userRole' => $user['role'],
+        ]);
+        
+        if (!password_verify($password, $user['password_hash'])) {
+            auditLog('failed_login', "Failed staff login attempt for {$email} - incorrect password");
+            respond(false, 'Incorrect password.');
+        }
+        
+        session_regenerate_id(true);
+        $_SESSION['user_id']    = (int) $user['id'];
+        $_SESSION['user_name']  = $user['name'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['user_role']  = $user['role'];
+        
+        // Create successful login notification
+        $notifications->autoNotify('login_attempt', [
+            'success' => true,
+            'email' => $email,
+            'ip' => $ipAddress
+        ]);
+        
+        auditLog('login_success', "Staff {$email} logged in successfully");
+        respond(true, 'Welcome, Staff Member!', [
+            'requires_2fa' => false,
+            'name'     => $user['name'],
+            'email'    => $user['email'],
+            'redirect' => '/FINAL/WEBTOOLSs/staff-dashboard.php',
+        ]);
+    }
+
     // For regular users, check if provider is email
     if (!$user || $user['provider'] !== 'email') {
+        auditLog('failed_login', "Failed customer login - no account found: {$email}");
         respond(false, 'No account found with this email.');
     }
 
     if (!password_verify($password, $user['password_hash'])) {
+        auditLog('failed_login', "Failed customer login - incorrect password: {$email}");
         respond(false, 'Incorrect password.');
     }
     $_SESSION['pending_user_id']    = $user['id'];
@@ -370,6 +458,20 @@ function handleVerifyOtp(array $data): void {
 
     if ($context === 'signup') {
         $db->prepare('UPDATE users SET email_verified = 1 WHERE id = ?')->execute([$userId]);
+        
+        // Create notification for admins
+        try {
+            $notifications = new Notifications($db);
+            $notifications->create(
+                'New Customer Registered',
+                $name . ' (' . $email . ') has registered and verified their email.',
+                'user',
+                'admin'
+            );
+        } catch (\Throwable $e) {
+            // Log error but don't block signup
+            error_log('Notification creation failed: ' . $e->getMessage());
+        }
     }
 
     if ($context === 'login' && !empty($_SESSION['pending_remember'])) {
@@ -386,6 +488,23 @@ function handleVerifyOtp(array $data): void {
     }
 
     startUserSession($userId, $name, $email);
+    
+    // Create successful login notification for customers
+    if ($context === 'login') {
+        try {
+            $notifications = new Notifications($db);
+            $notifications->autoNotify('login_attempt', [
+                'success' => true,
+                'email' => $email,
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
+            ]);
+        } catch (\Throwable $e) {
+            // Log error but don't block login
+            error_log('Login notification failed: ' . $e->getMessage());
+        }
+    }
+    
+    auditLog('login_success', "Customer {$email} logged in successfully via OTP");
     debugLog($runId, 'H4', 'Auth.php:handleVerifyOtp:success', 'OTP verification succeeded and user session started', [
         'userId' => $userId,
         'context' => $context,
@@ -500,7 +619,7 @@ function handleGoogleAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1'
+        'SELECT id, name, email, role FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1'
     );
     $stmt->execute([$googleId]);
     $user = $stmt->fetch();
@@ -601,6 +720,9 @@ function handleFacebookAuth(array $data): void {
 //  LOGOUT
 // =====================================================
 function handleLogout(): void {
+    $email = $_SESSION['user_email'] ?? 'unknown';
+    $role = $_SESSION['user_role'] ?? 'unknown';
+    auditLog('logout', "User {$email} (role: {$role}) logged out");
     session_destroy();
     setcookie('remember_token', '', time() - 3600, '/', '', false, true);
     respond(true, 'Logged out.');
@@ -620,16 +742,26 @@ function handleCheckSession(): void {
         debugLog($runId, 'H6', 'Auth.php:handleCheckSession:active', 'Active session found', [
             'userId' => $_SESSION['user_id'],
         ]);
+        
+        // Determine redirect based on user role
+        $redirect = '/FINAL/WEBTOOLSs/account-dashboard.php';
+        if ($_SESSION['user_role'] === 'admin') {
+            $redirect = '/FINAL/WEBTOOLSs/admin-dashboard.php';
+        } elseif ($_SESSION['user_role'] === 'staff') {
+            $redirect = '/FINAL/WEBTOOLSs/staff-dashboard.php';
+        }
+        
         respond(true, 'Session active.', [
-            'name'  => $_SESSION['user_name']  ?? '',
-            'email' => $_SESSION['user_email'] ?? '',
+            'name'     => $_SESSION['user_name']  ?? '',
+            'email'    => $_SESSION['user_email'] ?? '',
+            'redirect' => $redirect,
         ]);
     }
 
     $token = $_COOKIE['remember_token'] ?? '';
     if ($token) {
         $db   = getDB();
-        $stmt = $db->prepare('SELECT id, name, email FROM users WHERE remember_token = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, role FROM users WHERE remember_token = ? LIMIT 1');
         $stmt->execute([$token]);
         $user = $stmt->fetch();
         if ($user) {
@@ -637,7 +769,20 @@ function handleCheckSession(): void {
             debugLog($runId, 'H6', 'Auth.php:handleCheckSession:restored', 'Session restored via remember token', [
                 'userId' => $user['id'],
             ]);
-            respond(true, 'Session restored.', ['name' => $user['name'], 'email' => $user['email']]);
+            
+            // Determine redirect based on user role
+            $redirect = '/FINAL/WEBTOOLSs/account-dashboard.php';
+            if ($user['role'] === 'admin') {
+                $redirect = '/FINAL/WEBTOOLSs/admin-dashboard.php';
+            } elseif ($user['role'] === 'staff') {
+                $redirect = '/FINAL/WEBTOOLSs/staff-dashboard.php';
+            }
+            
+            respond(true, 'Session restored.', [
+                'name'     => $user['name'],
+                'email'    => $user['email'],
+                'redirect' => $redirect,
+            ]);
         }
     }
 
@@ -793,10 +938,16 @@ function maskEmail(string $email): string {
 }
 
 function startUserSession(int $id, string $name, string $email): void {
+    $db = getDB();
+    $stmt = $db->prepare('SELECT role FROM users WHERE id = ?');
+    $stmt->execute([$id]);
+    $user = $stmt->fetch();
+    
     session_regenerate_id(true);
     $_SESSION['user_id']    = $id;
     $_SESSION['user_name']  = $name;
     $_SESSION['user_email'] = $email;
+    $_SESSION['user_role']  = $user['role'] ?? 'customer';
 }
 
 function otpDeliveryErrorMessage(): string {
