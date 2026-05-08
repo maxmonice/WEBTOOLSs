@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
 require_once 'Db.php';
 
@@ -239,6 +241,7 @@ try {
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
+                <?php endif; ?>
             </div>
 
             <!-- ── A LA CARTE ── -->
@@ -452,6 +455,7 @@ try {
                     </div>
                     <div class="item-rating">★★★★★</div>
                 </div>
+                <?php endif; ?>
             </div>
         </section>
     </main>

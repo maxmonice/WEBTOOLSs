@@ -28,15 +28,27 @@ class Notifications {
     // Get notifications for current user based on role
     public function getForUser(string $userRole, ?int $userId = null, int $limit = 10): array {
         try {
-            $sql = "
-                SELECT id, title, message, type, is_read, created_at 
-                FROM notifications 
-                WHERE (target_role = 'all' OR target_role = ? OR target_user_id = ?)
-                ORDER BY created_at DESC 
-                LIMIT ?
-            ";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$userRole, $userId, $limit]);
+            if ($userId) {
+                $sql = "
+                    SELECT id, title, message, type, is_read, created_at 
+                    FROM notifications 
+                    WHERE (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                    ORDER BY created_at DESC 
+                    LIMIT $limit
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$userRole, $userId]);
+            } else {
+                $sql = "
+                    SELECT id, title, message, type, is_read, created_at 
+                    FROM notifications 
+                    WHERE (target_role = 'all' OR target_role = ? OR target_user_id IS NULL)
+                    ORDER BY created_at DESC 
+                    LIMIT $limit
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$userRole]);
+            }
             return $stmt->fetchAll();
         } catch (Exception $e) {
             error_log("Failed to get notifications: " . $e->getMessage());
@@ -65,14 +77,25 @@ class Notifications {
     // Get unread count for user
     public function getUnreadCount(string $userRole, ?int $userId = null): int {
         try {
-            $sql = "
-                SELECT COUNT(*) as count 
-                FROM notifications 
-                WHERE is_read = FALSE 
-                AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
-            ";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$userRole, $userId]);
+            if ($userId) {
+                $sql = "
+                    SELECT COUNT(*) as count 
+                    FROM notifications 
+                    WHERE is_read = FALSE 
+                    AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$userRole, $userId]);
+            } else {
+                $sql = "
+                    SELECT COUNT(*) as count 
+                    FROM notifications 
+                    WHERE is_read = FALSE 
+                    AND (target_role = 'all' OR target_role = ? OR target_user_id IS NULL)
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$userRole]);
+            }
             return (int) $stmt->fetchColumn();
         } catch (Exception $e) {
             error_log("Failed to get unread count: " . $e->getMessage());
@@ -83,14 +106,25 @@ class Notifications {
     // Mark all notifications as read for user
     public function markAllAsRead(string $userRole, ?int $userId = null): bool {
         try {
-            $sql = "
-                UPDATE notifications 
-                SET is_read = TRUE 
-                WHERE is_read = FALSE 
-                AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
-            ";
-            $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute([$userRole, $userId]);
+            if ($userId) {
+                $sql = "
+                    UPDATE notifications 
+                    SET is_read = TRUE 
+                    WHERE is_read = FALSE 
+                    AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute([$userRole, $userId]);
+            } else {
+                $sql = "
+                    UPDATE notifications 
+                    SET is_read = TRUE 
+                    WHERE is_read = FALSE 
+                    AND (target_role = 'all' OR target_role = ? OR target_user_id IS NULL)
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute([$userRole]);
+            }
         } catch (Exception $e) {
             error_log("Failed to mark all notifications as read: " . $e->getMessage());
             return false;
@@ -142,14 +176,15 @@ class Notifications {
                     'booking',
                     'staff'
                 );
-                // Customer confirmation
-                $this->create(
-                    'Booking Received',
-                    "Your booking #{$data['id']} for {$data['date']} at {$data['time']} has been received and is pending confirmation.",
-                    'info',
-                    'customer',
-                    $data['user_id'] ?? null
-                );
+                if (!empty($data['user_id'])) {
+                    $this->create(
+                        'Booking Received',
+                        "Your booking #{$data['id']} for {$data['date']} at {$data['time']} has been received and is pending confirmation.",
+                        'info',
+                        'customer',
+                        (int)$data['user_id']
+                    );
+                }
                 break;
                 
             case 'booking_confirmed':
@@ -166,14 +201,15 @@ class Notifications {
                     'success',
                     'staff'
                 );
-                // Customer notification
-                $this->create(
-                    'Booking Confirmed',
-                    "Your booking #{$data['id']} for {$data['date']} at {$data['time']} has been confirmed.",
-                    'success',
-                    'customer',
-                    $data['user_id'] ?? null
-                );
+                if (!empty($data['user_id'])) {
+                    $this->create(
+                        'Booking Confirmed',
+                        "Your booking #{$data['id']} for {$data['date']} at {$data['time']} has been confirmed.",
+                        'success',
+                        'customer',
+                        (int)$data['user_id']
+                    );
+                }
                 break;
                 
             case 'booking_cancelled':
@@ -190,14 +226,15 @@ class Notifications {
                     'error',
                     'staff'
                 );
-                // Customer notification
-                $this->create(
-                    'Booking Cancelled',
-                    "Your booking #{$data['id']} has been cancelled.",
-                    'error',
-                    'customer',
-                    $data['user_id'] ?? null
-                );
+                if (!empty($data['user_id'])) {
+                    $this->create(
+                        'Booking Cancelled',
+                        "Your booking #{$data['id']} has been cancelled.",
+                        'error',
+                        'customer',
+                        (int)$data['user_id']
+                    );
+                }
                 break;
                 
             case 'booking_rescheduled':
@@ -214,14 +251,15 @@ class Notifications {
                     'warning',
                     'staff'
                 );
-                // Customer notification
-                $this->create(
-                    'Booking Rescheduled',
-                    "Your booking #{$data['id']} has been rescheduled to {$data['new_date']} at {$data['new_time']}.",
-                    'warning',
-                    'customer',
-                    $data['user_id'] ?? null
-                );
+                if (!empty($data['user_id'])) {
+                    $this->create(
+                        'Booking Rescheduled',
+                        "Your booking #{$data['id']} has been rescheduled to {$data['new_date']} at {$data['new_time']}.",
+                        'warning',
+                        'customer',
+                        (int)$data['user_id']
+                    );
+                }
                 break;
                 
             case 'new_order':
@@ -238,14 +276,15 @@ class Notifications {
                     'order',
                     'staff'
                 );
-                // Customer notification
-                $this->create(
-                    'Order Received',
-                    "Your order #{$data['id']} has been received and is being processed.",
-                    'info',
-                    'customer',
-                    $data['user_id'] ?? null
-                );
+                if (!empty($data['user_id'])) {
+                    $this->create(
+                        'Order Received',
+                        "Your order #{$data['id']} has been received and is being processed.",
+                        'info',
+                        'customer',
+                        (int)$data['user_id']
+                    );
+                }
                 break;
                 
             case 'menu_item_added':
