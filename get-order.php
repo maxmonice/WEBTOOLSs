@@ -16,13 +16,15 @@ try {
     // Fetch specific order by ID, or latest active for this user
     if ($orderId > 0) {
         $stmt = $pdo->prepare("
-            SELECT id, user_id, status, total_amount, address, payment_method, notes, created_at, updated_at
+            SELECT id, user_id, status, total_amount, address, payment_method, notes, created_at, updated_at,
+                   delivery_latitude, delivery_longitude
             FROM orders WHERE id = ? LIMIT 1
         ");
         $stmt->execute([$orderId]);
     } elseif ($sessionUserId) {
         $stmt = $pdo->prepare("
-            SELECT id, user_id, status, total_amount, address, payment_method, notes, created_at, updated_at
+            SELECT id, user_id, status, total_amount, address, payment_method, notes, created_at, updated_at,
+                   delivery_latitude, delivery_longitude
             FROM orders
             WHERE user_id = ? AND status NOT IN ('delivered','cancelled')
             ORDER BY created_at DESC LIMIT 1
@@ -51,6 +53,8 @@ try {
             'subtotal'       => floatval($notes['subtotal'] ?? 0),
             'shipping'       => floatval($notes['shipping']  ?? 0),
             'address'        => $order['address'],
+            'delivery_latitude'  => isset($order['delivery_latitude']) ? floatval($order['delivery_latitude']) : null,
+            'delivery_longitude' => isset($order['delivery_longitude']) ? floatval($order['delivery_longitude']) : null,
             'payment_method' => $order['payment_method'],
             'items'          => $notes['items'] ?? [],
             'created_at'     => $order['created_at'],

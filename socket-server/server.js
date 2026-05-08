@@ -21,12 +21,36 @@ io.on('connection', (socket) => {
         console.log(`Tracking request for Order: ${orderId}`);
         socket.join(`order_${orderId}`);
     });
+    // Compatibility with customer pages using "join-order"
+    socket.on('join-order', (orderId) => {
+        console.log(`Join-order request for Order: ${orderId}`);
+        socket.join(`order_${orderId}`);
+    });
 
     // Rider sends a position update
     socket.on('rider_update', (data) => {
         console.log(`Rider moved for Order: ${data.order_id} to ${data.latitude}, ${data.longitude}`);
         // Broadcast the update to anyone in that order's room
         io.to(`order_${data.order_id}`).emit('location_update', data);
+        io.to(`order_${data.order_id}`).emit('receive-location', {
+            lat: data.latitude,
+            lng: data.longitude
+        });
+    });
+
+    // Compatibility with rider pages using "send-location"
+    socket.on('send-location', (data) => {
+        const orderId = data.orderId ?? data.order_id;
+        const lat = data.lat ?? data.latitude;
+        const lng = data.lng ?? data.longitude;
+        if (!orderId || lat === undefined || lng === undefined) return;
+        console.log(`Rider moved for Order: ${orderId} to ${lat}, ${lng}`);
+        io.to(`order_${orderId}`).emit('receive-location', { lat, lng });
+        io.to(`order_${orderId}`).emit('location_update', {
+            order_id: orderId,
+            latitude: lat,
+            longitude: lng
+        });
     });
 
     socket.on('disconnect', () => {

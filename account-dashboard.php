@@ -689,6 +689,10 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             const step = statusToStep(order.status);
             const fmt  = n => '₱' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
             const payLabel = { cod:'Cash on Delivery', gcash:'GCash', card:'Credit / Debit Card' };
+            if (Number.isFinite(Number(order.delivery_latitude)) && Number.isFinite(Number(order.delivery_longitude))) {
+                DEST_LAT = Number(order.delivery_latitude);
+                DEST_LNG = Number(order.delivery_longitude);
+            }
 
             section.innerHTML = `
             <div class="order-track-card">
@@ -800,8 +804,8 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         let trackingSocket;
 
-        const DEST_LAT = 14.545; // Hardcoded demo fallback
-        const DEST_LNG = 121.050;
+        let DEST_LAT = 14.545; // fallback if order has no coordinates
+        let DEST_LNG = 121.050;
 
         const riderIconHtml = `
           <div style="width:36px;height:36px;border-radius:50%;background:rgba(194,38,38,0.25);border:2px solid rgba(194,38,38,0.5);display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(194,38,38,0.4)">
