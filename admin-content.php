@@ -15,9 +15,52 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 
 // Handle content operations
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    // Handle file upload before reading JSON payloads.
+    if (isset($_FILES['image'])) {
+        header('Content-Type: application/json');
+        $file = $_FILES['image'];
+        
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($file['type'], $allowed_types, true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid file type. Allowed: JPG, PNG, GIF, WebP']);
+            exit;
+        }
+        
+        if ($file['size'] > 5 * 1024 * 1024) {
+            echo json_encode(['success' => false, 'message' => 'File size exceeds 5MB limit']);
+            exit;
+        }
+        
+        $upload_dir = 'uploads/content/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+        
+        $filename = time() . '_' . bin2hex(random_bytes(8)) . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filepath = $upload_dir . $filename;
+        
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            echo json_encode(['success' => true, 'image_path' => $filepath, 'message' => 'Image uploaded successfully']);
+            logAdminActivity($pdo, 'image_uploaded', "Uploaded image: {$filename}");
+            exit;
+        }
+
+        echo json_encode(['success' => false, 'message' => 'Failed to upload image']);
+        exit;
+    }
+
+    header('Content-Type: application/json');
     $data = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($data)) {
+        $data = $_POST;
+    }
+
+    if (empty($data['action'])) {
+        echo json_encode(['success' => false, 'message' => 'No action specified']);
+        exit;
+    }
 
     
 
@@ -224,6 +267,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
     }
 
+    if ($data['action'] === 'update_feedback') {
+        $id = (int)($data['id'] ?? 0);
+        $status = $data['status'] ?? 'reviewed';
+        $reply = trim($data['admin_reply'] ?? '');
+        $allowedStatuses = ['new', 'reviewed', 'replied', 'archived'];
+
+        if ($id <= 0 || !in_array($status, $allowedStatuses, true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid feedback update']);
+            exit;
+        }
+
+        if ($reply !== '' && $status === 'reviewed') {
+            $status = 'replied';
+        }
+
+        try {
+            $stmt = $pdo->prepare("
+                UPDATE customer_feedback
+                SET status = ?, admin_reply = ?, updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$status, $reply, $id]);
+            logAdminActivity($pdo, 'feedback_updated', "Updated feedback #{$id} to {$status}");
+            echo json_encode(['success' => true, 'message' => 'Feedback updated successfully']);
+            exit;
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
     // Handle file upload
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['image'])) {
         $file = $_FILES['image'];
@@ -259,6 +333,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             exit;
         }
     }
+
+    echo json_encode(['success' => false, 'message' => 'Unknown action']);
+    exit;
 
 }
 
@@ -317,6 +394,15 @@ try {
     ";
     $pdo->exec($createVariationsSQL);
 
+}
+
+$feedbackItems = [];
+try {
+    $stmt = $pdo->prepare("SELECT * FROM customer_feedback ORDER BY created_at DESC LIMIT 100");
+    $stmt->execute();
+    $feedbackItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $feedbackItems = [];
 }
 
 ?>
@@ -1206,6 +1292,7 @@ try {
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
 
       <a href="admin-content.php" class="nav-item active"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
 
       <div class="nav-section-label">System</div>
 
@@ -1310,7 +1397,7 @@ try {
 
           <button class="btn btn-info" onclick="openModalWithCategory('contentModal', 'gallery')"><i class="fa-solid fa-images"></i> Add to Gallery</button>
 
-          <button class="btn btn-primary" onclick="openModal('contentModal')"><i class="fa-solid fa-plus"></i> Add Content</button>
+          <button class="btn btn-primary" onclick="openModalWithCategory('contentModal', '')"><i class="fa-solid fa-plus"></i> Add Content</button>
 
         </div>
 
@@ -1328,7 +1415,7 @@ try {
         'missing_images' => 0
       ];
       try {
-        $contentStats['updated_today'] = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE DATE(created_at) = CURDATE()")->fetchColumn();
+        $contentStats['updated_today'] = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE DATE(updated_at) = CURDATE()")->fetchColumn();
       } catch (\Throwable $_) {}
       try {
         $contentStats['missing_images'] = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE image IS NULL OR image = ''")->fetchColumn();
@@ -1454,7 +1541,7 @@ try {
 
             <p style="text-align: center; margin-bottom: 20px;">Start by adding your first menu item or product.</p>
 
-            <button class="btn btn-primary" onclick="openModal('contentModal')">
+            <button class="btn btn-primary" onclick="openModalWithCategory('contentModal', '')">
 
               <i class="fa-solid fa-plus"></i> Add Your First Item
 
@@ -1464,6 +1551,79 @@ try {
 
         <?php endif; ?>
 
+      </div>
+
+      <!-- FEEDBACK & RATINGS -->
+      <?php
+        $feedbackCount = count($feedbackItems);
+        $averageRating = $feedbackCount > 0 ? array_sum(array_map(fn($f) => (int)$f['rating'], $feedbackItems)) / $feedbackCount : 0;
+        $newFeedbackCount = count(array_filter($feedbackItems, fn($f) => ($f['status'] ?? 'new') === 'new'));
+      ?>
+      <div class="panel" style="margin-top:24px;">
+        <div class="panel-header">
+          <span class="panel-title">Customer Feedback & Ratings</span>
+          <div class="flex-gap">
+            <span class="badge badge-yellow"><?= number_format($newFeedbackCount) ?> New</span>
+            <span class="badge badge-blue"><?= $feedbackCount ? number_format($averageRating, 1) : '0.0' ?> Avg Rating</span>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Rating</th>
+                <th>Feedback</th>
+                <th>Reply</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (!empty($feedbackItems)): ?>
+                <?php foreach ($feedbackItems as $feedback): ?>
+                  <tr>
+                    <td>
+                      <strong><?= htmlspecialchars($feedback['customer_name']) ?></strong><br>
+                      <span style="color:var(--muted);font-size:0.75rem;"><?= htmlspecialchars($feedback['customer_email'] ?: 'No email') ?></span>
+                    </td>
+                    <td style="color:#f39c12;white-space:nowrap;">
+                      <?= str_repeat('★', max(0, min(5, (int)$feedback['rating']))) ?>
+                    </td>
+                    <td style="min-width:220px;">
+                      <?php if (!empty($feedback['subject'])): ?>
+                        <strong><?= htmlspecialchars($feedback['subject']) ?></strong><br>
+                      <?php endif; ?>
+                      <?= htmlspecialchars($feedback['message']) ?>
+                    </td>
+                    <td style="min-width:240px;">
+                      <textarea class="form-control" id="feedbackReply<?= (int)$feedback['id'] ?>" rows="3"><?= htmlspecialchars($feedback['admin_reply'] ?? '') ?></textarea>
+                    </td>
+                    <td>
+                      <select class="form-control" id="feedbackStatus<?= (int)$feedback['id'] ?>" style="width:auto;min-width:120px;">
+                        <?php foreach (['new', 'reviewed', 'replied', 'archived'] as $statusOption): ?>
+                          <option value="<?= $statusOption ?>" <?= $feedback['status'] === $statusOption ? 'selected' : '' ?>><?= ucfirst($statusOption) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </td>
+                    <td>
+                      <button class="btn btn-outline btn-sm" onclick="updateFeedback(<?= (int)$feedback['id'] ?>)">
+                        <i class="fa-solid fa-reply"></i> Save
+                      </button>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <tr>
+                  <td colspan="6" style="text-align:center;padding:36px;color:var(--muted);">
+                    <i class="fa-solid fa-comment-dots" style="font-size:2rem;margin-bottom:10px;display:block;"></i>
+                    No customer feedback yet. Ratings and messages will appear here once customers submit them.
+                  </td>
+                </tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
@@ -1898,6 +2058,35 @@ function deleteContent(id) {
 
   }
 
+}
+
+function updateFeedback(id) {
+  const adminReply = document.getElementById(`feedbackReply${id}`).value;
+  const status = document.getElementById(`feedbackStatus${id}`).value;
+
+  fetch('admin-content.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'update_feedback',
+      id,
+      status,
+      admin_reply: adminReply
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast('Feedback updated successfully!', 'success');
+      setTimeout(() => location.reload(), 700);
+    } else {
+      showToast(data.message || 'Failed to update feedback', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showToast('Failed to update feedback. Please try again.', 'error');
+  });
 }
 
 
@@ -2769,6 +2958,8 @@ function openModalWithCategory(modalId, category) {
   uploadedImagePath = null;
   variationsArray = []; // Reset variations
   document.getElementById('variationsList').innerHTML = ''; // Clear variations list
+  document.querySelector('.modal-title').innerHTML = '<i class="fa-solid fa-layer-group" style="color:var(--red);margin-right:8px;"></i>Add Content Item';
+  hideVariationsSection();
   
   // Set the category
   if (category === 'menu') {
@@ -2866,4 +3057,3 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 </body>
 
 </html>
-

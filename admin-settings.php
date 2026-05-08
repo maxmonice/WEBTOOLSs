@@ -222,6 +222,40 @@ try {
     // Table might not exist yet
 }
 
+$recentAdminActivity = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT action, details, created_at
+        FROM audit_logs
+        WHERE user_email = ?
+        ORDER BY created_at DESC
+        LIMIT 6
+    ");
+    $stmt->execute([$_SESSION['user_email'] ?? ($_SESSION['email'] ?? '')]);
+    $recentAdminActivity = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $recentAdminActivity = [];
+}
+
+$securityOverview = [
+    'failed_logins_today' => 0,
+    'last_password_change' => null,
+    'last_profile_update' => null
+];
+try {
+    $securityOverview['failed_logins_today'] = (int)$pdo->query("SELECT COUNT(*) FROM audit_logs WHERE action = 'failed_login' AND DATE(created_at) = CURDATE()")->fetchColumn();
+} catch (\Throwable $_) {}
+try {
+    $stmt = $pdo->prepare("SELECT created_at FROM audit_logs WHERE user_email = ? AND action = 'password_changed' ORDER BY created_at DESC LIMIT 1");
+    $stmt->execute([$_SESSION['user_email'] ?? ($_SESSION['email'] ?? '')]);
+    $securityOverview['last_password_change'] = $stmt->fetchColumn() ?: null;
+} catch (\Throwable $_) {}
+try {
+    $stmt = $pdo->prepare("SELECT created_at FROM audit_logs WHERE user_email = ? AND action = 'profile_updated' ORDER BY created_at DESC LIMIT 1");
+    $stmt->execute([$_SESSION['user_email'] ?? ($_SESSION['email'] ?? '')]);
+    $securityOverview['last_profile_update'] = $stmt->fetchColumn() ?: null;
+} catch (\Throwable $_) {}
+
 $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 ?>
 <!DOCTYPE html>
@@ -479,6 +513,7 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
       <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
       <a href="admin-settings.php" class="nav-item active"><i class="fa-solid fa-cog"></i> Account Settings</a>
@@ -590,6 +625,44 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
               <i class="fa-solid fa-save"></i> Save Changes
             </button>
           </form>
+        </div>
+      </div>
+
+      <!-- SECURITY OVERVIEW -->
+      <div class="settings-section">
+        <div class="section-header">
+          <div class="section-icon"><i class="fa-solid fa-chart-simple"></i></div>
+          <div>
+            <div class="section-title">Security Overview</div>
+            <div class="section-description">Current account security signals and recent protected actions</div>
+          </div>
+        </div>
+        <div class="stats-grid" style="margin-bottom:0;">
+          <div class="stat-card">
+            <div class="stat-card-icon"><i class="fa-solid fa-user-lock"></i></div>
+            <div class="stat-card-value"><?= number_format($securityOverview['failed_logins_today']) ?></div>
+            <div class="stat-card-label">Failed Logins Today</div>
+            <div class="stat-card-change <?= $securityOverview['failed_logins_today'] > 0 ? 'down' : 'up' ?>">
+              <i class="fa-solid fa-<?= $securityOverview['failed_logins_today'] > 0 ? 'triangle-exclamation' : 'check' ?>"></i>
+              <?= $securityOverview['failed_logins_today'] > 0 ? 'Review logs' : 'Normal' ?>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon"><i class="fa-solid fa-key"></i></div>
+            <div class="stat-card-value" style="font-size:1rem;line-height:1.3;">
+              <?= $securityOverview['last_password_change'] ? date('M d, Y', strtotime($securityOverview['last_password_change'])) : 'No record' ?>
+            </div>
+            <div class="stat-card-label">Last Password Change</div>
+            <div class="stat-card-change up"><i class="fa-solid fa-shield"></i> Protected</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon"><i class="fa-solid fa-id-card"></i></div>
+            <div class="stat-card-value" style="font-size:1rem;line-height:1.3;">
+              <?= $securityOverview['last_profile_update'] ? date('M d, Y', strtotime($securityOverview['last_profile_update'])) : 'No record' ?>
+            </div>
+            <div class="stat-card-label">Last Profile Update</div>
+            <div class="stat-card-change up"><i class="fa-solid fa-clock"></i> Account history</div>
+          </div>
         </div>
       </div>
 
@@ -709,6 +782,30 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
         <button class="btn btn-danger" onclick="revokeAllSessions()">
           <i class="fa-solid fa-right-from-bracket"></i> Revoke All Other Sessions
         </button>
+      </div>
+
+      <!-- RECENT ACTIVITY -->
+      <div class="settings-section">
+        <div class="section-header">
+          <div class="section-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+          <div>
+            <div class="section-title">Recent Activity</div>
+            <div class="section-description">Latest account and admin actions tied to your profile</div>
+          </div>
+        </div>
+        <?php if (!empty($recentAdminActivity)): ?>
+          <?php foreach ($recentAdminActivity as $activity): ?>
+            <div class="session-item" style="align-items:flex-start;">
+              <div class="session-info">
+                <h4><?= htmlspecialchars(str_replace('_', ' ', ucwords($activity['action'], '_'))) ?></h4>
+                <p><?= htmlspecialchars($activity['details'] ?: 'No details recorded') ?></p>
+              </div>
+              <span class="session-badge"><?= timeAgo($activity['created_at']) ?></span>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div style="padding:18px;color:var(--muted);text-align:center;">No recent admin activity yet.</div>
+        <?php endif; ?>
       </div>
 
     </div>

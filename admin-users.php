@@ -71,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$uid]);
                 $u = $stmt->fetch();
                 if ($u) {
+                    $newStatus = 'active';
                     // Try toggling a `status` column; fall back to `is_active`
                     try {
                         $cur = $pdo->prepare('SELECT status FROM users WHERE id = ?');
@@ -133,7 +134,7 @@ if ($provider !== '') {
 
 try {
     $stmt = $pdo->prepare(
-        "SELECT id, name, email, provider, role, email_verified, created_at
+        "SELECT id, name, email, provider, role, email_verified, status, created_at
          FROM users $whereClause
          ORDER BY created_at DESC"
     );
@@ -150,8 +151,8 @@ $stats = getAdminStats($pdo);
 $activeCount    = 0;
 $suspendedCount = 0;
 try {
-    $activeCount    = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND status = 'active'")->fetchColumn();
-    $suspendedCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND status = 'suspended'")->fetchColumn();
+    $activeCount    = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'customer' AND email != 'admin@gmail.com' AND status = 'active'")->fetchColumn();
+    $suspendedCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'customer' AND email != 'admin@gmail.com' AND status = 'suspended'")->fetchColumn();
 } catch (\Throwable $_) {
     $activeCount    = $stats['total_users'];
     $suspendedCount = 0;
@@ -271,6 +272,7 @@ try {
       <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
       <a href="admin-settings.php" class="nav-item"><i class="fa-solid fa-cog"></i> Account Settings</a>
@@ -428,13 +430,14 @@ try {
                 <th>Role</th>
                 <th>Verified</th>
                 <th>Joined</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <?php if (empty($users)): ?>
               <tr>
-                <td colspan="7" style="text-align:center;padding:24px;color:var(--muted);">
+                <td colspan="8" style="text-align:center;padding:24px;color:var(--muted);">
                   <?= $search || $provider ? 'No users match your filters.' : 'No users registered yet.' ?>
                 </td>
               </tr>
@@ -471,15 +474,16 @@ try {
                 <td>
                   <?= $u['created_at'] ? date('M d, Y', strtotime($u['created_at'])) : '—' ?>
                 </td>
+                <td><?= statusBadge($u['status'] ?? 'active') ?></td>
                 <td>
                   <div class="flex-gap">
                     <form method="POST" style="display:inline;">
                       <input type="hidden" name="action" value="toggle_suspend">
                       <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
                       <button type="submit" class="action-btn"
-                              title="Suspend / Reactivate"
+                              title="<?= ($u['status'] ?? 'active') === 'suspended' ? 'Reactivate Account' : 'Suspend Account' ?>"
                               onclick="return confirm('Toggle this account?')">
-                        <i class="fa-solid fa-ban"></i>
+                        <i class="fa-solid fa-<?= ($u['status'] ?? 'active') === 'suspended' ? 'rotate-left' : 'ban' ?>"></i>
                       </button>
                     </form>
                     <form method="POST" style="display:inline;">

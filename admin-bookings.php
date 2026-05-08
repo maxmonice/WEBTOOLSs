@@ -545,6 +545,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     }
 
+    if ($data['action'] === 'assign_resources') {
+        $bookingId = (int)($data['booking_id'] ?? 0);
+        $resourceIds = $data['resource_ids'] ?? [];
+        if (!is_array($resourceIds)) {
+            $resourceIds = [];
+        }
+        $resourceIds = array_values(array_unique(array_filter(array_map('intval', $resourceIds))));
+
+        if ($bookingId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid booking ID']);
+            exit;
+        }
+
+        try {
+            $bookingStmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+            $bookingStmt->execute([$bookingId]);
+            $targetBooking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$targetBooking) {
+                echo json_encode(['success' => false, 'message' => 'Booking not found']);
+                exit;
+            }
+
+            if (!empty($resourceIds)) {
+                $placeholders = implode(',', array_fill(0, count($resourceIds), '?'));
+                $validStmt = $pdo->prepare("SELECT id FROM booking_resources WHERE status = 'available' AND id IN ($placeholders)");
+                $validStmt->execute($resourceIds);
+                $validIds = array_map('intval', array_column($validStmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+
+                if (count($validIds) !== count($resourceIds)) {
+                    echo json_encode(['success' => false, 'message' => 'One or more selected resources are unavailable']);
+                    exit;
+                }
+
+                $conflictParams = array_merge(
+                    $resourceIds,
+                    [$bookingId, $targetBooking['event_date'], $targetBooking['event_time']]
+                );
+                $conflictStmt = $pdo->prepare("
+                    SELECT br.name, b.id AS booking_id
+                    FROM booking_resource_assignments bra
+                    JOIN booking_resources br ON br.id = bra.resource_id
+                    JOIN bookings b ON b.id = bra.booking_id
+                    WHERE bra.resource_id IN ($placeholders)
+                      AND bra.booking_id <> ?
+                      AND b.status != 'cancelled'
+                      AND b.event_date = ?
+                      AND b.event_time = ?
+                    LIMIT 1
+                ");
+                $conflictStmt->execute($conflictParams);
+                $conflict = $conflictStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($conflict) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => $conflict['name'] . ' is already assigned to booking #BK-' . str_pad((string)$conflict['booking_id'], 3, '0', STR_PAD_LEFT) . ' at that date and time.'
+                    ]);
+                    exit;
+                }
+            }
+
+            $pdo->beginTransaction();
+            $pdo->prepare("DELETE FROM booking_resource_assignments WHERE booking_id = ?")->execute([$bookingId]);
+            if (!empty($resourceIds)) {
+                $insertStmt = $pdo->prepare("
+                    INSERT INTO booking_resource_assignments (booking_id, resource_id, assigned_by, created_at)
+                    VALUES (?, ?, ?, NOW())
+                ");
+                foreach ($resourceIds as $resourceId) {
+                    $insertStmt->execute([$bookingId, $resourceId, $_SESSION['user_id'] ?? null]);
+                }
+            }
+            $pdo->commit();
+
+            logAdminActivity($pdo, 'booking_resources_assigned', "Assigned " . count($resourceIds) . " resource(s) to booking #{$bookingId}");
+            echo json_encode(['success' => true, 'message' => 'Resources assigned successfully']);
+            exit;
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
 }
 
 
@@ -606,6 +693,58 @@ try {
     $pdo->exec($createTableSQL);
 
 }
+
+
+$resources = [];
+$assignmentsByBooking = [];
+$resourceUsageById = [];
+
+try {
+    $resources = $pdo->query("
+        SELECT id, name, resource_type, role_label, status
+        FROM booking_resources
+        ORDER BY FIELD(resource_type, 'staff', 'equipment'), name
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $_) {}
+
+try {
+    $assignmentRows = $pdo->query("
+        SELECT bra.booking_id, br.id AS resource_id, br.name, br.resource_type, br.role_label
+        FROM booking_resource_assignments bra
+        JOIN booking_resources br ON br.id = bra.resource_id
+        ORDER BY br.resource_type, br.name
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($assignmentRows as $row) {
+        $bid = (int)$row['booking_id'];
+        if (!isset($assignmentsByBooking[$bid])) {
+            $assignmentsByBooking[$bid] = [
+                'ids' => [],
+                'items' => []
+            ];
+        }
+        $assignmentsByBooking[$bid]['ids'][] = (int)$row['resource_id'];
+        $assignmentsByBooking[$bid]['items'][] = $row;
+    }
+} catch (\Throwable $_) {}
+
+try {
+    $usageRows = $pdo->query("
+        SELECT bra.resource_id, b.id AS booking_id, b.event_name, b.event_date, b.event_time, b.status
+        FROM booking_resource_assignments bra
+        JOIN bookings b ON b.id = bra.booking_id
+        WHERE b.status != 'cancelled'
+          AND b.event_date >= CURDATE()
+        ORDER BY b.event_date ASC, b.event_time ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($usageRows as $usage) {
+        $rid = (int)$usage['resource_id'];
+        if (!isset($resourceUsageById[$rid])) {
+            $resourceUsageById[$rid] = $usage;
+        }
+    }
+} catch (\Throwable $_) {}
 
 
 
@@ -959,6 +1098,27 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
 
 .resource-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
 
+.resource-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.resource-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  background: var(--card2);
+  border: 1px solid var(--line-w);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.resource-check input { margin-top: 3px; }
+.resource-check strong { display: block; font-size: 0.84rem; color: #fff; }
+.resource-check span { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
 
 
 /* Dropdown styling */
@@ -1160,6 +1320,7 @@ select.form-control option,
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
 
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
 
       <div class="nav-section-label">System</div>
 
@@ -1486,6 +1647,12 @@ select.form-control option,
 
                                 </button>
 
+                                <button class="btn btn-outline btn-xs" title="Assign Resources" onclick="openResourceModal(<?= $booking['id'] ?>)">
+
+                                  <i class="fa-solid fa-people-carry-box"></i> Assign
+
+                                </button>
+
                               <?php elseif ($booking['status'] === 'confirmed'): ?>
 
                                 <button class="btn btn-outline btn-xs" title="View Details" onclick="showBookingDetails(<?= $booking['id'] ?>)">
@@ -1500,11 +1667,23 @@ select.form-control option,
 
                                 </button>
 
+                                <button class="btn btn-outline btn-xs" title="Assign Resources" onclick="openResourceModal(<?= $booking['id'] ?>)">
+
+                                  <i class="fa-solid fa-people-carry-box"></i> Assign
+
+                                </button>
+
                               <?php else: ?>
 
                                 <button class="btn btn-outline btn-xs" title="View Details" onclick="showBookingDetails(<?= $booking['id'] ?>)">
 
                                   <i class="fa-solid fa-eye"></i> View
+
+                                </button>
+
+                                <button class="btn btn-outline btn-xs" title="Assign Resources" onclick="openResourceModal(<?= $booking['id'] ?>)">
+
+                                  <i class="fa-solid fa-people-carry-box"></i> Assign
 
                                 </button>
 
@@ -1634,11 +1813,17 @@ select.form-control option,
 
                             </button>
 
+                            <button class="action-btn edit" title="Assign Resources" onclick="openResourceModal(<?= $booking['id'] ?>)">
+
+                              <i class="fa-solid fa-people-carry-box"></i>
+
+                            </button>
+
                           </div>
 
                         <?php else: ?>
 
-                          <button class="action-btn edit"><i class="fa-solid fa-pen"></i></button>
+                          <button class="action-btn edit" title="Assign Resources" onclick="openResourceModal(<?= $booking['id'] ?>)"><i class="fa-solid fa-people-carry-box"></i></button>
 
                         <?php endif; ?>
 
@@ -1684,89 +1869,37 @@ select.form-control option,
 
             <p style="font-size:0.75rem;color:var(--muted);margin-bottom:14px;">Assigned resources for active bookings. Prevents double-booking.</p>
 
-            <div class="resource-item">
-
-              <div>
-
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Carlos Mendoza</div>
-
-                <div class="resource-sub">Head Fishmonger · Assigned to BK-044</div>
-
-              </div>
-
-              <span class="badge badge-red">Busy</span>
-
-            </div>
-
-            <div class="resource-item">
-
-              <div>
-
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Lita Navarro</div>
-
-                <div class="resource-sub">Chef · Assigned to BK-045</div>
-
-              </div>
-
-              <span class="badge badge-yellow">Pending</span>
-
-            </div>
-
-            <div class="resource-item">
-
-              <div>
-
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>Ben Aquino</div>
-
-                <div class="resource-sub">Staff · Available</div>
-
-              </div>
-
-              <span class="badge badge-green">Free</span>
-
-            </div>
-
-            <div class="resource-item">
-
-              <div>
-
-                <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 1</div>
-
-                <div class="resource-sub">Equipment · Assigned to BK-044</div>
-
-              </div>
-
-              <span class="badge badge-red">Busy</span>
-
-            </div>
-
-            <div class="resource-item">
-
-              <div>
-
-                <div class="resource-name"><i class="fa-solid fa-truck" style="color:var(--info);margin-right:6px;"></i>Delivery Van 2</div>
-
-                <div class="resource-sub">Equipment · Available</div>
-
-              </div>
-
-              <span class="badge badge-green">Free</span>
-
-            </div>
-
-            <div class="resource-item">
-
-              <div>
-
-                <div class="resource-name"><i class="fa-solid fa-box" style="color:var(--warning);margin-right:6px;"></i>Ice Box Set A</div>
-
-                <div class="resource-sub">Equipment · Assigned to BK-046</div>
-
-              </div>
-
-              <span class="badge badge-yellow">Pending</span>
-
-            </div>
+            <?php if (!empty($resources)): ?>
+              <?php foreach ($resources as $resource): ?>
+                <?php
+                  $usage = $resourceUsageById[(int)$resource['id']] ?? null;
+                  $isInactive = ($resource['status'] ?? 'available') === 'inactive';
+                  $badgeClass = $isInactive ? 'gray' : ($usage ? (($usage['status'] ?? '') === 'pending' ? 'yellow' : 'red') : 'green');
+                  $badgeText = $isInactive ? 'Inactive' : ($usage ? (($usage['status'] ?? '') === 'pending' ? 'Pending' : 'Busy') : 'Free');
+                  $resourceIcon = $resource['resource_type'] === 'staff' ? 'fa-person' : 'fa-box';
+                  if ($resource['resource_type'] === 'equipment' && stripos($resource['name'], 'van') !== false) {
+                      $resourceIcon = 'fa-truck';
+                  }
+                  $resourceColor = $resource['resource_type'] === 'staff' ? 'var(--red)' : 'var(--info)';
+                ?>
+                <div class="resource-item">
+                  <div>
+                    <div class="resource-name"><i class="fa-solid <?= $resourceIcon ?>" style="color:<?= $resourceColor ?>;margin-right:6px;"></i><?= htmlspecialchars($resource['name']) ?></div>
+                    <div class="resource-sub">
+                      <?= htmlspecialchars(ucfirst($resource['resource_type'])) ?><?= $resource['role_label'] ? ' · ' . htmlspecialchars($resource['role_label']) : '' ?>
+                      <?php if ($usage): ?>
+                        · Assigned to #BK-<?= str_pad((string)$usage['booking_id'], 3, '0', STR_PAD_LEFT) ?> on <?= date('M d', strtotime($usage['event_date'])) ?> <?= date('g:i A', strtotime($usage['event_time'])) ?>
+                      <?php else: ?>
+                        · Available
+                      <?php endif; ?>
+                    </div>
+                  </div>
+                  <span class="badge badge-<?= $badgeClass ?>"><?= $badgeText ?></span>
+                </div>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <div style="text-align:center;color:var(--muted);padding:20px;">No resources created yet.</div>
+            <?php endif; ?>
 
           </div>
 
@@ -2024,6 +2157,14 @@ select.form-control option,
 
       </div>
 
+      <div style="margin-top: 15px;">
+
+        <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Assigned Resources</div>
+
+        <div style="font-weight: 600;" id="bookingDetailResources">No resources assigned</div>
+
+      </div>
+
     </div>
 
     <div class="modal-footer">
@@ -2064,9 +2205,91 @@ select.form-control option,
 
 
 
+<!-- Resource Assignment Modal -->
+
+<div class="modal-overlay" id="resourceModal">
+
+  <div class="modal" style="max-width: 760px;">
+
+    <div class="modal-title"><i class="fa-solid fa-people-carry-box" style="color:var(--red);margin-right:8px;"></i>Assign Staff & Equipment</div>
+
+    <form id="resourceForm">
+
+      <input type="hidden" id="resourceBookingId">
+
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:16px;" id="resourceBookingLabel">Select resources for this booking.</div>
+
+      <div class="form-group">
+
+        <label class="form-label">Staff</label>
+
+        <div class="resource-check-grid">
+
+          <?php foreach ($resources as $resource): ?>
+            <?php if ($resource['resource_type'] === 'staff'): ?>
+              <label class="resource-check">
+                <input type="checkbox" name="resource_ids[]" value="<?= (int)$resource['id'] ?>" <?= ($resource['status'] ?? 'available') === 'inactive' ? 'disabled' : '' ?>>
+                <span>
+                  <strong><?= htmlspecialchars($resource['name']) ?></strong>
+                  <span><?= htmlspecialchars($resource['role_label'] ?: 'Staff') ?><?= ($resource['status'] ?? 'available') === 'inactive' ? ' · inactive' : '' ?></span>
+                </span>
+              </label>
+            <?php endif; ?>
+          <?php endforeach; ?>
+
+        </div>
+
+      </div>
+
+      <div class="form-group">
+
+        <label class="form-label">Equipment</label>
+
+        <div class="resource-check-grid">
+
+          <?php foreach ($resources as $resource): ?>
+            <?php if ($resource['resource_type'] === 'equipment'): ?>
+              <label class="resource-check">
+                <input type="checkbox" name="resource_ids[]" value="<?= (int)$resource['id'] ?>" <?= ($resource['status'] ?? 'available') === 'inactive' ? 'disabled' : '' ?>>
+                <span>
+                  <strong><?= htmlspecialchars($resource['name']) ?></strong>
+                  <span><?= htmlspecialchars($resource['role_label'] ?: 'Equipment') ?><?= ($resource['status'] ?? 'available') === 'inactive' ? ' · inactive' : '' ?></span>
+                </span>
+              </label>
+            <?php endif; ?>
+          <?php endforeach; ?>
+
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        <button type="button" class="btn btn-outline" onclick="closeModal('resourceModal')">Cancel</button>
+
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Assignments</button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
+
+
+
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
+<?php
+$bookingLabels = [];
+foreach ($bookings as $booking) {
+    $bookingLabels[(int)$booking['id']] = '#BK-' . str_pad((string)$booking['id'], 3, '0', STR_PAD_LEFT) . ' · ' . $booking['full_name'] . ' · ' . date('M d, Y', strtotime($booking['event_date'])) . ' ' . date('g:i A', strtotime($booking['event_time']));
+}
+?>
+const bookingResourceAssignments = <?= json_encode($assignmentsByBooking, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const bookingLabels = <?= json_encode($bookingLabels, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
@@ -2232,6 +2455,11 @@ function showBookingDetails(bookingId) {
 
       document.getElementById('bookingDetailNotes').textContent = booking.notes || 'No notes';
 
+      const assignedResources = bookingResourceAssignments[booking.id]?.items || [];
+      document.getElementById('bookingDetailResources').textContent = assignedResources.length
+        ? assignedResources.map(item => `${item.name} (${item.role_label || item.resource_type})`).join(', ')
+        : 'No resources assigned';
+
       document.getElementById('bookingDetailStatus').className = 'badge badge-' + (booking.status === 'confirmed' ? 'green' : (booking.status === 'cancelled' ? 'red' : 'yellow'));
 
       document.getElementById('bookingDetailStatus').textContent = booking.status;
@@ -2257,6 +2485,50 @@ function showBookingDetails(bookingId) {
   });
 
 }
+
+function openResourceModal(bookingId) {
+  document.getElementById('resourceBookingId').value = bookingId;
+  document.getElementById('resourceBookingLabel').textContent = bookingLabels[bookingId] || `Booking #${bookingId}`;
+
+  const assignedIds = (bookingResourceAssignments[bookingId]?.ids || []).map(Number);
+  document.querySelectorAll('#resourceForm input[name="resource_ids[]"]').forEach(input => {
+    input.checked = assignedIds.includes(Number(input.value));
+  });
+
+  openModal('resourceModal');
+}
+
+document.getElementById('resourceForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const bookingId = Number(document.getElementById('resourceBookingId').value);
+  const resourceIds = Array.from(document.querySelectorAll('#resourceForm input[name="resource_ids[]"]:checked'))
+    .map(input => Number(input.value));
+
+  fetch('admin-bookings.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'assign_resources',
+      booking_id: bookingId,
+      resource_ids: resourceIds
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast('Resources assigned successfully!', 'success');
+      closeModal('resourceModal');
+      setTimeout(() => location.reload(), 700);
+    } else {
+      showToast(data.message || 'Failed to assign resources', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showToast('Failed to assign resources. Please try again.', 'error');
+  });
+});
 
 
 
@@ -2661,18 +2933,6 @@ document.getElementById('newBookingForm').addEventListener('submit', function(e)
 });
 
 
-
-document.querySelectorAll('.cal-day:not(.empty)').forEach(d => {
-
-  d.addEventListener('click', () => {
-
-    const num = d.querySelector('.cal-day-num')?.textContent;
-
-    if(num) showToast(`Selected June ${num}, 2025`);
-
-  });
-
-});
 
 </script>
 

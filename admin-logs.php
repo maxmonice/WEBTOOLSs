@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 // Get logs for display
 $logs = [];
 try {
-    $stmt = $pdo->prepare("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100");
+    $stmt = $pdo->prepare("SELECT * FROM audit_logs ORDER BY created_at DESC");
     $stmt->execute();
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -248,6 +248,7 @@ try {
       <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item active"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
       <a href="admin-settings.php" class="nav-item"><i class="fa-solid fa-cog"></i> Account Settings</a>
@@ -323,14 +324,17 @@ try {
       $logStats = [
         'active_users_today' => 0,
         'security_alerts' => 0,
-        'total_activities' => count($logs),
+        'activities_today' => 0,
         'failed_logins_today' => 0
       ];
       try {
-        $logStats['active_users_today'] = count(array_unique(array_column($logs, 'user_email')));
+        $logStats['active_users_today'] = (int)$pdo->query("SELECT COUNT(DISTINCT user_email) FROM audit_logs WHERE DATE(created_at) = CURDATE() AND user_email IS NOT NULL AND user_email != ''")->fetchColumn();
       } catch (\Throwable $_) {}
       try {
         $logStats['security_alerts'] = (int)$pdo->query("SELECT COUNT(*) FROM audit_logs WHERE action IN ('failed_login', 'unauthorized_access', 'suspicious_activity') AND DATE(created_at) = CURDATE()")->fetchColumn();
+      } catch (\Throwable $_) {}
+      try {
+        $logStats['activities_today'] = (int)$pdo->query("SELECT COUNT(*) FROM audit_logs WHERE DATE(created_at) = CURDATE()")->fetchColumn();
       } catch (\Throwable $_) {}
       try {
         $logStats['failed_logins_today'] = (int)$pdo->query("SELECT COUNT(*) FROM audit_logs WHERE action = 'failed_login' AND DATE(created_at) = CURDATE()")->fetchColumn();
@@ -351,9 +355,9 @@ try {
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-clock"></i></div>
-          <div class="stat-card-value"><?= number_format($logStats['total_activities']) ?></div>
-          <div class="stat-card-label">Total Activities</div>
-          <div class="stat-card-change up"><i class="fa-solid fa-arrow-up"></i> Last 100 entries</div>
+          <div class="stat-card-value"><?= number_format($logStats['activities_today']) ?></div>
+          <div class="stat-card-label">Activities Today</div>
+          <div class="stat-card-change up"><i class="fa-solid fa-calendar-day"></i> Daily audit trail</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-user-lock"></i></div>
@@ -365,17 +369,17 @@ try {
 
       <!-- FILTER TABS -->
       <div class="filter-tabs">
-        <button class="filter-tab active" onclick="filterLogs('all')">All Logs</button>
-        <button class="filter-tab" onclick="filterLogs('security')">Security</button>
-        <button class="filter-tab" onclick="filterLogs('user')">User Activity</button>
-        <button class="filter-tab" onclick="filterLogs('system')">System</button>
+        <button class="filter-tab active" onclick="filterLogs('all', this)">All Logs</button>
+        <button class="filter-tab" onclick="filterLogs('security', this)">Security</button>
+        <button class="filter-tab" onclick="filterLogs('user', this)">User Activity</button>
+        <button class="filter-tab" onclick="filterLogs('system', this)">System</button>
       </div>
 
       <!-- LOGS LIST -->
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">Recent Activity Logs</span>
-          <span class="badge badge-gray">Last 100 entries</span>
+          <span class="badge badge-gray"><?= number_format(count($logs)) ?> entries</span>
         </div>
         <div style="max-height: 600px; overflow-y: auto;">
           <?php if (!empty($logs)): ?>
@@ -399,8 +403,22 @@ try {
                   $iconClass = 'security';
                   $icon = 'fa-shield-alt';
                 }
+                $actionLower = strtolower($log['action']);
+                $logType = 'system';
+                if (strpos($actionLower, 'failed') !== false || strpos($actionLower, 'security') !== false || strpos($actionLower, 'unauthorized') !== false || strpos($actionLower, 'suspicious') !== false) {
+                  $logType = 'security';
+                  $statusClass = 'red';
+                  $statusText = 'Alert';
+                } elseif (strpos($actionLower, 'user') !== false || strpos($actionLower, 'login') !== false || strpos($actionLower, 'logout') !== false || strpos($actionLower, 'profile') !== false) {
+                  $logType = 'user';
+                  $statusClass = 'green';
+                  $statusText = 'Success';
+                } else {
+                  $statusClass = 'blue';
+                  $statusText = 'Recorded';
+                }
               ?>
-              <div class="log-entry">
+              <div class="log-entry" data-log-type="<?= $logType ?>">
                 <div class="log-header">
                   <div class="log-action">
                     <div class="log-icon <?= $iconClass ?>">
@@ -408,7 +426,10 @@ try {
                     </div>
                     <div class="log-action-text"><?= htmlspecialchars($log['action']) ?></div>
                   </div>
-                  <div class="log-time"><?= timeAgo($log['created_at']) ?></div>
+                  <div class="flex-gap">
+                    <span class="badge badge-<?= $statusClass ?>"><?= $statusText ?></span>
+                    <div class="log-time"><?= timeAgo($log['created_at']) ?></div>
+                  </div>
                 </div>
                 <?php if ($log['details']): ?>
                   <div class="log-details"><?= htmlspecialchars($log['details']) ?></div>
@@ -487,13 +508,14 @@ function markAllNotificationsRead() {
   });
 }
 
-function filterLogs(type) {
-  // Update active tab
+function filterLogs(type, tab) {
   document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
-  event.target.classList.add('active');
-  
-  // Filter logic would go here
-  console.log('Filtering logs by:', type);
+  tab.classList.add('active');
+
+  document.querySelectorAll('.log-entry').forEach(entry => {
+    const shouldShow = type === 'all' || entry.dataset.logType === type;
+    entry.style.display = shouldShow ? '' : 'none';
+  });
 }
 </script>
 </body>

@@ -45,6 +45,142 @@ try {
     exit;
 }
 
+function adminColumnExists(PDO $pdo, string $table, string $column): bool {
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?"
+        );
+        $stmt->execute([$table, $column]);
+        return (int)$stmt->fetchColumn() > 0;
+    } catch (\Throwable $_) {
+        return false;
+    }
+}
+
+function ensureAdminSchema(PDO $pdo): void {
+    try {
+        if (!adminColumnExists($pdo, 'users', 'status')) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN status ENUM('active','suspended') NOT NULL DEFAULT 'active' AFTER role");
+        }
+    } catch (\Throwable $_) {}
+
+    try {
+        if (!adminColumnExists($pdo, 'content_items', 'updated_at')) {
+            $pdo->exec("ALTER TABLE content_items ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at");
+        }
+        $pdo->exec("CREATE TABLE IF NOT EXISTS content_variations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            content_id INT NOT NULL,
+            variation_name VARCHAR(255) NOT NULL,
+            variation_price DECIMAL(10,2) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (content_id) REFERENCES content_items(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (\Throwable $_) {}
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type ENUM('info','success','warning','error','booking','order','user') NOT NULL DEFAULT 'info',
+            target_role ENUM('all','admin','staff','customer') NOT NULL DEFAULT 'all',
+            target_user_id INT NULL,
+            is_read TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_target (target_role, target_user_id),
+            INDEX idx_read (is_read),
+            INDEX idx_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (\Throwable $_) {}
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS booking_resources (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(120) NOT NULL,
+            resource_type ENUM('staff','equipment') NOT NULL,
+            role_label VARCHAR(120) DEFAULT NULL,
+            status ENUM('available','inactive') NOT NULL DEFAULT 'available',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_resource_type (resource_type),
+            INDEX idx_resource_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS booking_resource_assignments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            booking_id INT NOT NULL,
+            resource_id INT NOT NULL,
+            assigned_by INT DEFAULT NULL,
+            notes VARCHAR(255) DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_booking_resource (booking_id, resource_id),
+            INDEX idx_assignment_booking (booking_id),
+            INDEX idx_assignment_resource (resource_id),
+            CONSTRAINT fk_assignment_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+            CONSTRAINT fk_assignment_resource FOREIGN KEY (resource_id) REFERENCES booking_resources(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $count = (int)$pdo->query("SELECT COUNT(*) FROM booking_resources")->fetchColumn();
+        if ($count === 0) {
+            $seed = $pdo->prepare("INSERT INTO booking_resources (name, resource_type, role_label, status) VALUES (?, ?, ?, 'available')");
+            foreach ([
+                ['Carlos Mendoza', 'staff', 'Head Fishmonger'],
+                ['Lita Navarro', 'staff', 'Chef'],
+                ['Ben Aquino', 'staff', 'Event Staff'],
+                ['Delivery Van 1', 'equipment', 'Vehicle'],
+                ['Delivery Van 2', 'equipment', 'Vehicle'],
+                ['Ice Box Set A', 'equipment', 'Cold Storage'],
+            ] as $row) {
+                $seed->execute($row);
+            }
+        }
+    } catch (\Throwable $_) {}
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS customer_feedback (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_name VARCHAR(255) NOT NULL,
+            customer_email VARCHAR(255) DEFAULT NULL,
+            rating TINYINT UNSIGNED NOT NULL DEFAULT 5,
+            subject VARCHAR(255) DEFAULT NULL,
+            message TEXT NOT NULL,
+            admin_reply TEXT DEFAULT NULL,
+            status ENUM('new','reviewed','replied','archived') NOT NULL DEFAULT 'new',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_feedback_status (status),
+            INDEX idx_feedback_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (\Throwable $_) {}
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            parent_id INT DEFAULT NULL,
+            sender_role ENUM('admin','staff','customer') NOT NULL,
+            sender_id INT DEFAULT NULL,
+            sender_name VARCHAR(255) NOT NULL,
+            sender_email VARCHAR(255) DEFAULT NULL,
+            recipient_role ENUM('admin','staff','customer') NOT NULL,
+            recipient_id INT DEFAULT NULL,
+            subject VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            status ENUM('open','replied','closed') NOT NULL DEFAULT 'open',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_message_parent (parent_id),
+            INDEX idx_message_recipient (recipient_role, recipient_id),
+            INDEX idx_message_sender (sender_role, sender_id),
+            INDEX idx_message_status (status),
+            CONSTRAINT fk_message_parent FOREIGN KEY (parent_id) REFERENCES messages(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (\Throwable $_) {}
+}
+
+ensureAdminSchema($pdo);
+
 // Ensure a PHP session is running
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -129,7 +265,7 @@ function getAdminStats(PDO $pdo): array {
     // ── Users ─────────────────────────────────────
     try {
         $stats['total_users'] = (int) $pdo
-            ->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com'")
+            ->query("SELECT COUNT(*) FROM users WHERE role = 'customer' AND email != 'admin@gmail.com'")
             ->fetchColumn();
     } catch (\Throwable $_) {}
 
@@ -137,6 +273,7 @@ function getAdminStats(PDO $pdo): array {
         $stats['new_users_week'] = (int) $pdo
             ->query("SELECT COUNT(*) FROM users
                      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                       AND role = 'customer'
                        AND email != 'admin@gmail.com'")
             ->fetchColumn();
     } catch (\Throwable $_) {}
@@ -268,10 +405,10 @@ function getRecentOrders(PDO $pdo, int $limit = 5): array {
     try {
         return $pdo->query(
             "SELECT o.id, o.status, o.created_at,
-                    COALESCE(o.total_amount, o.total, 0) AS total,
-                    COALESCE(u.name, 'Unknown') AS customer_name
+                    o.total AS total,
+                    COALESCE(NULLIF(o.user_name, ''), u.name, 'Guest') AS customer_name
              FROM orders o
-             LEFT JOIN users u ON u.id = o.user_id
+             LEFT JOIN users u ON u.email = o.user_email
              ORDER BY o.created_at DESC
              LIMIT $limit"
         )->fetchAll();
@@ -302,12 +439,19 @@ function peso(float $amount): string {
 function statusBadge(string $status): string {
     $map = [
         'pending'   => 'badge-yellow',
+        'processing' => 'badge-blue',
         'confirmed' => 'badge-green',
         'active'    => 'badge-green',
         'shipped'   => 'badge-blue',
         'delivered' => 'badge-green',
         'cancelled' => 'badge-red',
         'suspended' => 'badge-red',
+        'available' => 'badge-green',
+        'inactive'  => 'badge-gray',
+        'new'       => 'badge-yellow',
+        'reviewed'  => 'badge-blue',
+        'replied'   => 'badge-green',
+        'archived'  => 'badge-gray',
         'completed' => 'badge-green',
     ];
     $cls = $map[strtolower($status)] ?? 'badge-gray';

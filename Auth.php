@@ -120,14 +120,18 @@ function seedAdminAccount($db): void {
     $adminEmail = 'admin@gmail.com';
     $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
     $stmt->execute([$adminEmail]);
-    if ($stmt->fetch()) {
+    if ($existing = $stmt->fetch()) {
+        try {
+            $db->prepare("UPDATE users SET role = 'admin', status = 'active', email_verified = 1 WHERE id = ?")
+               ->execute([$existing['id']]);
+        } catch (\Throwable $_) {}
         return; // Already exists
     }
     $hash = password_hash('password123', PASSWORD_BCRYPT, ['cost' => 12]);
     try {
         $db->prepare(
-            'INSERT INTO users (name, email, password_hash, provider, email_verified) VALUES (?, ?, ?, ?, 1)'
-        )->execute(['Administrator', $adminEmail, $hash, 'email']);
+            'INSERT INTO users (name, email, password_hash, provider, role, status, email_verified) VALUES (?, ?, ?, ?, ?, ?, 1)'
+        )->execute(['Administrator', $adminEmail, $hash, 'email', 'admin', 'active']);
     } catch (\Throwable $e) {
         // Silently fail if seeding fails (e.g. different schema)
     }
@@ -234,7 +238,7 @@ function handleLogin(array $data): void {
     }
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, password_hash, provider, role FROM users WHERE email = ?'
+        'SELECT id, name, email, password_hash, provider, role, status FROM users WHERE email = ?'
     );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -257,6 +261,11 @@ function handleLogin(array $data): void {
             'ip' => $ipAddress
         ]);
         auditLog('failed_login', "Failed login attempt - user not found: {$email}");
+    }
+
+    if ($user && ($user['status'] ?? 'active') === 'suspended') {
+        auditLog('failed_login', "Blocked suspended account login attempt for {$email}");
+        respond(false, 'This account is suspended. Please contact the administrator.');
     }
 
     // ── ADMIN & STAFF BYPASS: skip OTP entirely for admin and staff accounts ──
@@ -619,7 +628,7 @@ function handleGoogleAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, role FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1'
+        'SELECT id, name, email, role, status FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1'
     );
     $stmt->execute([$googleId]);
     $user = $stmt->fetch();
@@ -636,6 +645,10 @@ function handleGoogleAuth(array $data): void {
         $stmt->execute([$name, $email, $googleId, $avatar]);
         $userId = (int) $db->lastInsertId();
     } else {
+        if (($user['status'] ?? 'active') === 'suspended') {
+            auditLog('failed_login', "Blocked suspended Google account login attempt for {$email}");
+            respond(false, 'This account is suspended. Please contact the administrator.');
+        }
         $userId = $user['id'];
         $name   = $user['name'];
         $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([$avatar, $userId]);
@@ -688,7 +701,7 @@ function handleFacebookAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email FROM users WHERE provider = "facebook" AND provider_id = ? LIMIT 1'
+        'SELECT id, name, email, status FROM users WHERE provider = "facebook" AND provider_id = ? LIMIT 1'
     );
     $stmt->execute([$facebookId]);
     $user = $stmt->fetch();
@@ -707,6 +720,10 @@ function handleFacebookAuth(array $data): void {
         $stmt->execute([$name, $email ?: null, $facebookId, $avatar]);
         $userId = (int) $db->lastInsertId();
     } else {
+        if (($user['status'] ?? 'active') === 'suspended') {
+            auditLog('failed_login', "Blocked suspended Facebook account login attempt for {$email}");
+            respond(false, 'This account is suspended. Please contact the administrator.');
+        }
         $userId = $user['id'];
         $name   = $user['name'];
         $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([$avatar, $userId]);
@@ -761,10 +778,14 @@ function handleCheckSession(): void {
     $token = $_COOKIE['remember_token'] ?? '';
     if ($token) {
         $db   = getDB();
-        $stmt = $db->prepare('SELECT id, name, email, role FROM users WHERE remember_token = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, role, status FROM users WHERE remember_token = ? LIMIT 1');
         $stmt->execute([$token]);
         $user = $stmt->fetch();
         if ($user) {
+            if (($user['status'] ?? 'active') === 'suspended') {
+                setcookie('remember_token', '', time() - 3600, '/', '', false, true);
+                respond(false, 'This account is suspended. Please contact the administrator.');
+            }
             startUserSession($user['id'], $user['name'], $user['email']);
             debugLog($runId, 'H6', 'Auth.php:handleCheckSession:restored', 'Session restored via remember token', [
                 'userId' => $user['id'],
@@ -939,9 +960,13 @@ function maskEmail(string $email): string {
 
 function startUserSession(int $id, string $name, string $email): void {
     $db = getDB();
-    $stmt = $db->prepare('SELECT role FROM users WHERE id = ?');
+    $stmt = $db->prepare('SELECT role, status FROM users WHERE id = ?');
     $stmt->execute([$id]);
     $user = $stmt->fetch();
+
+    if (($user['status'] ?? 'active') === 'suspended') {
+        respond(false, 'This account is suspended. Please contact the administrator.');
+    }
     
     session_regenerate_id(true);
     $_SESSION['user_id']    = $id;
