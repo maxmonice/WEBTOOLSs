@@ -67,54 +67,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 <title>Bookings — Luke's Staff</title>
 <link rel="stylesheet" href="../adminSide/admin.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<style>
-.role-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 100px; font-size: 0.68rem;
-    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    background: rgba(243,156,18,0.15); color: #f39c12;
-    border: 1px solid rgba(243,156,18,0.3); margin-top: 6px;
-}
-.nav-item.locked {
-    opacity: 0.38; pointer-events: none; cursor: not-allowed;
-    position: relative;
-}
-.nav-item.locked::after {
-    content: '\f023'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
-    font-size: 0.65rem; margin-left: auto; color: rgba(255,255,255,0.3);
-}
-.filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.action-btn {
-    width:30px; height:30px; border-radius:6px; border:1px solid var(--line-w);
-    background:transparent; color:var(--muted); font-size:0.8rem;
-    display:inline-grid; place-items:center; cursor:pointer; transition:all 0.2s;
-}
-.action-btn:hover { border-color:var(--red); color:#ff6b6b; background:rgba(194,38,38,0.1); }
-.action-btn.confirm:hover { border-color:#2ecc71; color:#2ecc71; background:rgba(46,204,113,0.1); }
-.alert { padding:12px 16px; border-radius:8px; margin-bottom:16px; display:flex; align-items:center; gap:10px; font-size:0.86rem; }
-.alert-success { background:rgba(46,204,113,0.12); color:#2ecc71; border:1px solid rgba(46,204,113,0.25); }
-.alert-error   { background:rgba(194,38,38,0.12);  color:#ff6b6b; border:1px solid rgba(194,38,38,0.25); }
-.permission-note {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 0.72rem; color: rgba(243,156,18,0.7);
-    background: rgba(243,156,18,0.07); border: 1px solid rgba(243,156,18,0.15);
-    border-radius: 6px; padding: 3px 8px;
-}
-
-/* Calendar styles */
-.calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:10px; }
-.cal-header { text-align:center; font-size:0.68rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); padding:6px 0; }
-.cal-day { background:var(--card2); border:1px solid var(--line-w); border-radius:8px; padding:8px 6px; min-height:64px; font-size:0.75rem; cursor:pointer; transition:border-color 0.2s; }
-.cal-day:hover { border-color:rgba(194,38,38,0.4); }
-.cal-day.today { border-color:var(--red); background:rgba(194,38,38,0.08); }
-.cal-day.empty { background:transparent; border-color:transparent; cursor:default; }
-.cal-day-num { font-weight:700; color:rgba(255,255,255,0.6); margin-bottom:4px; font-size:0.8rem; }
-.cal-day.today .cal-day-num { color:var(--red); }
-.cal-event { font-size:0.62rem; padding:2px 5px; border-radius:4px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
-.cal-event.confirmed { background:rgba(46,204,113,0.2); color:#2ecc71; }
-.cal-event.pending   { background:rgba(243,156,18,0.2);  color:#f39c12; }
-.cal-event.cancelled { background:rgba(194,38,38,0.2);   color:#ff6b6b; }
-</style>
+<link rel="stylesheet" href="staff-bookings.css?v=<?= time() ?>">
 </head>
 <body>
 <div class="bg-dots"></div>
@@ -344,8 +297,6 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
   </div>
 </div>
 
-<script>
-function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-</script>
+<script src="staff-bookings.js?v=<?= time() ?>"></script>
 </body>
 </html>

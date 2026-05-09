@@ -223,15 +223,17 @@
             <h2 class="gallery-title sr">Gallery</h2>
             <img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/redline.webp?raw=true" class="glow-image gallery-redline sr" alt="Red Line" />
         </div>
-        <div class="gallery-carousel">
-            <div class="carousel-track" id="carouselTrack">
-                <div class="carousel-slide"><img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/image1.jpg?raw=true" alt="Sushi Platter 1"></div>
-                <div class="carousel-slide"><img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/image2.jpg?raw=true" alt="Fresh Seafood"></div>
-                <div class="carousel-slide"><img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/image3.jpg?raw=true" alt="Sushi Rolls"></div>
-                <div class="carousel-slide"><img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/image4.jpg?raw=true" alt="Japanese Cuisine"></div>
-                <div class="carousel-slide"><img src="https://github.com/maxmonice/WEBTOOLS/blob/final-update/images/image1.jpg?raw=true" alt="Fresh Fish"></div>
-            </div>
+        <div class="gallery-carousel-wrapper">
             <button class="carousel-arrow prev" id="prevBtn">‹</button>
+            <div class="gallery-carousel">
+                <div class="carousel-track" id="carouselTrack">
+                    <div class="carousel-slide"><img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%2042.png?raw=true" alt="Catering Setup 1"></div>
+                    <div class="carousel-slide"><img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20128.png?raw=true" alt="Catering Setup 2"></div>
+                    <div class="carousel-slide"><img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20129.png?raw=true" alt="Catering Setup 3"></div>
+                    <div class="carousel-slide"><img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20131.png?raw=true" alt="Food Display"></div>
+                    <div class="carousel-slide"><img src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20132.png?raw=true" alt="Sushi Tray"></div>
+                </div>
+            </div>
             <button class="carousel-arrow next" id="nextBtn">›</button>
         </div>
         <div class="carousel-dots" id="carouselDots"></div>
@@ -285,20 +287,6 @@
     </footer>
 
     <script src="galleryindex.js"></script>
-<script>
-    document.getElementById('mobile-menu').addEventListener('click', function () {
-        document.getElementById('navMenu').classList.toggle('active');
-    });
-
-    const srObs = new IntersectionObserver((entries) => {
-        entries.forEach((e, i) => {
-            if (e.isIntersecting) {
-                setTimeout(() => e.target.classList.add('sr-visible'), i * 80);
-                srObs.unobserve(e.target);
-            }
-        });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('.sr').forEach(el => srObs.observe(el));
-</script>
+<script src="index.js?v=<?= time() ?>"></script>
 </body>
 </php>

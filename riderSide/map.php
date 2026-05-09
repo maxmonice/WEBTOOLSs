@@ -44,88 +44,8 @@ if ($order) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <link rel="stylesheet" href="shared.css">
-    <style>
-        .map-page {
-            position: relative;
-            flex: 1;
-            min-height: 0;
-            overflow: hidden;
-            background: #0f172a;
-        }
-
-        #map-view {
-            width: 100%;
-            height: 100%;
-        }
-
-        .delivery-card {
-            position: absolute;
-            left: 12px;
-            right: 12px;
-            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-            background: #1a1a2e;
-            color: white;
-            padding: 14px;
-            border-radius: 12px;
-            z-index: 1000;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-        }
-
-        .delivery-card .address {
-            font-weight: 700;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
-            line-height: 1.35;
-            max-height: 2.7em;
-            overflow: hidden;
-        }
-
-        .eta-box {
-            color: #f39c12;
-            font-weight: 700;
-        }
-
-        .deliver-btn {
-            width: 100%;
-            margin-top: 10px;
-            padding: 10px;
-            background: #22c55e;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .empty-state-map {
-            min-height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            padding: 20px;
-            text-align: center;
-            background: #0f172a;
-        }
-
-        .empty-link {
-            display: inline-block;
-            padding: 10px 14px;
-            background: #C22626;
-            color: #fff;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 700;
-        }
-
-        @media (max-width: 360px) {
-            .delivery-card {
-                left: 10px;
-                right: 10px;
-                padding: 12px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="map.css">
+    
 </head>
 <body>
     <div class="phone-shell">
@@ -164,15 +84,8 @@ if ($order) {
             const DEST_LAT = <?= $order['delivery_latitude'] ?>;
             const DEST_LNG = <?= $order['delivery_longitude'] ?>;
         </script>
-        <script src="map.js"></script>
-        <script>
-            function markDelivered() {
-                const fd = new FormData();
-                fd.append('action', 'deliver_order');
-                fd.append('order_id', ACTIVE_ORDER_ID);
-                fetch('rider-orders-api.php', { method: 'POST', body: fd }).then(() => window.location.href='orders.php');
-            }
-        </script>
+        <script src="map.js?v=<?= time() ?>"></script>
+        
         <?php endif; ?>
         </div>
 

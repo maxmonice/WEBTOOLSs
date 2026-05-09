@@ -138,6 +138,6 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="history.js"></script>
+<script src="history.js?v=<?= time() ?>"></script>
 </body>
 </html>

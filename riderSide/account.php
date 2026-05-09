@@ -161,6 +161,6 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="account.js"></script>
+<script src="account.js?v=<?= time() ?>"></script>
 </body>
 </html>

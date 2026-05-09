@@ -17,10 +17,10 @@
     --line:      rgba(194,38,38,0.2);
 }
 
-html { scroll-behavior: auto !important; }
+html { scroll-behavior: smooth !important; }
 
 body {
-    scroll-behavior: auto !important;
+    scroll-behavior: smooth !important;
     font-family: 'Be Vietnam Pro', sans-serif;
     font-weight: 400;
     background-color: var(--dark);

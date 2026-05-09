@@ -130,6 +130,6 @@
         <div class="lightbox-next"><i class="fas fa-chevron-right"></i></div>
     </div>
 
-    <script src="gallery.js"></script>
+    <script src="gallery.js?v=<?= time() ?>"></script>
 </body>
 </html>

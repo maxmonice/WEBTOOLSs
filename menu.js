@@ -198,7 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const SEARCH   = 50;
         const PADDING  = 10;
         const top = item.el.getBoundingClientRect().top + window.scrollY - HEADER - SEARCH - PADDING;
-        window.scrollTo(0, top);
+        window.scrollTo({
+            top: top,
+            behavior: 'smooth'
+        });
 
         item.el.classList.add('search-highlight');
         setTimeout(() => item.el.classList.remove('search-highlight'), 2000);

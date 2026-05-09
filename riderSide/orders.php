@@ -121,6 +121,6 @@ $riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
   // Pass rider session data to JS
   const RIDER_ID = <?= (int)$_SESSION['rider_id'] ?>;
 </script>
-<script src="orders.js"></script>
+<script src="orders.js?v=<?= time() ?>"></script>
 </body>
 </html>

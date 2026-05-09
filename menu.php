@@ -214,16 +214,8 @@ foreach ($allItems as $item) {
 
 <?php include 'carT.php'; ?>
     <script src="carT.js"></script>
-    <script>
-        // Cart init - ensures functions available & count updated
-        if (typeof updateCartCount === 'function') updateCartCount();
-        document.getElementById('cartBtn').addEventListener('click', function(e) {
-            e.preventDefault();
-            if (typeof openCart === 'function') openCart();
-        });
-        console.log('Cart init complete. openCart:', typeof openCart);
-    </script>
-    <script src="menu.js"></script>
+
+    <script src="menu.js?v=<?= time() ?>"></script>
 
 </body>
 </html>

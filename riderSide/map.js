@@ -171,3 +171,10 @@ function markDelivered() {
 }
 
 document.addEventListener('DOMContentLoaded', initMap);
+/* Appended from map.php */
+function markDelivered() {
+                const fd = new FormData();
+                fd.append('action', 'deliver_order');
+                fd.append('order_id', ACTIVE_ORDER_ID);
+                fetch('rider-orders-api.php', { method: 'POST', body: fd }).then(() => window.location.href='orders.php');
+            }

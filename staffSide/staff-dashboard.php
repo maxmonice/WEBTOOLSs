@@ -15,87 +15,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 <title>Dashboard — Luke's Staff</title>
 <link rel="stylesheet" href="../adminSide/admin.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<style>
-/* ── Staff role pill in sidebar ── */
-.role-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 100px; font-size: 0.68rem;
-    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    background: rgba(243,156,18,0.15); color: #f39c12;
-    border: 1px solid rgba(243,156,18,0.3); margin-top: 6px;
-}
-.role-pill i { font-size: 0.65rem; }
-
-/* ── Access-denied nav items ── */
-.nav-item.locked {
-    opacity: 0.38; pointer-events: none; cursor: not-allowed;
-    position: relative;
-}
-.nav-item.locked::after {
-    content: '\f023';
-    font-family: 'Font Awesome 6 Free';
-    font-weight: 900;
-    font-size: 0.65rem;
-    margin-left: auto;
-    color: rgba(255,255,255,0.3);
-}
-
-/* ── Permission banner ── */
-.access-banner {
-    display: flex; align-items: center; gap: 12px;
-    background: rgba(243,156,18,0.08);
-    border: 1px solid rgba(243,156,18,0.2);
-    border-radius: 10px; padding: 12px 18px; margin-bottom: 22px;
-    font-size: 0.82rem; color: rgba(255,255,255,0.65);
-}
-.access-banner i { color: #f39c12; font-size: 1rem; flex-shrink: 0; }
-.access-banner strong { color: #f39c12; }
-
-/* ── Activity feed ── */
-.activity-item {
-    display: flex; gap: 14px; align-items: flex-start;
-    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-.activity-item:last-child { border-bottom: none; }
-.activity-dot {
-    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 0.8rem; margin-top: 2px;
-}
-.activity-dot.green  { background: rgba(46,204,113,0.12); color: var(--success); }
-.activity-dot.blue   { background: rgba(52,152,219,0.12); color: var(--info); }
-.activity-dot.yellow { background: rgba(243,156,18,0.12); color: var(--warning); }
-.activity-meta { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
-.activity-text { font-size: 0.84rem; color: rgba(255,255,255,0.82); }
-
-/* ── Quick actions ── */
-.quick-action {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; padding: 20px; background: var(--card2);
-    border: 1px solid var(--line-w); border-radius: 10px; text-decoration: none;
-    color: var(--muted); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
-    text-transform: uppercase; text-align: center; transition: all 0.25s;
-}
-.quick-action i { font-size: 1.4rem; color: var(--red); }
-.quick-action:hover { border-color: var(--red); color: #fff; background: rgba(194,38,38,0.08); transform: translateY(-2px); }
-.quick-action.disabled {
-    opacity: 0.3; pointer-events: none; cursor: not-allowed;
-}
-.quick-action.disabled i { color: var(--muted); }
-.empty-feed { padding: 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
-
-/* ── Today tasks ── */
-.task-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-.task-item:last-child { border-bottom: none; }
-.task-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.task-dot.urgent { background: #ef4444; }
-.task-dot.normal { background: #f39c12; }
-.task-dot.done   { background: #22c55e; }
-.task-text { font-size: 0.83rem; color: rgba(255,255,255,0.8); flex: 1; }
-.task-time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-</style>
+<link rel="stylesheet" href="staff-dashboard.css?v=<?= time() ?>">
 </head>
 <body>
 <div class="bg-dots"></div>
@@ -364,10 +284,6 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
   </div><!-- /main-content -->
 </div><!-- /admin-layout -->
 
-<script>
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-}
-</script>
+<script src="staff-dashboard.js?v=<?= time() ?>"></script>
 </body>
 </html>

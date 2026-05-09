@@ -1,0 +1,40 @@
+.role-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 100px; font-size: 0.68rem;
+    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    background: rgba(243,156,18,0.15); color: #f39c12;
+    border: 1px solid rgba(243,156,18,0.3); margin-top: 6px;
+}
+.nav-item.locked {
+    opacity: 0.38; pointer-events: none; cursor: not-allowed; position: relative;
+}
+.nav-item.locked::after {
+    content: '\f023'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+    font-size: 0.65rem; margin-left: auto; color: rgba(255,255,255,0.3);
+}
+.filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.provider-tag {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:100px; font-size:0.7rem; font-weight:700;
+    letter-spacing:0.06em; text-transform:uppercase;
+}
+.provider-email    { background:rgba(194,38,38,0.18);   color:#ff8080; border:1px solid rgba(194,38,38,0.3); }
+.provider-google   { background:rgba(66,133,244,0.15);  color:#6aa0f7; border:1px solid rgba(66,133,244,0.25); }
+.provider-facebook { background:rgba(24,119,242,0.15);  color:#60a0f7; border:1px solid rgba(24,119,242,0.25); }
+.verified-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+.dot-yes { background:#22c55e; }
+.dot-no  { background:#ef4444; }
+.readonly-banner {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(52,152,219,0.08); border: 1px solid rgba(52,152,219,0.2);
+    border-radius: 10px; padding: 12px 18px; margin-bottom: 22px;
+    font-size: 0.82rem; color: rgba(255,255,255,0.65);
+}
+.readonly-banner i { color: #3498db; font-size: 1rem; flex-shrink: 0; }
+.readonly-banner strong { color: #3498db; }
+.permission-note {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 0.72rem; color: rgba(52,152,219,0.8);
+    background: rgba(52,152,219,0.07); border: 1px solid rgba(52,152,219,0.15);
+    border-radius: 6px; padding: 3px 8px;
+}

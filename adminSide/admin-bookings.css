@@ -1,0 +1,289 @@
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+.cal-header {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 0;
+}
+.cal-day {
+  background: var(--card2);
+  border: 1px solid var(--line-w);
+  border-radius: 8px;
+  padding: 8px 6px;
+  min-height: 70px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+}
+.cal-day:hover { border-color: rgba(194,38,38,0.4); }
+.cal-day.today { border-color: var(--red); background: rgba(194,38,38,0.08); }
+.cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
+.cal-day-num { font-weight: 700; color: rgba(255,255,255,0.6); margin-bottom: 4px; font-size: 0.8rem; }
+.cal-day.today .cal-day-num { color: var(--red); }
+.cal-event {
+  font-size: 0.62rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.cal-event.confirmed { background: rgba(46,204,113,0.2); color: #2ecc71; }
+.cal-event.pending   { background: rgba(243,156,18,0.2); color: #f39c12; }
+.cal-event.cancelled { background: rgba(194,38,38,0.2); color: #ff6b6b; }
+
+.booking-card {
+  background: var(--card2);
+  border: 1px solid var(--line-w);
+  border-radius: 10px;
+  padding: 16px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.booking-card:hover { border-color: rgba(194,38,38,0.3); transform: translateY(-2px); }
+.booking-id { font-size: 0.7rem; color: var(--red); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 4px; }
+.booking-name { font-size: 0.9rem; color: #fff; font-weight: 600; margin-bottom: 6px; }
+.booking-detail { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.booking-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+
+.resource-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line-w); }
+.resource-item:last-child { border-bottom: none; }
+.resource-name { font-size: 0.84rem; color: #fff; font-weight: 500; }
+.resource-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+/* Dropdown styling */
+select.form-control,
+#viewToggle,
+#yearSelect {
+  color: #fff !important;
+  background: var(--dark) !important;
+  border: 1px solid var(--line-w) !important;
+}
+select.form-control option,
+#viewToggle option,
+#yearSelect option {
+  color: #fff;
+  background: var(--card);
+}
+
+/* Navigation buttons group */
+.calendar-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Notification Dropdown Styles */
+.notification-dropdown {
+  position: relative;
+}
+
+.notification-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 380px;
+  background: var(--card2);
+  border: 1px solid var(--line-w);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: none;
+  margin-top: 10px;
+}
+
+.notification-menu.show {
+  display: block;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-w);
+}
+
+.notification-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.mark-all-read {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.mark-all-read:hover {
+  background: rgba(194, 38, 38, 0.1);
+}
+
+.notification-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-w);
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.notification-item.unread {
+  background: rgba(194, 38, 38, 0.05);
+}
+
+.notification-item.unread:hover {
+  background: rgba(194, 38, 38, 0.1);
+}
+
+.notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.notification-icon i {
+  font-size: 1rem;
+}
+
+.notification-item:nth-child(1) .notification-icon {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.notification-item:nth-child(2) .notification-icon {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.notification-item:nth-child(3) .notification-icon {
+  background: rgba(249, 115, 22, 0.2);
+  color: #f97316;
+}
+
+.notification-item:nth-child(4) .notification-icon {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.notification-message {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.notification-time {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.notification-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.notification-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line-w);
+  text-align: center;
+}
+
+.view-all-link {
+  color: var(--red);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.view-all-link:hover {
+  opacity: 0.8;
+}
+
+/* Badge dot for unread notifications */
+.badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  border: 2px solid var(--dark);
+}
+
+/* Scrollbar styling */
+.notification-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+  background: var(--line-w);
+  border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
