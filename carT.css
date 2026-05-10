@@ -1,976 +1,614 @@
-    /* Cart-specific styles — updated cart panel design from menu.css */
-
 /* =====================================================
-   CART BUTTON & OVERLAY
-   ===================================================== */
-
-.cart-btn, .cart-btn-fixed {
-    position: fixed !important;
-    bottom: 30px !important;
-    right: 30px !important;
-    width: 68px !important;
-    height: 68px !important;
-    background: linear-gradient(135deg, #C22626, #8B0A1E) !important;
-    border-radius: 50% !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer !important;
-    box-shadow: 0 12px 40px rgba(194, 38, 38, 0.8), 0 0 0 4px rgba(194, 38, 38, 0.3) !important;
-    z-index: 10020 !important;
-    transition: transform 0.3s, box-shadow 0.3s !important;
-    border: none !important;
-    pointer-events: auto !important;
-}
-
-
+CART BUTTON
+===================================================== */
+.cart-btn,
 .cart-btn-fixed {
-    box-shadow: 0 12px 40px rgba(194, 38, 38, 0.8) !important;
+position: fixed !important;
+bottom: 30px !important;
+right: 30px !important;
+width: 68px !important;
+height: 68px !important;
+background: linear-gradient(135deg, #C22626, #8B0A1E) !important;
+border-radius: 50% !important;
+display: flex !important;
+align-items: center !important;
+justify-content: center !important;
+cursor: pointer !important;
+box-shadow: 0 12px 30px rgba(194, 38, 38, 0.45) !important;
+z-index: 10020 !important;
+transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s !important;
+border: 2px solid rgba(255, 255, 255, 0.1) !important;
+pointer-events: auto !important;
 }
-
-
+.cart-btn-fixed {
+box-shadow: 0 12px 40px rgba(194, 38, 38, 0.8) !important;
+}
 .cart-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 8px 32px rgba(194, 38, 38, 0.7);
+transform: scale(1.1);
+box-shadow: 0 8px 32px rgba(194, 38, 38, 0.7);
 }
-
 .cart-btn i {
-    font-size: 26px;
-    color: white;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+font-size: 26px;
+color: white;
+text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
-
 .cart-count {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #d4a320;
-    color: #000;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 800;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: all 0.2s ease;
+position: absolute;
+top: -5px;
+right: -5px;
+background: #d4a320;
+color: #000;
+border-radius: 50%;
+width: 22px;
+height: 22px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 11px;
+font-weight: 800;
+font-family: 'Be Vietnam Pro', sans-serif;
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+transition: all 0.2s ease;
 }
-
-/* Pulsating cart count animation */
 @keyframes pulse-count {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.3); }
-  100% { transform: scale(1); }
+0%   { transform: scale(1); }
+50%  { transform: scale(1.3); }
+100% { transform: scale(1); }
 }
-
 .cart-count.pulse {
-  animation: pulse-count 0.4s ease-in-out;
+animation: pulse-count 0.4s ease-in-out;
 }
-
-
-
+/* =====================================================
+TOP NOTIFICATION BAR
+✅ FIX: was .show in JS but CSS only had .active — unified to .active
+===================================================== */
+.top-notif {
+position: fixed;
+top: 20px;
+left: 50%;
+transform: translateX(-50%) translateY(-120px);
+background: #222;
+color: #fff;
+border: none;
+padding: 12px 25px;
+border-radius: 12px;
+display: flex;
+align-items: center;
+gap: 12px;
+z-index: 99999;
+box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.4s;
+font-weight: 700;
+font-family: 'Be Vietnam Pro', sans-serif;
+pointer-events: none;
+opacity: 0;
+}
+.top-notif.active {
+transform: translateX(-50%) translateY(0);
+opacity: 1;
+}
+.top-notif.hiding {
+transform: translateX(-50%) translateY(-120px);
+opacity: 0;
+transition: transform 0.35s ease-in, opacity 0.35s ease-in;
+}
+.top-notif-text {
+font-size: 0.95rem;
+}
+/* =====================================================
+CART OVERLAY
+===================================================== */
 .cart-overlay {
-    display: none !important;
-    position: fixed;
-    inset: 0;
-    z-index: 9999 !important;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.85));
-    backdrop-filter: blur(8px);
-    animation: overlayFadeIn 0.3s ease-out;
+display: none !important;
+position: fixed;
+inset: 0;
+z-index: 9999 !important;
+background: linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.85));
+backdrop-filter: blur(8px);
+animation: overlayFadeIn 0.3s ease-out;
 }
 .cart-overlay.active {
-    display: flex !important;
-    align-items: stretch !important;
-    justify-content: center !important;
+display: flex !important;
+align-items: center !important;
+justify-content: center !important;
 }
-
-
 @keyframes overlayFadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+0%   { opacity: 0; }
+100% { opacity: 1; }
 }
-
-.cart-overlay.active {
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
-}
-
 /* =====================================================
-   CART PANEL
-   ===================================================== */
-
+CART PANEL
+===================================================== */
 .cart-panel {
-    display: flex;
-    width: 100%;
-    max-width: 900px;
-    margin: auto;
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
-    height: 620px;
-    animation: cartSlideIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+display: flex;
+width: 100%;
+max-width: 900px;
+margin: auto;
+border-radius: 18px;
+overflow: hidden;
+box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+height: 620px;
+animation: cartSlideIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-
 @keyframes cartSlideIn {
-  0% {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+0%   { opacity: 0; transform: translateY(30px) scale(0.95); }
+100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 /* =====================================================
-   LEFT PANEL
-   ===================================================== */
-
+LEFT PANEL
+===================================================== */
 .cart-left {
-    flex: 1;
-    background: #1a1a1a;
-    color: #fff;
-    padding: 28px 28px 24px;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    min-width: 0;
+flex: 1;
+background: #1a1a1a;
+color: #fff;
+padding: 28px 28px 24px;
+display: flex;
+flex-direction: column;
+overflow-y: auto;
+min-width: 0;
 }
-
 .cart-back-btn {
-    background: none;
-    border: none;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: #fff;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0;
-    margin-bottom: 16px;
-    transition: opacity 0.2s;
+background: none;
+border: none;
+font-family: 'Be Vietnam Pro', sans-serif;
+font-size: 0.92rem;
+font-weight: 600;
+color: #fff;
+cursor: pointer;
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 0;
+margin-bottom: 16px;
+transition: opacity 0.2s;
 }
-
 .cart-back-btn:hover { opacity: 0.65; }
 .cart-back-btn i { font-size: 0.8rem; }
-
 .cart-divider {
-    width: 100%;
-    height: 1px;
-    background: rgba(194, 38, 38, 0.35);
-    margin-bottom: 20px;
+width: 100%;
+height: 1px;
+background: rgba(194, 38, 38, 0.35);
+margin-bottom: 20px;
 }
-
 .cart-heading {
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 1rem;
-    font-weight: 800;
-    color: #fff;
-    margin-bottom: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+font-family: 'Be Vietnam Pro', sans-serif;
+font-size: 1rem;
+font-weight: 800;
+color: #fff;
+margin-bottom: 18px;
+display: flex;
+flex-direction: column;
+gap: 3px;
 }
-
 .cart-subheading {
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.45);
+font-size: 0.78rem;
+font-weight: 500;
+color: rgba(255, 255, 255, 0.45);
 }
-
 .cart-items-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex: 1;
+display: flex;
+flex-direction: column;
+gap: 12px;
+flex: 1;
 }
-
 .cart-item-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    background: #222;
+display: flex;
+align-items: center;
+gap: 12px;
+padding: 10px 12px;
+border: 1px solid rgba(255, 255, 255, 0.08);
+border-radius: 10px;
+background: #222;
 }
-
 .cart-item-img {
-    width: 52px;
-    height: 52px;
-    border-radius: 8px;
-    object-fit: cover;
-    flex-shrink: 0;
-    border: 1px solid rgba(194, 38, 38, 0.1);
+width: 52px;
+height: 52px;
+border-radius: 8px;
+object-fit: cover;
+flex-shrink: 0;
+border: 1px solid rgba(194, 38, 38, 0.1);
 }
-
-.cart-item-info { flex: 1; min-width: 0; }
-
+.cart-item-info {
+flex: 1;
+min-width: 0;
+}
 .cart-item-name {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+font-size: 0.88rem;
+font-weight: 700;
+color: #fff;
+margin-bottom: 2px;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
 }
-
 .cart-item-meta {
-    font-size: 0.74rem;
-    color: rgba(255, 255, 255, 0.45);
-    font-weight: 500;
+font-size: 0.74rem;
+color: rgba(255, 255, 255, 0.45);
+font-weight: 500;
 }
-
 .cart-item-qty {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
+display: flex;
+flex-direction: row;
+align-items: center;
+gap: 4px;
 }
-
 .cart-qty-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 1px;
 }
-
 .cart-qty-btn i {
-    width: 22px;
-    height: 16px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #C22626;
-    font-size: 0.7rem;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 3px;
-    transition: background 0.15s;
+width: 22px;
+height: 16px;
+background: none;
+border: none;
+cursor: pointer;
+color: #C22626;
+font-size: 0.7rem;
+line-height: 1;
+display: flex;
+align-items: center;
+justify-content: center;
+border-radius: 3px;
+transition: background 0.15s;
 }
-
-.cart-qty-btn i:hover { background: rgba(194, 38, 38, 0.1); color: #8B0A1E; }
-
+.cart-qty-btn i:hover {
+background: rgba(194, 38, 38, 0.1);
+color: #8B0A1E;
+}
 .cart-qty-num {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #fff;
-    min-width: 20px;
-    text-align: center;
+font-size: 0.85rem;
+font-weight: 700;
+color: #fff;
+min-width: 20px;
+text-align: center;
 }
-
 .cart-item-prices {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    min-width: 48px;
+display: flex;
+flex-direction: column;
+align-items: flex-end;
+gap: 2px;
+min-width: 48px;
 }
-
 .cart-item-price {
-    font-size: 0.9rem;
-    font-weight: 800;
-    color: #C22626;
-    text-align: right;
+font-size: 0.9rem;
+font-weight: 800;
+color: #C22626;
+text-align: right;
 }
-
 .cart-item-unit-price {
-    font-size: 0.68rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.4);
-    text-align: right;
+font-size: 0.68rem;
+font-weight: 500;
+color: rgba(255, 255, 255, 0.4);
+text-align: right;
 }
-
 .cart-item-delete {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: rgba(255, 255, 255, 0.35);
-    font-size: 0.9rem;
-    padding: 4px;
-    border-radius: 4px;
-    transition: color 0.2s, background 0.2s;
+background: none;
+border: none;
+cursor: pointer;
+color: rgba(255, 255, 255, 0.35);
+font-size: 0.9rem;
+padding: 4px;
+border-radius: 4px;
+transition: color 0.2s, background 0.2s;
 }
-
 .cart-item-delete:hover {
-    color: #C22626;
-    background: rgba(194, 38, 38, 0.12);
+color: #C22626;
+background: rgba(194, 38, 38, 0.12);
 }
-
 .cart-empty {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    gap: 10px;
-    color: rgba(255, 255, 255, 0.3);
-    padding: 40px 0;
+display: none;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+flex: 1;
+gap: 10px;
+color: rgba(255, 255, 255, 0.3);
+padding: 40px 0;
 }
-
 .cart-empty i { font-size: 2.5rem; }
 .cart-empty p { font-size: 1rem; font-weight: 700; }
 .cart-empty small { font-size: 0.8rem; }
 .cart-empty.show { display: flex; }
-
 /* =====================================================
-   RIGHT PANEL
-   ===================================================== */
-
+RIGHT PANEL
+===================================================== */
 .cart-right {
-    width: 340px;
-    flex-shrink: 0;
-    background: linear-gradient(160deg, #8B0A1E 0%, #C22626 60%, #9B0A1E 100%);
-    padding: 20px 20px 18px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    color: #fff;
+width: 340px;
+flex-shrink: 0;
+background: linear-gradient(165deg, #8B0A1E 0%, #6b0817 100%);
+position: relative;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+color: #fff;
 }
-
+.cart-right-scrollable {
+flex: 1;
+overflow-y: auto;
+overflow-x: hidden;
+padding: 20px 20px 16px;
+}
+/* Scrollbars */
+.cart-left::-webkit-scrollbar,
+.cart-right-scrollable::-webkit-scrollbar,
+.cart-items-list::-webkit-scrollbar { width: 6px; }
+.cart-left::-webkit-scrollbar-track,
+.cart-right-scrollable::-webkit-scrollbar-track,
+.cart-items-list::-webkit-scrollbar-track { background: rgba(0,0,0,.15); border-radius: 10px; }
+.cart-left::-webkit-scrollbar-thumb,
+.cart-right-scrollable::-webkit-scrollbar-thumb,
+.cart-items-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 10px; }
+.cart-left::-webkit-scrollbar-thumb:hover,
+.cart-right-scrollable::-webkit-scrollbar-thumb:hover,
+.cart-items-list::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.3); }
+.cart-left,
+.cart-right-scrollable,
+.cart-items-list { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) rgba(0,0,0,.15); }
+.cart-right::before {
+content: '';
+position: absolute;
+top: -50px; right: -50px;
+width: 200px; height: 200px;
+background: radial-gradient(circle, rgba(194,38,38,.4) 0%, transparent 70%);
+pointer-events: none;
+}
 .cart-right-section { margin-bottom: 10px; }
-
-.cart-address-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.cart-address-field .cart-input {
-    flex: 1;
-}
-
+.cart-address-field { display: flex; align-items: center; gap: 8px; }
+.cart-address-field .cart-input { flex: 1; }
 .cart-address-icon {
-    width: 42px;
-    height: 42px;
-    flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    color: #fff;
-    font-size: 1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s, border-color 0.2s;
+width: 42px; height: 42px;
+flex-shrink: 0;
+background: rgba(255,255,255,.12);
+border: 1px solid rgba(255,255,255,.2);
+border-radius: 8px;
+color: #fff;
+font-size: 1rem;
+cursor: pointer;
+display: flex; align-items: center; justify-content: center;
+transition: background 0.2s, border-color 0.2s;
 }
-
 .cart-address-icon:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.35);
+background: rgba(255,255,255,.2);
+border-color: rgba(255,255,255,.35);
 }
-
 .cart-right-title {
-    font-family: 'Aclonica', sans-serif;
-    font-size: 1.1rem;
-    font-weight: 400;
-    color: #fff;
-    margin-bottom: 6px;
+font-family: 'Aclonica', sans-serif;
+font-size: 1.1rem;
+font-weight: 400;
+color: #fff;
+margin-bottom: 6px;
 }
-
 .cart-label {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.75);
-    letter-spacing: 0.04em;
-    margin-bottom: 6px;
-    display: block;
+font-size: 0.78rem;
+font-weight: 600;
+color: rgba(255,255,255,.75);
+letter-spacing: 0.04em;
+margin-bottom: 6px;
+display: block;
 }
-
 .cart-input {
-    width: 100%;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 0.88rem;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    outline: none;
-    transition: box-shadow 0.2s;
-    border: none;
-    box-sizing: border-box;
+width: 100%;
+padding: 10px 14px;
+border-radius: 8px;
+font-size: 0.88rem;
+font-family: 'Be Vietnam Pro', sans-serif;
+outline: none;
+transition: box-shadow 0.2s;
+border: none;
+box-sizing: border-box;
 }
-
 .cart-input:not(.dark) {
-    background: rgba(139, 10, 30, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #fff;
+background: rgba(139,10,30,.45);
+border: 1px solid rgba(255,255,255,.2);
+color: #fff;
 }
-.cart-input:not(.dark)::placeholder { color: rgba(255, 255, 255, 0.45); }
-.cart-input:not(.dark):focus { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3); }
-
+.cart-input:not(.dark)::placeholder { color: rgba(255,255,255,.45); }
+.cart-input:not(.dark):focus { box-shadow: 0 0 0 2px rgba(255,255,255,.3); }
 .cart-input.dark {
-    background: rgba(139, 10, 30, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #fff;
+background: rgba(139,10,30,.5);
+border: 1px solid rgba(255,255,255,.15);
+color: #fff;
 }
-.cart-input.dark::placeholder { color: rgba(255, 255, 255, 0.35); }
-.cart-input.dark:focus { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
-
-.payment-methods {
+.cart-input.dark::placeholder { color: rgba(255,255,255,.35); }
+.cart-input.dark:focus { box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+/* Error messages */
+.cart-error-msg {
     display: flex;
-    gap: 10px;
-    margin-top: 4px;
-}
-
-.payment-method-btn {
-    flex: 1;
-    padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 2px solid transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 56px;
-}
-
-.payment-method-btn img { max-height: 40px; max-width: 100px; object-fit: contain; }
-.payment-method-btn .cod-text { font-size: 0.75rem; font-weight: 700; color: white; letter-spacing: 0.5px; }
-.payment-method-btn.active { border-color: rgba(255, 255, 255, 0.7); background: rgba(255, 255, 255, 0.2); }
-.payment-method-btn.active img { opacity: 0.6; }
-.payment-method-btn:hover { background: rgba(255, 255, 255, 0.18); }
-
-.card-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 12px;
-}
-
-/* =====================================================
-   GCASH SECTION — Figma-matched
-   ===================================================== */
-
-.gcash-section-label {
-    
-    font-size: 1.1rem;
-    margin-top: 8px;
-    margin-bottom: 8px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.9);
-    letter-spacing: 0.03em;
-}
-
-.gcash-top-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 0;
-    margin-bottom: 4px;
-}
-
-.gcash-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.gcash-or-divider {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 8px;
-    padding-bottom: 10px;
-}
-
-.gcash-or-text {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.8);
-}
-
-/* Number display box — matches the dark input style */
-.gcash-number-box {
-    width: 100%;
-    height: 40px;
-    background: rgba(139, 10, 30, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 8px;
-    color: #fff;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    box-sizing: border-box;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: background 0.2s, border-color 0.2s;
-    position: relative;
-}
-
-.gcash-number-box:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.35);
-}
-
-/* Copy feedback tooltip */
-.gcash-copy-tooltip {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.9);
-    background: #fff;
-    color: #8B0A1E;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 6px 12px;
-    border-radius: 6px;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s, transform 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.gcash-copy-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border-width: 5px;
-    border-style: solid;
-    border-color: #fff transparent transparent transparent;
-}
-
-.gcash-copy-tooltip.show {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-}
-
-/* QR view box — same size as number box, clickable */
-.gcash-qr-box {
-    width: 100%;
-    height: 40px;
-    background: rgba(139, 10, 30, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-sizing: border-box;
-    transition: background 0.2s, border-color 0.2s;
-}
-
-.gcash-qr-box:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.35);
-}
-
-.gcash-qr-link {
-    color: #fff;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-}
-
-/* =====================================================
-   QR CODE OVERLAY
-   ===================================================== */
-
-.qr-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 10060;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(8px);
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    animation: authFadeIn 0.22s ease;
-}
-
-
-.qr-overlay.open {
-    display: flex;
-}
-
-.qr-modal {
-    background: linear-gradient(160deg, #8B0A1E 0%, #C22626 60%, #9B0A1E 100%);
-    border: none;
-    border-radius: 18px;
-    padding: 28px 28px 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    max-width: 380px;
-    width: 100%;
-    position: relative;
-    animation: authSlideUp 0.25s cubic-bezier(.16, 1, .3, 1);
-}
-
-.qr-close {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 32px;
-    height: 32px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 50%;
-    color: #fff;
-    font-size: 0.9rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-}
-
-.qr-close:hover { background: rgba(194, 38, 38, 0.4); }
-
-.qr-label {
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.85);
-    text-align: center;
-}
-
-.qr-image {
-    width: 100%;
-    max-width: 300px;
-    border-radius: 12px;
-    display: block;
-}
-
-/* =====================================================
-   TOTALS & CHECKOUT
-   ===================================================== */
-
-.cart-totals {
-    border-top: 1px solid rgba(255, 255, 255, 0.18);
-    padding-top: 10px;
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.cart-total-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.83rem;
-    color: rgba(255, 255, 255, 0.7);
-    font-weight: 500;
-}
-
-.cart-total-row.total {
-    color: #fff;
-    font-weight: 800;
-    font-size: 0.9rem;
-    margin-top: 4px;
-}
-
-.checkout-btn {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    margin-top: 10px;
-    padding: 13px 20px;
-    background: #fff;
-    color: #C22626;
-    border: none;
-    border-radius: 10px;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
-    letter-spacing: 0.02em;
-}
-
-.checkout-btn:hover {
-    background: #ffeaea;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
-}
-
-.checkout-btn i { margin-left: 6px; }
-
-/* =====================================================
-   AUTH MODAL
-   ===================================================== */
-
-.auth-modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: rgba(0, 0, 0, 0.82);
-    backdrop-filter: blur(8px);
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-}
-
-.auth-modal-overlay.open {
-    display: flex;
-    animation: authFadeIn 0.22s ease;
-}
-
-@keyframes authFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-.auth-modal {
-    background: #222;
-    border: 1px solid rgba(194, 38, 38, 0.4);
-    border-radius: 20px;
-    width: 100%;
-    max-width: 400px;
-    overflow: hidden;
-    animation: authSlideUp 0.25s cubic-bezier(.16, 1, .3, 1);
-    position: relative;
-}
-
-.auth-modal::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(to right, #8B0A1E, #C22626);
-    border-radius: 20px 20px 0 0;
-}
-
-@keyframes authSlideUp {
-    from { opacity: 0; transform: translateY(28px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-.auth-modal-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: rgba(194, 38, 38, 0.12);
-    border: 1px solid rgba(194, 38, 38, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.6rem;
-    color: #C22626;
-    margin: 36px auto 20px;
-}
-
-.auth-modal-body {
-    text-align: center;
-    padding: 0 30px 10px;
-}
-
-.auth-modal-body h3 {
-    font-family: 'Aclonica', sans-serif;
-    font-size: 1.25rem;
-    color: #fff;
-    margin-bottom: 10px;
-}
-
-.auth-modal-body p {
-    font-size: 0.87rem;
-    color: rgba(255, 255, 255, 0.5);
-    line-height: 1.65;
-}
-
-.auth-modal-body p strong {
-    color: rgba(255, 255, 255, 0.75);
-    font-weight: 700;
-}
-
-.auth-modal-foot {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 24px 28px 28px;
-}
-
-.auth-btn-signin {
-    width: 100%;
-    padding: 13px;
-    background: linear-gradient(135deg, #C22626, #8B0A1E);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 700;
-    cursor: pointer;
-    letter-spacing: 0.03em;
-    transition: opacity 0.2s, box-shadow 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start; /* Better for multi-line */
     gap: 8px;
+    color: #ff4d4d;
+    font-size: 0.8rem; /* Slightly larger */
+    font-weight: 500;
+    margin-top: 6px;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    opacity: 0;
+    line-height: 1.3;
 }
-
-.auth-btn-signin:hover {
-    opacity: 0.9;
-    box-shadow: 0 6px 24px rgba(194, 38, 38, 0.45);
+.cart-error-msg.active {
+    max-height: 80px; /* Allow multi-line */
+    opacity: 1;
+    margin-bottom: 12px;
+    animation: errorShake 0.3s ease-in-out;
 }
-
-.auth-btn-cancel {
-    width: 100%;
-    padding: 12px;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.88rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
+.cart-input.error-border {
+    border-color: #ff4d4d !important;
+    box-shadow: 0 0 0 2px rgba(255, 77, 77, 0.2) !important;
 }
-
-.auth-btn-cancel:hover {
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.3);
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
 }
-
-.checkout-btn.locked {
-    opacity: 0.75;
-    cursor: pointer;
-    position: relative;
+.cart-error-msg::before {
+content: '\f06a';
+font-family: 'Font Awesome 6 Free';
+font-weight: 900;
+font-size: 0.8rem;
 }
-
-.checkout-btn.locked .lock-icon {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 6px;
+/* Totals — fixed at bottom, never shifts with payment fields */
+.cart-totals-fixed {
+flex-shrink: 0;
+padding: 0 20px 16px;
 }
-
-.checkout-btn .lock-icon { display: none; }
-
-.cart-auth-notice {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 10px 14px;
-    border-radius: 9px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 16px;
+.cart-totals-divider {
+height: 1px;
+background: rgba(255, 255, 255, 0.18);
+margin-bottom: 14px;
 }
-
-.cart-auth-notice.signed-in {
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.25);
-    color: #86efac;
+.cart-totals-inner {
+margin-bottom: 4px;
 }
-
-.cart-auth-notice.signed-out {
-    background: rgba(194, 38, 38, 0.1);
-    border: 1px solid rgba(194, 38, 38, 0.3);
-    color: #fca5a5;
+.cart-total-row {
+display: flex;
+justify-content: space-between;
+align-items: center;
+font-size: 0.82rem;
+color: rgba(255, 255, 255, 0.7);
+font-weight: 500;
+margin-bottom: 5px;
 }
-
-.cart-auth-notice i { font-size: 0.85rem; flex-shrink: 0; }
-
-.cart-auth-notice a {
-    color: #fff;
-    font-weight: 700;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    margin-left: 3px;
+.cart-total-row.total {
+color: #fff;
+font-weight: 800;
+font-size: 1rem;
+margin-top: 6px;
+padding-top: 6px;
 }
-
+/* Checkout button */
+.checkout-btn {
+display: flex;
+align-items: center;
+justify-content: space-between;
+width: 100%;
+height: 62px;
+background: #ffffff !important;
+border: none;
+border-radius: 12px;
+padding: 0 20px;
+margin-top: 12px;
+cursor: pointer;
+transition: all 0.3s ease;
+box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+.checkout-btn .checkout-btn-eyebrow {
+display: block;
+font-size: 0.7rem;
+color: rgba(177,18,22,.6);
+font-weight: 600;
+font-family: 'Be Vietnam Pro', sans-serif;
+}
+.checkout-btn .checkout-btn-amount {
+color: #b11216 !important;
+font-weight: 800;
+font-size: 1.15rem;
+font-family: 'Be Vietnam Pro', sans-serif;
+}
+.checkout-btn .checkout-btn-action {
+color: #b11216 !important;
+font-weight: 700;
+font-size: 0.95rem;
+display: flex;
+align-items: center;
+gap: 8px;
+font-family: 'Be Vietnam Pro', sans-serif;
+}
+.checkout-btn:hover {
+transform: translateY(-2px);
+box-shadow: 0 6px 20px rgba(0,0,0,.2);
+}
+/* Card row */
+.card-row {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 12px;
+margin-top: 10px;
+}
+/* Payment methods */
+.payment-methods { display: flex; gap: 10px; margin-top: 10px; }
+.payment-method-btn {
+flex: 1;
+height: 52px;
+background: rgba(0,0,0,.2);
+border: 1px solid rgba(255,255,255,.1);
+border-radius: 10px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.2s;
+color: rgba(255,255,255,.5);
+font-size: 1.1rem;
+}
+.payment-method-btn:hover {
+background: rgba(255,255,255,.05);
+border-color: rgba(255,255,255,.2);
+}
+.payment-method-btn.active {
+background: #fff;
+color: #b11216;
+border-color: #fff;
+box-shadow: 0 4px 15px rgba(0,0,0,.3);
+transform: translateY(-2px);
+}
+.payment-icon {
+max-width: 90%;
+max-height: 34px;
+object-fit: contain;
+transition: transform 0.2s;
+}
+.payment-method-btn:hover .payment-icon { transform: scale(1.1); }
+.payment-method-btn.active .payment-icon { filter: drop-shadow(0 2px 4px rgba(0,0,0,.1)); }
 /* =====================================================
-   RESPONSIVE
-   ===================================================== */
-
-@media (max-width: 768px) {
-    .cart-panel {
-        flex-direction: column;
-        height: 100vh;
-        border-radius: 0;
-        margin: 0;
-    }
-    .cart-left { max-height: 45vh; overflow-y: auto; }
-    .cart-right { width: 100%; flex: 1; overflow-y: auto; }
-    .gcash-top-row { flex-direction: column; gap: 8px; }
-    .gcash-or-divider { flex-direction: row; padding-top: 0; padding: 4px 0; }
+MODALS — shared base: fixed, full-screen, high z-index
+===================================================== */
+/* ── Delivery Notice ── */
+.delivery-notice-overlay {
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,.85);
+backdrop-filter: blur(8px);
+display: none;
+align-items: center;
+justify-content: center;
+z-index: 20000;
 }
-
-@media (max-width: 768px) {
-    .cart-btn { bottom: 20px; right: 20px; width: 50px; height: 50px; }
-    .cart-btn i { font-size: 18px; }
+.delivery-notice-overlay.active { display: flex; }
+.delivery-notice-modal {
+background: linear-gradient(165deg, #8B0A1E 0%, #6b0817 100%);
+padding: 30px;
+border-radius: 20px;
+max-width: 450px;
+width: 90%;
+text-align: center;
+color: #fff;
+box-shadow: 0 20px 50px rgba(0,0,0,.5);
+border: 1px solid rgba(255,255,255,.1);
+animation: zoomIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
 }
-
-/* Force gcash row to always be side by side — never stack */
-#gcashFields .gcash-top-row {
-    display: flex ;
-    flex-direction: row ;
-    align-items: flex-end ;
-    width: 100% ;
+.delivery-notice-icon { font-size: 3rem; color: #fff; margin-bottom: 20px; }
+.delivery-notice-title { font-family: 'Aclonica', sans-serif; font-size: 1.8rem; margin-bottom: 15px; }
+.delivery-notice-text { font-family: 'Be Vietnam Pro', sans-serif; font-size: .95rem; line-height: 1.6; margin-bottom: 25px; opacity: .9; }
+.delivery-notice-btn {
+background: #fff;
+color: #8B0A1E;
+border: none;
+padding: 12px 30px;
+border-radius: 30px;
+font-weight: 800;
+font-family: 'Be Vietnam Pro', sans-serif;
+cursor: pointer;
+transition: all 0.2s;
+text-transform: uppercase;
+letter-spacing: 1px;
 }
-#gcashFields .gcash-col {
-    flex: 1 ;
-    min-width: 0 ;
-    display: flex ;
-    flex-direction: column ;
-}
-#gcashFields .gcash-or-divider {
-    display: flex ;
-    flex-direction: column ;
-    align-items: center ;
-    justify-content: center ;
-    padding: 0 8px ;
-    padding-bottom: 10px ;
-    flex-shrink: 0 ;
-}
-#gcashFields .gcash-number-box {
-    width: 100% ;
-    height: 40px ;
-    background: rgba(139, 10, 30, 0.5) ;
-    border: 1px solid rgba(255,255,255,0.15) ;
-    border-radius: 8px ;
-    color: #fff ;
-    font-size: 0.9rem ;
-    font-weight: 700 ;
-    display: flex ;
-    align-items: center ;
-    padding: 0 14px ;
-    box-sizing: border-box ;
-}
-#gcashFields .gcash-qr-box {
-    width: 100% ;
-    height: 40px ;
-    background: rgba(139, 10, 30, 0.5) ;
-    border: 1px solid rgba(255,255,255,0.15) ;
-    border-radius: 8px ;
-    display: flex ;
-    align-items: center ;
-    justify-content: center ;
-    cursor: pointer ;
-    box-sizing: border-box ;
-}
-
+.delivery-notice-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,.3); }
 /* =====================================================
    CONFIRM REMOVE MODAL
-   ===================================================== */
-
+===================================================== */
 .confirm-remove-overlay {
     display: none;
     position: fixed;
@@ -982,17 +620,13 @@
     justify-content: center;
     padding: 24px;
 }
-
-
 .confirm-remove-overlay.open {
     display: flex !important;
 }
-
 .confirm-remove-overlay.open {
     display: flex;
     animation: overlayFadeIn 0.22s ease;
 }
-
 .confirm-remove-modal {
     background: #222;
     border: none;
@@ -1006,7 +640,6 @@
     animation: cartSlideIn 0.3s cubic-bezier(.16, 1, .3, 1);
     overflow: hidden;
 }
-
 .confirm-remove-icon {
     width: 56px;
     height: 56px;
@@ -1020,14 +653,12 @@
     color: #C22626;
     margin: 0 auto 18px;
 }
-
 .confirm-remove-title {
     font-family: 'Aclonica', sans-serif;
     font-size: 1.15rem;
     color: #fff;
     margin-bottom: 8px;
 }
-
 .confirm-remove-text {
     font-family: 'Be Vietnam Pro', sans-serif;
     font-size: 0.87rem;
@@ -1035,13 +666,11 @@
     line-height: 1.6;
     margin-bottom: 24px;
 }
-
 .confirm-remove-actions {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
-
 .confirm-remove-yes {
     width: 100%;
     padding: 13px;
@@ -1056,13 +685,11 @@
     letter-spacing: 0.03em;
     transition: opacity 0.2s, box-shadow 0.2s, transform 0.2s;
 }
-
 .confirm-remove-yes:hover {
     opacity: 0.92;
     transform: translateY(-1px);
     box-shadow: 0 6px 24px rgba(194, 38, 38, 0.45);
 }
-
 .confirm-remove-no {
     width: 100%;
     padding: 12px;
@@ -1076,67 +703,64 @@
     cursor: pointer;
     transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
-
 .confirm-remove-no:hover {
     color: #fff;
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.3);
 }
-
-/* =====================================================
-   CART NOTIFICATION BAR
-   ===================================================== */
-.cart-notif {
-    display: none;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 12px;
-    animation: slideDown 0.3s ease;
-    align-items: center;
-    justify-content: center;
-    flex-direction: row;
-    gap: 6px;
+/* ── Auth Modal ── */
+.auth-modal-overlay {
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,.8);
+backdrop-filter: blur(8px);
+display: none;
+align-items: center;
+justify-content: center;
+z-index: 20002;
 }
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.auth-modal-overlay.open { display: flex; }
+.auth-modal {
+background: #1e1e1e;
+border-radius: 20px;
+padding: 36px 32px;
+max-width: 400px;
+width: 90%;
+text-align: center;
+color: #fff;
+box-shadow: 0 24px 60px rgba(0,0,0,.6);
+border: 1px solid rgba(255,255,255,.08);
+animation: zoomIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
 }
-
-.cart-notif.show {
-    display: flex;
+.auth-modal-icon { font-size: 2.8rem; color: #C22626; margin-bottom: 18px; }
+.auth-modal-body h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: 10px; }
+.auth-modal-body p { font-size: 0.9rem; color: rgba(255,255,255,.7); line-height: 1.6; }
+.auth-modal-foot { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+.auth-btn-signin {
+background: linear-gradient(135deg, #C22626, #8B0A1E);
+color: #fff;
+border: none;
+padding: 12px 24px;
+border-radius: 12px;
+font-weight: 700;
+font-family: 'Be Vietnam Pro', sans-serif;
+cursor: pointer;
+transition: opacity 0.2s;
+font-size: 0.95rem;
 }
-
-.cart-notif.error {
-    background: rgba(194, 38, 38, 0.25);
-    border: 1px solid rgba(194, 38, 38, 0.5);
-    color: #fca5a5;
+.auth-btn-signin:hover { opacity: .85; }
+.auth-btn-cancel {
+background: none;
+color: rgba(255,255,255,.5);
+border: none;
+padding: 8px;
+font-family: 'Be Vietnam Pro', sans-serif;
+cursor: pointer;
+font-size: 0.88rem;
+transition: color 0.2s;
 }
-
-.cart-notif.success {
-    background: rgba(34, 197, 94, 0.25);
-    border: 1px solid rgba(34, 197, 94, 0.5);
-    color: #86efac;
-}
-
-.cart-notif.info {
-    background: rgba(59, 130, 246, 0.25);
-    border: 1px solid rgba(59, 130, 246, 0.5);
-    color: #93c5fd;
-}
-
-/* =====================================================
-   ORDER CONFIRMATION MODAL
-   ===================================================== */
-
+.auth-btn-cancel:hover { color: rgba(255,255,255,.8); }
+/* ── Order Confirm Modal (Old Version) ── */
 .order-confirm-overlay {
     display: none;
     position: fixed;
@@ -1146,27 +770,85 @@
     backdrop-filter: blur(8px);
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 16px;
 }
-
 .order-confirm-overlay.open {
     display: flex;
     animation: overlayFadeIn 0.22s ease;
 }
-
 .order-confirm-modal {
-    background: #222;
+    background: #1e1e1e;
     border: none;
-    border-radius: 18px;
+    border-radius: 24px;
     width: 100%;
-    max-width: 420px;
-    padding: 28px 28px 26px;
+    max-width: 480px;
+    max-height: 92vh;
+    padding: 32px 28px 28px;
     text-align: center;
     position: relative;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
     animation: cartSlideIn 0.3s cubic-bezier(.16, 1, .3, 1);
-    overflow: hidden;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    scrollbar-width: none;
 }
+.order-confirm-modal::-webkit-scrollbar { display: none; }
+
+/* ── Dedicated Xendit 3DS Overlay ── */
+.xendit-3ds-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10080;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(12px);
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.xendit-3ds-overlay.open { display: flex; animation: overlayFadeIn 0.25s ease; }
+.xendit-3ds-modal {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    width: auto;
+    max-width: 95%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0;
+}
+.xendit-3ds-header { display: none; }
+.xendit-3ds-body {
+    width: 500px;
+    height: 600px;
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 20px; /* Matched to main modals */
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 40px 120px rgba(0, 0, 0, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    scrollbar-width: none; /* Hide scrollbar for Firefox */
+}
+.xendit-3ds-body::-webkit-scrollbar { display: none; } /* Hide scrollbar for Chrome/Safari */
+
+.xendit-3ds-body iframe { width: 100%; height: 100%; border: none; }
+.xendit-3ds-cancel {
+    margin-top: 25px;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Be Vietnam Pro', sans-serif;
+}
+.xendit-3ds-cancel:hover { background: rgba(194, 38, 38, 0.8); border-color: transparent; box-shadow: 0 0 20px rgba(194, 38, 38, 0.4); }
 
 .order-confirm-icon {
     width: 52px;
@@ -1181,62 +863,33 @@
     color: #C22626;
     margin: 0 auto 14px;
 }
-
-.order-confirm-icon i {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
+.order-confirm-icon i { display: flex; align-items: center; justify-content: center; }
 .order-confirm-title {
     font-family: 'Aclonica', sans-serif;
     font-size: 1.1rem;
     color: #fff;
     margin-bottom: 4px;
 }
-
 .order-confirm-text {
     font-family: 'Be Vietnam Pro', sans-serif;
     font-size: 0.82rem;
     color: rgba(255, 255, 255, 0.55);
     margin-bottom: 10px;
 }
-
 .order-confirm-summary {
     text-align: left;
     max-height: 150px;
     overflow-y: auto;
     margin-bottom: 12px;
     padding-right: 6px;
-    /* Custom scrollbar */
     scrollbar-width: thin;
     scrollbar-color: rgba(194, 38, 38, 0.6) rgba(255, 255, 255, 0.06);
 }
-
-.order-confirm-summary::-webkit-scrollbar {
-    display: block;
-    width: 4px;
-}
-
-.order-confirm-summary::-webkit-scrollbar-button {
-    display: none;
-}
-
-.order-confirm-summary::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-}
-
-.order-confirm-summary::-webkit-scrollbar-thumb {
-    background: rgba(194, 38, 38, 0.55);
-    border-radius: 10px;
-    transition: background 0.2s;
-}
-
-.order-confirm-summary::-webkit-scrollbar-thumb:hover {
-    background: rgba(194, 38, 38, 0.85);
-}
-
+.order-confirm-summary::-webkit-scrollbar { width: 4px; }
+.order-confirm-summary::-webkit-scrollbar-button { display: none; }
+.order-confirm-summary::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.06); border-radius: 10px; }
+.order-confirm-summary::-webkit-scrollbar-thumb { background: rgba(194, 38, 38, 0.55); border-radius: 10px; transition: background 0.2s; }
+.order-confirm-summary::-webkit-scrollbar-thumb:hover { background: rgba(194, 38, 38, 0.85); }
 .order-confirm-item {
     display: flex;
     justify-content: space-between;
@@ -1244,96 +897,19 @@
     padding: 8px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
-
-.order-confirm-item:last-child {
-    border-bottom: none;
-}
-
-.order-confirm-item-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-    min-width: 0;
-}
-
-.order-confirm-item-img {
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    object-fit: cover;
-    flex-shrink: 0;
-}
-
-.order-confirm-item-name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.order-confirm-item-qty {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.45);
-}
-
-.order-confirm-item-price {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #fff;
-    white-space: nowrap;
-}
-
-.order-confirm-divider {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.1);
-    margin: 16px 0;
-}
-
-.order-confirm-breakdown {
-    text-align: left;
-    padding-right: 8px;
-}
-
-.order-confirm-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.88rem;
-    color: rgba(255, 255, 255, 0.7);
-    padding: 6px 0;
-}
-
-.order-confirm-row.total {
-    color: #fff;
-    font-weight: 800;
-    font-size: 1rem;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    margin-top: 6px;
-}
-
-.order-confirm-pay-simple {
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: rgba(255,255,255,0.55);
-    margin-bottom: 14px;
-    text-align: left;
-}
-
-.order-confirm-pay-simple strong {
-    color: #fff;
-    font-weight: 700;
-}
-
-.order-confirm-actions {
-    margin-top: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
+.order-confirm-item:last-child { border-bottom: none; }
+.order-confirm-item-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.order-confirm-item-img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.order-confirm-item-name { font-size: 0.85rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.order-confirm-item-qty { font-size: 0.75rem; color: rgba(255, 255, 255, 0.45); }
+.order-confirm-item-price { font-size: 0.85rem; font-weight: 700; color: #fff; white-space: nowrap; }
+.order-confirm-divider { height: 1px; background: rgba(255, 255, 255, 0.1); margin: 16px 0; }
+.order-confirm-breakdown { text-align: left; padding-right: 8px; }
+.order-confirm-row { display: flex; justify-content: space-between; font-size: 0.88rem; color: rgba(255, 255, 255, 0.7); padding: 6px 0; }
+.order-confirm-row.total { color: #fff; font-weight: 800; font-size: 1rem; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.15); margin-top: 6px; }
+.order-confirm-pay-simple { font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.55); margin-bottom: 14px; text-align: left; }
+.order-confirm-pay-simple strong { color: #fff; font-weight: 700; }
+.order-confirm-actions { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .order-confirm-place {
     width: 100%;
     padding: 14px;
@@ -1353,17 +929,8 @@
     gap: 8px;
     box-shadow: 0 4px 18px rgba(194, 38, 38, 0.4);
 }
-
-.order-confirm-place:hover {
-    opacity: 0.92;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(194, 38, 38, 0.55);
-}
-
-.order-confirm-place:active {
-    transform: translateY(0);
-}
-
+.order-confirm-place:hover { opacity: 0.92; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(194, 38, 38, 0.55); }
+.order-confirm-place:active { transform: translateY(0); }
 .order-confirm-cancel {
     width: 100%;
     padding: 12px;
@@ -1377,338 +944,30 @@
     cursor: pointer;
     transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
-
-.order-confirm-cancel:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.3);
+.order-confirm-cancel:hover { color: #fff; background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.3); }
+/* ── Shared zoom-in animation ── */
+@keyframes zoomIn {
+from { transform: scale(0.9); opacity: 0; }
+to   { transform: scale(1);   opacity: 1; }
 }
 
-/* =====================================================
-   CUSTOM SCROLLBAR — Hidden
-   ===================================================== */
-::-webkit-scrollbar {
-    display: none;
-}
-
-* {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-/* =====================================================
-   CART EMPTY TOAST NOTIFICATION
-   ===================================================== */
-.cart-toast {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.9);
-    background: #222;
-    border: 1px solid rgba(194, 38, 38, 0.4);
-    border-radius: 16px;
-    padding: 24px 28px;
-    text-align: center;
-    z-index: 10000;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.25s cubic-bezier(.16, 1, .3, 1);
-    max-width: 300px;
-    width: 90%;
-}
-
-.cart-toast.show {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-    pointer-events: auto;
-}
-
-.cart-toast-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    background: rgba(194, 38, 38, 0.12);
-    border: 1px solid rgba(194, 38, 38, 0.35);
+.xendit-recipient-badge {
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    border-radius: 15px;
+    padding: 10px 14px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 1.4rem;
-    color: #C22626;
-    margin: 0 auto 14px;
-}
-
-.cart-toast-title {
-    font-family: 'Aclonica', sans-serif;
-    font-size: 1.1rem;
-    color: #fff;
-    margin-bottom: 6px;
-}
-
-.cart-toast-text {
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.55);
-    line-height: 1.5;
-    margin-bottom: 18px;
-}
-
-.cart-toast-btn {
-    padding: 10px 24px;
-    background: linear-gradient(135deg, #C22626, #8B0A1E);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.88rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.2s;
-}
-
-.cart-toast-btn:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-}
-
-.cart-toast-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 9999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s;
-}
-
-.cart-toast-overlay.show {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-/* =====================================================
-   DELIVERY NOTICE OVERLAY
-   ===================================================== */
-.delivery-notice-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    animation: authFadeIn 0.25s ease;
-}
-
-
-.delivery-notice-overlay.show {
-    display: flex;
-}
-
-.delivery-notice-modal {
-    background: #222;
-    border: 1px solid rgba(194, 38, 38, 0.4);
-    border-radius: 20px;
-    width: 100%;
-    max-width: 420px;
-    padding: 36px 32px 32px;
-    text-align: center;
-    position: relative;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-    animation: deliverySlideUp 0.35s cubic-bezier(.16, 1, .3, 1);
-}
-
-@keyframes deliverySlideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.delivery-notice-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    background: rgba(194, 38, 38, 0.12);
-    border: 1px solid rgba(194, 38, 38, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.8rem;
-    color: #C22626;
-    margin: 0 auto 20px;
-}
-
-.delivery-notice-title {
-    font-family: 'Aclonica', sans-serif;
-    font-size: 1.35rem;
-    color: #fff;
-    margin-bottom: 14px;
-}
-
-.delivery-notice-text {
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
-    line-height: 1.7;
-    margin-bottom: 28px;
-}
-
-.delivery-notice-btn {
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #C22626, #8B0A1E);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-    letter-spacing: 0.03em;
-    transition: opacity 0.2s, box-shadow 0.2s, transform 0.2s;
-}
-
-.delivery-notice-btn:hover {
-    opacity: 0.92;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(194, 38, 38, 0.45);
-}
-
-/* =====================================================
-   TOP NOTIFICATION BAR (Outside Cart)
-   ===================================================== */
-.top-notif {
-    display: none;
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 14px 24px;
-    border-radius: 12px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    font-family: 'Be Vietnam Pro', sans-serif;
-    z-index: 10010;
-    animation: topNotifSlideIn 0.25s cubic-bezier(.16, 1, .3, 1);
-    align-items: center;
-    justify-content: center;
-    flex-direction: row;
     gap: 10px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    text-align: center;
-}
-
-@keyframes topNotifSlideIn {
-    from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
-}
-
-@keyframes topNotifSlideOut {
-    from {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-20px);
-    }
-}
-
-.top-notif.show {
-    display: flex;
-}
-
-.top-notif.hiding {
-    animation: topNotifSlideOut 0.2s cubic-bezier(.16, 1, .3, 1) forwards;
-}
-
-.top-notif .top-notif-icon {
-    font-size: 1.1rem;
-}
-
-.top-notif.success {
-    background: #22c55e;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.top-notif.error {
-    background: #ef4444;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.top-notif.info {
-    background: #000;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    text-align: center;
-}
-
-/* =====================================================
-   TRACK ORDER SPEECH BUBBLE
-   ===================================================== */
-.track-speech-bubble {
-    position: fixed;
-    bottom: 110px;
-    right: 22px;
-    background: #fff;
-    color: #1a1a1a;
-    font-family: 'Be Vietnam Pro', sans-serif;
+    color: #2ecc71;
     font-size: 0.82rem;
-    font-weight: 700;
-    padding: 10px 16px;
-    border-radius: 14px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(194,38,38,0.12);
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    z-index: 10030;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(10px) scale(0.92);
-    transition: opacity 0.35s cubic-bezier(.16,1,.3,1), transform 0.35s cubic-bezier(.16,1,.3,1);
+    margin-bottom: 5px;
+    animation: fadeIn 0.3s ease;
 }
+.xendit-recipient-badge i { font-size: 1rem; }
+.xendit-recipient-badge strong { color: #fff; font-weight: 700; }
 
-.track-speech-bubble i {
-    color: #C22626;
-    font-size: 0.9rem;
-}
-
-.track-speech-bubble.show {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0) scale(1);
-}
-
-/* Tail pointing down-right toward the cart button */
-.track-speech-tail {
-    position: absolute;
-    bottom: -9px;
-    right: 22px;
-    width: 0;
-    height: 0;
-    border-left: 9px solid transparent;
-    border-right: 9px solid transparent;
-    border-top: 10px solid #fff;
-    filter: drop-shadow(0 3px 3px rgba(0,0,0,0.08));
-}
-
-/* Gentle bounce to attract attention */
-@keyframes speechBounce {
-    0%, 100% { transform: translateY(0) scale(1); }
-    40%       { transform: translateY(-5px) scale(1.03); }
-    60%       { transform: translateY(-2px) scale(1.01); }
-}
-
-.track-speech-bubble.show {
-    animation: speechBounce 1.2s ease 0.4s 2;
+.map-suggestion-item:hover {
+    background: rgba(194, 38, 38, 0.2) !important;
+    color: #fff !important;
 }

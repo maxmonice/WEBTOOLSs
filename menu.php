@@ -1,4 +1,7 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once __DIR__ . '/menuDb.php';
 $pdo = getDBConnection();
 
@@ -34,8 +37,9 @@ foreach ($allItems as $item) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="menu.css">
-    <link rel="stylesheet" href="carT.css">
+    <link rel="stylesheet" href="style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="menu.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="carT.css?v=<?= time() ?>">
 
 </head>
 <body>
@@ -53,9 +57,9 @@ foreach ($allItems as $item) {
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-<a href="account.php" class="nav-account-icon" id="navAccountIcon" title="Account">
+                <a href="account.php" class="nav-account-icon" id="navAccountIcon" title="Account" onclick="const b=document.getElementById('orderSpeechBubble'); if(b) b.classList.remove('show');">
                     <i class="fas fa-user-circle"></i>
-                    <div class="order-speech-bubble" id="orderSpeechBubble" onclick="window.location.href='account.php'">Track your order here</div>
+                    <div class="order-speech-bubble" id="orderSpeechBubble">Track your order here</div>
                 </a>
             </nav>
         </div>
@@ -133,7 +137,7 @@ foreach ($allItems as $item) {
     <!-- Item Modal Popup (UNCHANGED) -->
     <div class="modal" id="itemModal">
         <div class="modal-content">
-            <button class="modal-close" id="modalClose">&#x2715;</button>
+            <button class="modal-close" id="modalClose"><i class="fa-solid fa-x" style="color: rgb(0, 0, 0);"></i></button>
             <img src="" alt="" class="modal-image" id="modalImage">
             <div class="modal-body">
                 <div class="modal-top-row">
@@ -213,7 +217,7 @@ foreach ($allItems as $item) {
     </footer>
 
 <?php include 'carT.php'; ?>
-    <script src="carT.js"></script>
+    <script src="carT.js?v=<?= time() ?>"></script>
 
     <script src="menu.js?v=<?= time() ?>"></script>
 

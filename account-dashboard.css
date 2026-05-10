@@ -8,7 +8,7 @@
             --surface:    #222222;
             --surface2:   #2a2a2a;
             --border:     rgba(255,255,255,0.07);
-            --border-red: rgba(194,38,38,0.35);
+            --border-red: rgba(255,255,255,0.08);
             --text:       #f0ece6;
             --muted:      rgba(255,255,255,0.45);
         }
@@ -25,8 +25,8 @@
         .nav-menu { display: flex; align-items: center; gap: 30px; }
         .nav-menu a { color: rgba(255,255,255,0.88); text-decoration: none; font-weight: 500; font-size: 0.95rem; letter-spacing: 0.03em; position: relative; transition: color 0.3s; }
         .nav-menu a:hover { color: #fff; }
-.nav-account-icon { display: flex !important; align-items: center; font-size: 1.35rem !important; color: white !important; transition: transform 0.2s, opacity 0.2s !important; opacity: 0.9; }
-        .nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
+.nav-account-icon { display: flex !important; align-items: center; font-size: 1.35rem !important; color: white !important; transition: opacity 0.2s !important; opacity: 0.9; }
+        .nav-account-icon:hover { opacity: 1 !important; }
         .nav-account-icon.active::after { display: none !important; }
         
 /* Speech bubble for "track your order" - shows after placing order */
@@ -44,7 +44,7 @@
         .page-title { font-family: 'Aclonica', sans-serif; font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.15; margin-bottom: 40px; }
 
         .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 20px; transition: border-color 0.3s; }
-        .section-block:hover { border-color: var(--border-red); }
+        .section-block:hover { border-color: rgba(255,255,255,0.12); }
         .section-label { display: flex; align-items: center; gap: 10px; padding: 14px 22px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
         .section-label i { color: var(--red); font-size: 0.85rem; }
 
@@ -211,13 +211,30 @@
         .track-actions { display:flex; gap:10px; }
         .btn-view-map { flex:1; padding:10px; background:linear-gradient(135deg,var(--red),var(--red-dark)); color:#fff; border:none; border-radius:9px; font-family:'Be Vietnam Pro',sans-serif; font-size:0.82rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; transition:opacity 0.2s,box-shadow 0.2s; }
         .btn-view-map:hover { opacity:0.9; box-shadow:0 4px 16px rgba(194,38,38,0.4); }
-        .btn-received { flex:1; padding:10px; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:9px; font-family:'Be Vietnam Pro',sans-serif; font-size:0.82rem; font-weight:700; cursor:pointer; transition:color 0.2s,border-color 0.2s; }
-        .btn-received:hover { color:var(--text); border-color:rgba(255,255,255,0.25); }
+        .btn-received { flex:1; padding:12px; background:linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%); color:#fff; border:none; border-radius:10px; font-family:'Be Vietnam Pro',sans-serif; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.3s; box-shadow: 0 4px 15px rgba(194,38,38,0.3); }
+        .btn-received:hover:not(:disabled) { transform:translateY(-2px); box-shadow: 0 6px 20px rgba(194,38,38,0.4); filter: brightness(1.1); }
+        .btn-received:disabled { background:var(--surface2); color:var(--muted); opacity:0.6; cursor:not-allowed; box-shadow:none; border:1px solid var(--border); }
+        
+        .btn-cancel-order { flex:1; padding:12px; background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.4); border:1px solid rgba(255,255,255,0.08); border-radius:10px; font-family:'Be Vietnam Pro',sans-serif; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
+        .btn-cancel-order:hover:not(:disabled) { color:#ef4444; border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.05); }
+        .btn-cancel-order:disabled { opacity:0.3; cursor:not-allowed; filter:grayscale(1); }
+
+        /* Rating System */
+        .rating-stars { display:flex; gap:10px; justify-content:center; margin:15px 0 25px 0; }
+        .star-btn:hover, .star-btn.hovered { color: #f59e0b !important; transform: scale(1.2); }
+        .star-btn.active { color: #f59e0b !important; }
+        .rating-ignore { width:100%; padding:10px; margin-top:5px; background:transparent; border:none; color:var(--muted); font-size:0.85rem; cursor:pointer; text-decoration:underline; transition:color 0.2s; }
+        .rating-ignore:hover { color:#fff; }
+
+        .food-rating-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; margin: 40px 0; animation: slideUp 0.3s ease; }
+        .food-rating-title { font-size:0.9rem; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+        .food-rating-title i { color:var(--red); }
+        .food-rating-desc { font-size:0.75rem; color:var(--muted); margin-bottom:15px; }
 
         /* Fullscreen map overlay */
-        .map-fullscreen-overlay { display:none; position:fixed; inset:0; z-index:9000; background:#111827; flex-direction:column; }
-        .map-fullscreen-overlay.open { display:flex; animation:fadeIn 0.2s ease; }
-        .map-fs-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:rgba(0,0,0,0.6); backdrop-filter:blur(10px); position:relative; z-index:10; border-bottom:1px solid rgba(255,255,255,0.08); }
+        .map-fullscreen-overlay { display:none; position:fixed; top: 100px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 500px; height: 75vh; z-index:9000; background:#111827; flex-direction:column; border-radius: 24px; overflow: hidden; border: 1px solid var(--border-red); box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+        .map-fullscreen-overlay.open { display:flex; animation: slideUp 0.3s ease-out; }
+        .map-fs-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background: linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%); backdrop-filter:blur(10px); position:relative; z-index:10; border-bottom:1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .map-fs-title { font-family:'Aclonica',sans-serif; font-size:1rem; color:#fff; }
         .map-fs-close { width:36px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.85rem; transition:background 0.2s; }
         .map-fs-close:hover { background:rgba(255,255,255,0.16); }

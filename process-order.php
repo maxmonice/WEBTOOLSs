@@ -64,6 +64,7 @@ if (empty($data) && !empty($_POST)) {
         'paymentMethod'  => $paymentMethod,
         'paymentDetails' => $paymentDetails,
         'subtotal'       => $subtotal,
+        'tax'            => $subtotal * 0.12,
         'shipping'       => 50,
         'total'          => (float)$totalRaw,
     ];
@@ -107,14 +108,23 @@ try {
     ], JSON_UNESCAPED_UNICODE);
 
     $stmt = $pdo->prepare("
-        INSERT INTO orders (user_id, user_name, user_email, status, total_amount, address, delivery_latitude, delivery_longitude, payment_method, notes, created_at, updated_at)
-        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO orders (user_id, user_name, user_email, status, subtotal, tax, shipping, total_amount, address, delivery_latitude, delivery_longitude, payment_method, notes, created_at, updated_at)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     ");
-    $stmt->execute([$sessionUserId, $userName, $userEmail, $total, $address, $lat, $lng, $paymentMethod, $orderNotes]);
+    $stmt->execute([
+        $sessionUserId, $userName, $userEmail, 
+        floatval($data['subtotal'] ?? 0), 
+        floatval($data['tax'] ?? 0), 
+        floatval($data['shipping'] ?? 0), 
+        $total, $address, $lat, $lng, $paymentMethod, $orderNotes
+    ]);
     $orderId = (int) $pdo->lastInsertId();
 
     $itemCount = count($items);
     logActivity('order_placed', "Order #{$orderId} placed — {$itemCount} item(s) — ₱{$total}", $userEmail, $userName);
+
+    require_once __DIR__ . '/includes/send-receipt.php';
+    sendOrderReceiptEmail($userEmail, $userName, $orderId, $items, floatval($data['subtotal'] ?? 0), floatval($data['shipping'] ?? 0), $total, $paymentMethod, floatval($data['tax'] ?? 0));
 
     echo json_encode(['success' => true, 'order_id' => $orderId, 'message' => 'Order created successfully']);
 

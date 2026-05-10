@@ -143,19 +143,34 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 return;
             }
 
-            // Try fetching from backend
             try {
-                const url = orderId ? `get-order.php?order_id=${orderId}` : 'get-order.php';
-                const res = await fetch(url, { credentials: 'include' });
+                const url = (orderId ? `get-order.php?order_id=${orderId}` : 'get-order.php') + `&t=${Date.now()}`;
+                const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
                 const data = await res.json();
+                console.log('🔄 Polling Order Status:', data);
                 if (data.success && data.order) {
-                    _currentOrder = data.order;
-                    renderOrderCard(section, data.order);
+                    const order = data.order;
+                    console.log('📦 Current Status:', order.status, 'Updated At:', order.updated_at);
+                    
+                    // ── Auto-clear if delivered for > 30 mins ──
+                    if (order.status === 'delivered' && order.updated_at) {
+                        const deliveredTime = new Date(order.updated_at.replace(' ', 'T')).getTime(); // Better ISO support
+                        const now = new Date().getTime();
+                        const diffMins = (now - deliveredTime) / (1000 * 60);
+                        console.log('🕒 Minutes since delivery:', diffMins.toFixed(1));
+                        if (diffMins >= 30) {
+                            console.log('🕒 Auto-clearing (30 min limit reached)');
+                            clearOrderTracking(true);
+                            return;
+                        }
+                    }
+
+                    _currentOrder = order;
+                    renderOrderCard(section, order);
                     return;
                 }
-            } catch (e) { /* fallback below */ }
+            } catch (e) { /* fallback */ }
 
-            // Fallback: show generic pending state if localStorage says pending
             if (hasPending) {
                 renderGenericPending(section);
             } else {
@@ -165,16 +180,16 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         function statusToStep(status) {
             if (status === 'delivered') return 3;
-            // Backend uses 'shipped' when rider is en route (see rider-orders-api.php)
             if (status === 'shipped' || status === 'on_the_way' || status === 'picked_up' || status === 'on_route') return 2;
             return 1;
         }
 
         function renderOrderCard(section, order) {
             const step = statusToStep(order.status);
+            const isOnTheWay = (step === 2);
             const fmt  = n => '₱' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
-            const payLabel = { cod:'Cash on Delivery', gcash:'GCash', card:'Credit / Debit Card' };
-            if (Number.isFinite(Number(order.delivery_latitude)) && Number.isFinite(Number(order.delivery_longitude))) {
+            
+            if (isOnTheWay && Number.isFinite(Number(order.delivery_latitude)) && Number.isFinite(Number(order.delivery_longitude))) {
                 DEST_LAT = Number(order.delivery_latitude);
                 DEST_LNG = Number(order.delivery_longitude);
             }
@@ -182,7 +197,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             section.innerHTML = `
             <div class="order-track-card">
                 <div class="order-track-header">
-                    <span class="order-track-badge"><span class="dot"></span>${order.status.replace(/_/g,' ')}</span>
+                    <span class="order-track-badge ${isOnTheWay?'live':''}"><span class="dot"></span>${order.status.replace(/_/g,' ')}</span>
                     <span class="order-track-id">Order #${order.id}</span>
                 </div>
                 <div class="order-track-address">
@@ -190,14 +205,20 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     <span>${order.address}</span>
                 </div>
 
-                <!-- Mini animated map -->
+                ${step === 2 ? `
                 <div class="mini-map-wrap" onclick="openMapFullscreen()" title="Click to expand">
                     <div id="customer-mini-map" style="width:100%; height:100%; border-radius:12px; z-index:1; pointer-events:none;"></div>
-                    <div class="map-label" style="z-index:10;">Tap to view full map</div>
+                    <div class="map-label" style="z-index:10;">Tap to view live rider</div>
                     <div class="map-expand-hint" style="z-index:10;"><i class="fas fa-expand-alt"></i> Full screen</div>
                 </div>
+                ` : `
+                <div class="pending-status-info" style="background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.1); border-radius:12px; padding:20px; text-align:center; margin-bottom:15px; margin-top:15px;">
+                    <i class="fas fa-utensils" style="font-size:1.5rem; color:var(--red); margin-bottom:10px; display:block;"></i>
+                    <p style="font-size:0.85rem; color:#fff; margin-bottom:4px;">${step === 3 ? 'Order Delivered!' : 'Preparing your Order'}</p>
+                    <small style="color:var(--muted); font-size:0.75rem;">${step === 3 ? 'Your food has arrived safely. Enjoy!' : 'Tracking will be available once the rider picks up your order.'}</small>
+                </div>
+                `}
 
-                <!-- Progress -->
                 <div class="track-progress">
                     <div class="track-step">
                         <div class="track-dot ${step>=1?'done':''}"><i class="fas fa-check" style="font-size:0.55rem"></i></div>
@@ -215,50 +236,61 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     </div>
                 </div>
 
-                <!-- Info row -->
-                <div style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;display:flex;gap:14px;flex-wrap:wrap;">
-                    <span><i class="fas fa-receipt" style="color:var(--red);margin-right:4px"></i>${fmt(order.total_amount)}</span>
-                    <span><i class="fas fa-wallet" style="color:var(--red);margin-right:4px"></i>${payLabel[order.payment_method]||order.payment_method}</span>
-                </div>
-
-                <div class="track-actions">
-                    <button class="btn-view-map" onclick="openMapFullscreen()">
-                        <i class="fas fa-map-marked-alt"></i> View Full Map
+                <div class="track-actions" style="display:flex; flex-direction:column; gap:10px; width:100%;">
+                    ${isOnTheWay ? `
+                    <button class="btn-view-map" onclick="window.openMapFullscreen()" style="width:100%; background:linear-gradient(135deg,#C22626,#8B0A1E); border:none; color:#fff; padding:14px; border-radius:10px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 15px rgba(194,38,38,0.3); cursor:pointer; transition: transform 0.2s;">
+                        <i class="fas fa-map-marked-alt"></i> Track Rider Live
                     </button>
-                    <button class="btn-received" onclick="clearOrderTracking()">
-                        <i class="fas fa-check-circle"></i> Mark Received
+                    ` : ''}
+                    <button class="btn-received" onclick="window.markAsReceived()" 
+                        style="width:100%; padding:14px; border-radius:10px; ${order.status !== 'delivered' ? 'opacity:0.5; cursor:not-allowed; filter:grayscale(1);' : ''}"
+                        ${order.status !== 'delivered' ? 'disabled' : ''}>
+                        <i class="fas fa-check-circle"></i> ${order.status === 'delivered' ? 'Mark Received' : 'Waiting for Delivery'}
                     </button>
+                    
+                    ${order.status === 'pending' || order.status === 'preparing' ? `
+                    <button class="btn-cancel-order" onclick="window.cancelOrder(${order.id})" style="width:100%; padding:12px;">
+                        <i class="fas fa-times-circle"></i> Cancel Order
+                    </button>
+                    ` : order.status === 'on_the_way' || order.status === 'picked_up' ? `
+                     <button class="btn-cancel-order" disabled title="Cannot cancel while rider is on route" style="width:100%; padding:12px; opacity:0.3;">
+                        <i class="fas fa-times-circle"></i> Cancel Order
+                    </button>
+                    ` : ''}
                 </div>
             </div>`;
 
-            // Pre-fill fullscreen map address
             const fsAddr = document.getElementById('fsAddress');
             if (fsAddr) fsAddr.textContent = order.address;
 
-            // Initialize the mini map preview immediately after DOM injection
-            setTimeout(initCustomerMiniMap, 50);
+            if (isOnTheWay) {
+                setTimeout(initCustomerMiniMap, 50);
+            }
         }
 
-        function renderGenericPending(section) {
+        function renderGenericPending(section, order) {
+            const orderIdText = order && order.id ? `<span class="order-track-id">Order #${order.id}</span>` : '';
             section.innerHTML = `
             <div class="order-track-card">
                 <div class="order-track-header">
                     <span class="order-track-badge"><span class="dot"></span>Pending</span>
+                    ${orderIdText}
                 </div>
                 <div class="order-track-address"><i class="fas fa-clock"></i><span>Your order is being processed…</span></div>
-                <div class="mini-map-wrap" onclick="openMapFullscreen()">
-                    <div class="map-grid-bg"></div>
-                    <div class="map-road-h" style="top:35%;height:14px"></div>
-                    <div class="map-road-v" style="left:30%;width:12px"></div>
-                    <div class="map-route"></div>
-                    <div class="map-rider-pin"><div class="map-rider-pulse"><i class="fas fa-motorcycle map-rider-icon"></i></div></div>
-                    <div class="map-dest-pin"><div class="map-dest-inner"><i class="fas fa-home" style="font-size:0.65rem"></i></div></div>
-                    <div class="map-label">Tap to view full map</div>
-                    <div class="map-expand-hint"><i class="fas fa-expand-alt"></i> Full screen</div>
+                
+                <div class="pending-status-info" style="background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.1); border-radius:12px; padding:20px; text-align:center; margin-bottom:15px; margin-top:15px;">
+                    <i class="fas fa-utensils" style="font-size:1.5rem; color:var(--red); margin-bottom:10px; display:block;"></i>
+                    <p style="font-size:0.85rem; color:#fff; margin-bottom:4px;">Preparing your Order</p>
+                    <small style="color:var(--muted); font-size:0.75rem;">Tracking will be available once the rider picks up your order.</small>
                 </div>
-                <div class="track-actions">
-                    <button class="btn-view-map" onclick="openMapFullscreen()"><i class="fas fa-map-marked-alt"></i> View Map</button>
-                    <button class="btn-received" onclick="clearOrderTracking()"><i class="fas fa-check-circle"></i> Mark Received</button>
+
+                <div class="track-actions" style="margin-top:10px; width:100%; flex-direction:column;">
+                    <button class="btn-received" disabled style="width:100%; opacity:0.5; cursor:not-allowed; filter:grayscale(1);">
+                        <i class="fas fa-check-circle"></i> Waiting for Delivery
+                    </button>
+                    <button class="btn-cancel-order" onclick="cancelOrder()" style="margin-top:8px; width:100%;">
+                        <i class="fas fa-times-circle"></i> Cancel Order
+                    </button>
                 </div>
             </div>`;
         }
@@ -308,7 +340,6 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         function initCustomerMap() {
             if (customerMap) {
-                // Resize map if already initialized
                 setTimeout(() => customerMap.invalidateSize(), 100);
                 return;
             }
@@ -318,7 +349,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
             customerMap = L.map(mapContainer, { zoomControl: false }).setView([14.545, 121.050], 14);
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
                 subdomains: 'abcd',
                 maxZoom: 20
@@ -327,12 +358,12 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             customerRiderMarker = L.marker([0, 0], { icon: cRiderIcon }).addTo(customerMap);
             customerDestMarker = L.marker([DEST_LAT, DEST_LNG], { icon: cDestIcon }).addTo(customerMap);
 
-            setupSocketListener(); // Setup socket if not already done
+            setupSocketListener();
         }
 
         function initCustomerMiniMap() {
             const container = document.getElementById('customer-mini-map');
-            if (!container || miniMap) return; // Only init once
+            if (!container || miniMap) return;
 
             miniMap = L.map(container, {
                 zoomControl: false,
@@ -344,7 +375,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 keyboard: false
             }).setView([14.545, 121.050], 14);
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; CARTO',
                 subdomains: 'abcd',
                 maxZoom: 20
@@ -353,7 +384,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             miniRiderMarker = L.marker([0, 0], { icon: cRiderIcon }).addTo(miniMap);
             miniDestMarker = L.marker([DEST_LAT, DEST_LNG], { icon: cDestIcon }).addTo(miniMap);
 
-            setupSocketListener(); // Ensure socket is connected to move mini map too
+            setupSocketListener();
         }
 
         let socketSetupDone = false;
@@ -370,16 +401,13 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 });
 
                 trackingSocket.on('receive-location', (data) => {
-                    // data contains lat and lng directly from the server
                     const newLatLng = [data.lat, data.lng];
                     
-                    // Update fullscreen marker & route
                     if (customerRiderMarker) {
                         customerRiderMarker.setLatLng(newLatLng);
                         updateCustomerRoute(newLatLng, [DEST_LAT, DEST_LNG]);
                     }
                     
-                    // Update mini marker & route
                     if (miniRiderMarker) {
                         miniRiderMarker.setLatLng(newLatLng);
                         updateMiniRoute(newLatLng, [DEST_LAT, DEST_LNG]);
@@ -401,7 +429,6 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             
             customerMap.fitBounds([startLatLng, endLatLng], { padding: [30, 30] });
 
-            // Calculate ETA locally
             const distKm = getDistance(startLatLng[0], startLatLng[1], endLatLng[0], endLatLng[1]);
             const etaInMinutes = Math.max(1, Math.round((distKm / 20) * 60)); 
             const fsEtaEl = document.getElementById('fsEta');
@@ -439,7 +466,6 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             overlay.classList.add('open');
             document.body.style.overflow = 'hidden';
             
-            // Initialize or resize leafet map
             initCustomerMap();
         }
 
@@ -448,17 +474,199 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             document.body.style.overflow = '';
         }
 
-        function clearOrderTracking() {
+        window.clearOrderTracking = function(silent = false) {
             localStorage.removeItem('order_pending');
             localStorage.removeItem('order_id');
             _currentOrder = null;
             renderNoOrder(document.getElementById('orderTrackingSection'));
-            showToast('Order marked as received!');
+            if (!silent) showToast('Order marked as received!');
             if (trackingSocket) trackingSocket.disconnect();
-        }
+        };
 
-        // Close fullscreen map on Escape key
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMapFullscreen(); });
+        window.cancelOrder = function(id) {
+            const orderId = id || localStorage.getItem('order_id');
+            if (!orderId) return;
 
-        // Load on page init
+            const modal = document.getElementById('cancelOrderModal');
+            if (modal) {
+                modal.classList.add('open');
+                document.body.style.overflow = 'hidden';
+                
+                const confirmBtn = document.getElementById('confirmCancelBtn');
+                if (confirmBtn) {
+                    confirmBtn.onclick = () => window.confirmCancelOrder(orderId);
+                }
+            }
+        };
+
+        window.closeCancelModal = function() {
+            document.getElementById('cancelOrderModal')?.classList.remove('open');
+            document.body.style.overflow = '';
+        };
+
+        window.confirmCancelOrder = async function(orderId) {
+            const confirmBtn = document.getElementById('confirmCancelBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
+            }
+
+            try {
+                const res = await fetch('cancel-order.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Order cancelled successfully', 'success');
+                    window.closeCancelModal();
+                    window.clearOrderTracking(true);
+                } else {
+                    showToast(data.message || 'Failed to cancel order', 'error');
+                }
+            } catch (e) {
+                showToast('Server error during cancellation', 'error');
+            } finally {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = 'Yes, Cancel Order';
+                }
+            }
+        };
+
+        window.markAsReceived = function() {
+            const modal = document.getElementById('riderRatingModal');
+            if (modal && _currentOrder) {
+                // Populate Rider Name
+                const riderNameEl = document.getElementById('riderNamePlaceholder');
+                if (riderNameEl) riderNameEl.textContent = _currentOrder.rider_name || 'Delivery Rider';
+
+                // Populate Items list
+                const itemsEl = document.getElementById('foodRatingItems');
+                if (itemsEl && _currentOrder.items) {
+                    const items = _currentOrder.items;
+                    if (Array.isArray(items) && items.length > 0) {
+                        itemsEl.innerHTML = '<div style="font-weight:700; margin-bottom:5px; color:rgba(255,255,255,0.5)">Items ordered:</div>' + 
+                            items.map(it => `<div style="padding-left:10px;">• ${it.name} x ${it.quantity}</div>`).join('');
+                    } else {
+                        itemsEl.innerHTML = '';
+                    }
+                }
+
+                modal.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            }
+        };
+
+        window.closeRiderRating = function() {
+            document.getElementById('riderRatingModal')?.classList.remove('open');
+            document.body.style.overflow = '';
+            window.showFoodRatingCard();
+            window.clearOrderTracking(true);
+        };
+
+        window.ignoreRiderRating = function() {
+            window.closeRiderRating();
+        };
+
+        window.showFoodRatingCard = function() {
+            const modal = document.getElementById('foodRatingModal');
+            if (modal && _currentOrder) {
+                // Populate Items list
+                const itemsEl = document.getElementById('foodRatingItems');
+                if (itemsEl && _currentOrder.items) {
+                    const items = _currentOrder.items;
+                    if (Array.isArray(items) && items.length > 0) {
+                        itemsEl.innerHTML = '<div style="font-weight:700; margin-bottom:5px; color:rgba(255,255,255,0.5)">Items ordered:</div>' + 
+                            items.map(it => `<div style="padding-left:10px;">• ${it.name} x ${it.quantity}</div>`).join('');
+                    } else {
+                        itemsEl.innerHTML = '';
+                    }
+                }
+                modal.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            }
+        };
+
+        window.ignoreFoodRating = function() {
+            document.getElementById('foodRatingModal')?.classList.remove('open');
+            document.body.style.overflow = '';
+        };
+
+        window.initStars = function(containerId) {
+            const stars = document.querySelectorAll(`#${containerId} .star-btn`);
+            const container = document.getElementById(containerId);
+            
+            stars.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const val = parseInt(btn.dataset.val);
+                    stars.forEach(s => {
+                        const sVal = parseInt(s.dataset.val);
+                        s.classList.toggle('active', sVal <= val);
+                    });
+                    
+                    if (containerId === 'foodStars') {
+                        window._selectedFoodRating = val;
+                    } else if (containerId === 'riderStars') {
+                        window._selectedRiderRating = val;
+                    }
+                });
+                
+                btn.addEventListener('mouseenter', () => {
+                    const val = parseInt(btn.dataset.val);
+                    stars.forEach(s => {
+                        const sVal = parseInt(s.dataset.val);
+                        if (sVal <= val) s.classList.add('hovered');
+                        else s.classList.remove('hovered');
+                    });
+                });
+            });
+            
+            if (container) {
+                container.addEventListener('mouseleave', () => {
+                    stars.forEach(s => s.classList.remove('hovered'));
+                });
+            }
+        };
+
+        window.submitRiderRating = async function() {
+            const rating = window._selectedRiderRating || 0;
+            const comment = document.getElementById('riderComment')?.value || '';
+            
+            if (rating === 0) {
+                showToast('Please select a star rating', 'error');
+                return;
+            }
+
+            // In a real app, you'd fetch() to save-rating.php here
+            console.log('Submitting Rider Rating:', { rating, comment, orderId: _currentOrder?.id });
+            
+            showToast('Rider feedback submitted!');
+            window.closeRiderRating();
+        };
+
+        window.submitFoodRating = async function() {
+            const rating = window._selectedFoodRating || 0;
+            const comment = document.getElementById('foodComment')?.value || '';
+
+            if (rating === 0) {
+                showToast('Please select a star rating', 'error');
+                return;
+            }
+
+            // In a real app, you'd fetch() to save-rating.php here
+            console.log('Submitting Food Rating:', { rating, comment, orderId: _currentOrder?.id });
+
+            showToast('Food feedback submitted!');
+            window.ignoreFoodRating();
+        };
+
+        window.initStars('riderStars');
+        window.initStars('foodStars');
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeMapFullscreen(); });
+
         loadOrderTracking();
+        // Faster polling (10s) when an order is active to detect delivery instantly
+        setInterval(loadOrderTracking, 10000);

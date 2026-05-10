@@ -70,6 +70,36 @@
                 </div>
             </div>
 
+            <!-- Food Rating Section (appears after Mark Received) -->
+            <div id="foodRatingContainer" style="display:none;" class="section-block">
+                <div class="section-label"><i class="fas fa-utensils"></i> Rate your Food</div>
+                <div class="food-rating-card" style="text-align:center; border:none; margin:0; border-radius:0;">
+                    <p class="food-rating-desc" style="margin-top:15px;">How was the quality and taste of your seafood today?</p>
+                    
+                    <div class="rating-stars" id="foodStars" style="margin-bottom:15px;">
+                        <button class="star-btn" data-val="1"><i class="fas fa-star"></i></button>
+                        <button class="star-btn" data-val="2"><i class="fas fa-star"></i></button>
+                        <button class="star-btn" data-val="3"><i class="fas fa-star"></i></button>
+                        <button class="star-btn" data-val="4"><i class="fas fa-star"></i></button>
+                        <button class="star-btn" data-val="5"><i class="fas fa-star"></i></button>
+                    </div>
+                    
+                    <div id="foodRatingItems" style="margin-bottom:20px; font-size:0.75rem; color:rgba(255,255,255,0.4); line-height:1.6; text-align:left; background:rgba(255,255,255,0.02); padding:12px 15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); margin-left:22px; margin-right:22px;">
+                        <!-- Item list here -->
+                    </div>
+                    
+                    <div class="rating-comment-wrap" style="margin-top:15px; text-align:left; padding-left:22px; padding-right:22px;">
+                        <label style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; margin-bottom:8px; display:block;">Tell us more (Optional)</label>
+                        <textarea id="foodComment" placeholder="Was it fresh? How was the taste?" style="width:100%; height:70px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px; color:#fff; font-family:inherit; font-size:0.85rem; resize:none; outline:none; transition:border-color 0.2s;"></textarea>
+                    </div>
+                    
+                    <div style="padding: 0 22px 22px;">
+                        <button class="btn-save" style="width:100%; margin-top:20px; padding:14px; border-radius:10px;" onclick="submitFoodRating()">Submit Food Feedback</button>
+                        <button class="rating-ignore" onclick="ignoreFoodRating()" style="background:transparent; border:none; color:var(--muted); font-size:0.85rem; cursor:pointer; text-decoration:underline; padding:10px; transition:color 0.2s;">No Thanks</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Security -->
             <div class="section-block">
                 <div class="section-label"><i class="fa-solid fa-shield-halved"></i> Security</div>
@@ -132,7 +162,7 @@
     <div class="map-fullscreen-overlay" id="mapFullscreen">
         <div class="map-fs-header">
             <span class="map-fs-title"><i class="fas fa-motorcycle" style="color:#C22626;margin-right:8px;"></i>Live Tracking</span>
-            <button class="map-fs-close" onclick="closeMapFullscreen()"><i class="fas fa-xmark"></i></button>
+            <button class="map-fs-close" onclick="closeMapFullscreen()"><i class="fa-solid fa-x" style="color: rgb(255, 255, 255);"></i></button>
         </div>
         <div class="map-fs-body">
             <div id="customer-map-view"></div>
@@ -254,6 +284,44 @@
         </div>
     </div>
 
+    <!-- RIDER RATING MODAL -->
+    <div class="modal-overlay" id="riderRatingModal" style="align-items: flex-start; padding-top: 8vh;">
+        <div class="modal" style="max-width: 420px;">
+            <div class="modal-head" style="padding-bottom: 10px;">
+                <h3>Rate your Delivery Rider</h3>
+                <button class="modal-close" onclick="closeRiderRating()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="text-align:center; padding-top:15px; padding-bottom:10px;">
+                <div class="logout-confirm-icon" style="background:rgba(245,158,11,0.1); border-color:rgba(245,158,11,0.3); color:#f59e0b; width:60px; height:60px; font-size:1.6rem; margin:0 auto 15px;">
+                    <i class="fas fa-star"></i>
+                </div>
+                <h3 style="margin-bottom:12px;">How was the delivery?</h3>
+                <div id="riderRatingNameBtn" style="display:inline-block; margin-bottom:15px; padding:8px 20px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:30px; font-size:0.85rem; font-weight:700; color:#fff;">
+                    <i class="fas fa-motorcycle" style="color:var(--red); margin-right:8px;"></i><span id="riderNamePlaceholder">Delivery Rider</span>
+                </div>
+                <p style="font-size:0.85rem; color:var(--muted);">Your feedback helps our riders improve their service.</p>
+                
+                <div class="rating-stars" id="riderStars">
+                    <button class="star-btn" data-val="1"><i class="fas fa-star"></i></button>
+                    <button class="star-btn" data-val="2"><i class="fas fa-star"></i></button>
+                    <button class="star-btn" data-val="3"><i class="fas fa-star"></i></button>
+                    <button class="star-btn" data-val="4"><i class="fas fa-star"></i></button>
+                    <button class="star-btn" data-val="5"><i class="fas fa-star"></i></button>
+                </div>
+                
+                <div class="rating-comment-wrap" style="margin-top:15px; text-align:left;">
+                    <label style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; margin-bottom:8px; display:block;">Add a comment (Optional)</label>
+                    <textarea id="riderComment" placeholder="How was the service? (e.g. polite, fast, etc.)" style="width:100%; height:70px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px; color:#fff; font-family:inherit; font-size:0.85rem; resize:none; outline:none; transition:border-color 0.2s;"></textarea>
+                </div>
+                
+                <button class="btn-save" style="width:100%; margin-top:20px; padding:14px; border-radius:10px;" onclick="submitRiderRating()">Submit Rider Feedback</button>
+            </div>
+            <div class="modal-foot col" style="padding-top:0;">
+                <button class="rating-ignore" onclick="ignoreRiderRating()" style="background:transparent; border:none; color:var(--muted); font-size:0.85rem; cursor:pointer; text-decoration:underline; padding:10px; transition:color 0.2s;">No Thanks</button>
+            </div>
+        </div>
+    </div>
+
     <!-- LOGOUT CONFIRM MODAL -->
     <div class="modal-overlay" id="logoutModal">
         <div class="modal">
@@ -272,6 +340,41 @@
             </div>
         </div>
     </div>
+
+    <!-- CANCEL ORDER MODAL -->
+    <div class="modal-overlay" id="cancelOrderModal">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>Cancel Order</h3>
+                <button class="modal-close" onclick="closeCancelModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="logout-confirm-body">
+                <div class="logout-confirm-icon" style="background:rgba(239,68,68,0.1); border:none; color:#ef4444;">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                </div>
+                <h3>Cancel this order?</h3>
+                <p>This action cannot be undone. Are you sure you want to stop this order from being prepared?</p>
+            </div>
+            <div class="modal-foot col">
+                <button class="btn-logout-confirm btn-danger-gradient" id="confirmCancelBtn">Yes, Cancel Order</button>
+                <button class="btn-cancel" onclick="closeCancelModal()">No, Keep Order</button>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+    .btn-danger-gradient {
+        background: linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%) !important;
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(194, 38, 38, 0.3);
+        transition: all 0.3s ease;
+    }
+    .btn-danger-gradient:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(194, 38, 38, 0.4);
+        filter: brightness(1.1);
+    }
+    </style>
 
     <!-- TOAST -->
     <div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toastMsg">Done!</span></div>

@@ -73,18 +73,59 @@ if ($order) {
             <div style="font-size:0.9rem;opacity:0.8;">Delivering to:</div>
             <div class="address"><?= htmlspecialchars($order['address']) ?></div>
             <div class="eta-box">ETA: <span class="eta-val">--</span> mins</div>
-            <button class="deliver-btn" onclick="markDelivered()">Mark as Delivered</button>
+            <button class="deliver-btn" onclick="triggerDeliveryConfirm()">Mark as Delivered</button>
         </div>
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
             // Global variables for map.js
-            const ACTIVE_ORDER_ID = <?= $orderId ?>;
-            const DEST_LAT = <?= $order['delivery_latitude'] ?>;
-            const DEST_LNG = <?= $order['delivery_longitude'] ?>;
+            const ACTIVE_ORDER_ID = <?= (int)($orderId ?? 0) ?>;
+            const DEST_LAT = <?= (float)($order['delivery_latitude'] ?? 0) ?>;
+            const DEST_LNG = <?= (float)($order['delivery_longitude'] ?? 0) ?>;
         </script>
         <script src="map.js?v=<?= time() ?>"></script>
+        <script>
+            function triggerDeliveryConfirm() {
+                const modal = document.getElementById('confirmModal');
+                if (modal) {
+                    modal.classList.add('open');
+                } else {
+                    if (confirm('Are you sure you want to mark this order as delivered?')) {
+                        handleDeliverySuccess();
+                    }
+                }
+            }
+
+            function closeConfirmModal() {
+                document.getElementById('confirmModal')?.classList.remove('open');
+            }
+
+            function handleDeliverySuccess() {
+                const orderId = ACTIVE_ORDER_ID;
+                if (!orderId) {
+                    alert('❌ Error: Missing Order ID');
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('action', 'deliver_order');
+                fd.append('order_id', orderId);
+
+                fetch('rider-orders-api.php', { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            closeConfirmModal();
+                            alert('✅ Order delivered!');
+                            window.location.href = 'orders.php';
+                        } else {
+                            alert('❌ ' + (data.message || 'Error updating status'));
+                        }
+                    })
+                    .catch(() => alert('❌ Network error'));
+            }
+        </script>
         
         <?php endif; ?>
         </div>
@@ -102,6 +143,19 @@ if ($order) {
             <button class="nav-item" onclick="window.location.href='account.php'">
                 <i class="fas fa-user-circle"></i><span>Account</span>
             </button>
+        </div>
+
+        <!-- CUSTOM CONFIRMATION MODAL -->
+        <div class="custom-modal-overlay" id="confirmModal">
+            <div class="custom-modal-card">
+                <div class="modal-icon"><i class="fas fa-box-open"></i></div>
+                <div class="modal-title">Mark as Delivered?</div>
+                <div class="modal-msg">Are you sure you have successfully delivered this order to the customer's address?</div>
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-confirm" onclick="handleDeliverySuccess()">Yes, Delivered</button>
+                    <button class="modal-btn modal-btn-cancel" onclick="closeConfirmModal()">Cancel</button>
+                </div>
+            </div>
         </div>
     </div>
 </body>

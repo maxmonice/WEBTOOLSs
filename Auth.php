@@ -710,10 +710,26 @@ function handleCheckSession(): void {
             respond(false, 'Your account has been suspended.');
         }
         
+        // Fetch last used address and mobile from orders
+        $lastOrder = $db->prepare('SELECT address, payment_details FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5');
+        $lastOrder->execute([$_SESSION['user_id']]);
+        $orders = $lastOrder->fetchAll();
+        
+        $lastAddress = '';
+        $mobiles = [];
+        foreach ($orders as $o) {
+            if (!$lastAddress && !empty($o['address'])) $lastAddress = $o['address'];
+            $pd = json_decode($o['payment_details'] ?? '{}', true);
+            $m = $pd['mobile'] ?? $pd['codMobile'] ?? '';
+            if ($m && !in_array($m, $mobiles)) $mobiles[] = $m;
+        }
+        
         respond(true, 'Session active.', [
             'name' => $_SESSION['user_name'],
             'email' => $_SESSION['user_email'],
             'is_admin' => $_SESSION['is_admin'] ?? false,
+            'last_address' => $lastAddress,
+            'last_mobiles' => $mobiles,
         ]);
     }
 

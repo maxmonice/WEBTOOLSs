@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Luke's Seafood Trading — Premium seafood, sushi, maki, and bento boxes.">
     <title>Luke's Seafood Trading</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="style.css" />
-<link rel="stylesheet" href="carT.css">
+    <link rel="stylesheet" href="style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="carT.css?v=<?= time() ?>">
 
 </head>
 <body>
@@ -21,13 +23,15 @@
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
             <div class="menu-toggle" id="mobile-menu"><i class="fa-solid fa-bars"></i></div>
-<nav class="nav-menu" id="navMenu">
+            <nav class="nav-menu" id="navMenu">
                 <a href="index.php" class="active">Home</a>
                 <a href="menu.php">Menu</a>
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                <a href="account.php" class="nav-account-icon" title="Account"><i class="fas fa-user-circle"></i></a>
+                <a href="account.php" class="nav-account-icon" id="navAccountIcon" title="Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
             </nav>
         </div>
     </header>

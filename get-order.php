@@ -1,6 +1,6 @@
 <?php
-header('Content-Type: application/json');
 if (session_status() === PHP_SESSION_NONE) session_start();
+header('Content-Type: application/json');
 
 $sessionUserId = $_SESSION['user_id'] ?? null;
 $orderId = intval($_GET['order_id'] ?? 0);
@@ -16,18 +16,21 @@ try {
     // Fetch specific order by ID, or latest active for this user
     if ($orderId > 0) {
         $stmt = $pdo->prepare("
-            SELECT id, user_id, status, total_amount, address, payment_method, notes, created_at, updated_at,
-                   delivery_latitude, delivery_longitude
-            FROM orders WHERE id = ? LIMIT 1
+            SELECT o.*, u.name as rider_name
+            FROM orders o
+            LEFT JOIN users u ON o.rider_id = u.id
+            WHERE o.id = ? LIMIT 1
         ");
         $stmt->execute([$orderId]);
     } elseif ($sessionUserId) {
         $stmt = $pdo->prepare("
-            SELECT id, user_id, status, total_amount, address, payment_method, notes, created_at, updated_at,
-                   delivery_latitude, delivery_longitude
-            FROM orders
-            WHERE user_id = ? AND status NOT IN ('delivered','cancelled')
-            ORDER BY created_at DESC LIMIT 1
+            SELECT o.*, u.name as rider_name
+            FROM orders o
+            LEFT JOIN users u ON o.rider_id = u.id
+            WHERE o.user_id = ? 
+              AND (o.status NOT IN ('delivered','cancelled') 
+                   OR (o.status = 'delivered' AND o.updated_at > DATE_SUB(NOW(), INTERVAL 30 MINUTE)))
+            ORDER BY o.created_at DESC LIMIT 1
         ");
         $stmt->execute([$sessionUserId]);
     } else {
@@ -56,8 +59,10 @@ try {
             'delivery_latitude'  => isset($order['delivery_latitude']) ? floatval($order['delivery_latitude']) : null,
             'delivery_longitude' => isset($order['delivery_longitude']) ? floatval($order['delivery_longitude']) : null,
             'payment_method' => $order['payment_method'],
+            'rider_name'     => $order['rider_name'] ?? 'Your Rider',
             'items'          => $notes['items'] ?? [],
             'created_at'     => $order['created_at'],
+            'updated_at'     => $order['updated_at'],
         ],
     ]);
 

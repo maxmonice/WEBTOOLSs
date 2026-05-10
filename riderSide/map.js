@@ -57,9 +57,9 @@ function initMap() {
 
     map = L.map(mapContainer, { zoomControl: false }).setView(DEFAULT_CENTER, 14);
 
-    // CartoDB Dark Matter (Free, no API key needed, matches dark theme)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    // CartoDB Voyager (Light theme)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 20
     }).addTo(map);
@@ -164,17 +164,48 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function markDelivered() {
-    showToast('Order marked as delivered!');
-    // In a real app, send API call here
-    setTimeout(() => window.location.href = 'orders.php', 1500);
-}
+window.triggerDeliveryConfirm = function() {
+    alert('Delivery button pressed!');
+    const modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.classList.add('open');
+    } else {
+        console.error('confirmModal element not found');
+        if (confirm('Are you sure you want to mark this order as delivered?')) {
+            window.handleDeliverySuccess();
+        }
+    }
+};
+
+window.closeConfirmModal = function() {
+    document.getElementById('confirmModal')?.classList.remove('open');
+};
+
+window.handleDeliverySuccess = function() {
+    const orderId = typeof ACTIVE_ORDER_ID !== 'undefined' ? ACTIVE_ORDER_ID : null;
+    if (!orderId) {
+        showToast('❌ Error: Missing Order ID');
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('action', 'deliver_order');
+    fd.append('order_id', orderId);
+
+    fetch('rider-orders-api.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                window.closeConfirmModal();
+                showToast('✅ Order delivered!');
+                setTimeout(() => {
+                    window.location.href = 'orders.php';
+                }, 1500);
+            } else {
+                showToast('❌ ' + (data.message || 'Error updating status'));
+            }
+        })
+        .catch(() => showToast('❌ Network error'));
+};
 
 document.addEventListener('DOMContentLoaded', initMap);
-/* Appended from map.php */
-function markDelivered() {
-                const fd = new FormData();
-                fd.append('action', 'deliver_order');
-                fd.append('order_id', ACTIVE_ORDER_ID);
-                fetch('rider-orders-api.php', { method: 'POST', body: fd }).then(() => window.location.href='orders.php');
-            }
