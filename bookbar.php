@@ -16,7 +16,12 @@
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <link rel="stylesheet" href="bookbar.css">
+
 
 
 </head>
@@ -75,24 +80,38 @@
                         <div class="form-group">
                             <label class="form-label">
                                 Event Name:
-                                <input type="text" class="form-input" id="eventName" required>
+                                <input type="text" class="form-input" id="eventName" placeholder="Enter event name" required>
+                                <span class="error-message" id="eventNameError">Event name is required</span>
                             </label>
 
                             <label class="form-label">
                                 Address:
-                                <input type="text" class="form-input" id="address" required>
+                                <div style="position:relative; display:flex; gap:10px; margin-top:10px;">
+                                    <input type="text" class="form-input" id="address" style="flex:1; margin-top:0;" placeholder="Enter address or select on map" required>
+                                    <button type="button" class="map-select-btn" onclick="initLeafletMap()" title="Select on Map">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                    </button>
+                                </div>
+                                <span class="error-message" id="addressError">Please provide or select an address</span>
                             </label>
+
+
 
                             <div class="form-row">
                                 <label class="form-label">
                                     Event Date:
                                     <input type="text" id="eventDate" class="form-input" placeholder="Select date" readonly required>
+                                    <span class="error-message" id="eventDateError">Please select a date</span>
                                 </label>
                                 <label class="form-label">
                                     Event Time:
                                     <input type="text" id="eventTime" class="form-input" placeholder="Select time" readonly required>
+                                    <span class="error-message" id="eventTimeError">Please select a time</span>
                                 </label>
                             </div>
+
+
+
 
                             <label class="form-label">
                                 Event Type:
@@ -108,26 +127,31 @@
                                     <option value="seminar">Seminar/Workshop</option>
                                     <option value="teambuilding">Team Building</option>
                                     <option value="holiday">Holiday Party</option>
-                                    <option value="other">Other (Type in the notes)</option>
+                                    <option value="other">Other</option>
                                 </select>
+                                <span class="error-message" id="eventTypeError">Please select an event type</span>
                             </label>
 
                             <label class="form-label">
                                 Number of Guests:
                                 <select class="form-select" id="numGuests" required>
                                     <option value="" disabled selected>Select number of guests</option>
-                                    <option value="1-10">1-10 pax</option>
-                                    <option value="11-20">11-20 pax</option>
-                                    <option value="21-30">21-30 pax</option>
-                                    <option value="31-40">31-40 pax</option>
-                                    <option value="41-50">41-50 pax</option>
-                                    <option value="51-60">51-60 pax</option>
-                                    <option value="61-70">61-70 pax</option>
-                                    <option value="71-80">71-80 pax</option>
-                                    <option value="81-90">81-90 pax</option>
-                                    <option value="91-100">91-100 pax</option>
+                                    <option value="10-20">10 pax</option>
+                                    <option value="20-30">20 pax</option>
+                                    <option value="20-30">30 pax</option>
+                                    <option value="30-40">40 pax</option>
+                                    <option value="40-50">50 pax</option>
+                                    <option value="50-60">60 pax</option>
+                                    <option value="60-70">70 pax</option>
+                                    <option value="70-80">80 pax</option>
+                                    <option value="80-90">90 pax</option>
+                                    <option value="90-100">100 pax</option>
                                 </select>
+                                <span class="error-message" id="numGuestsError">Please select the number of guests</span>
                             </label>
+
+
+
                         </div>
 
                         <!-- Contact Details -->
@@ -136,19 +160,20 @@
                         <div class="form-group">
                             <label class="form-label">
                                 Full Name:
-                                <input type="text" class="form-input" id="fullName" required>
+                                <input type="text" class="form-input" id="fullName" placeholder="Enter your full name" required>
+                                <span class="error-message" id="fullNameError">Full name is required</span>
                             </label>
 
                             <div class="form-row">
                                 <label class="form-label">
                                     Contact Number:
-                                    <input type="tel" class="form-input" id="contactNumber" placeholder="09XX XXX XXXX" maxlength="11" required>
-                                    <span class="error-message" id="phoneError"></span>
+                                    <input type="text" class="form-input" id="contactNumber" placeholder="09XX XXX XXXX" required>
+                                    <span class="error-message" id="contactNumberError">Valid 11-digit mobile number required</span>
                                 </label>
                                 <label class="form-label">
                                     Email Address:
-                                    <input type="email" class="form-input" id="emailAddress" placeholder="example@gmail.com" required>
-                                    <span class="error-message" id="emailError"></span>
+                                    <input type="email" class="form-input" id="emailAddress" placeholder="example@email.com" required>
+                                    <span class="error-message" id="emailAddressError">Valid email address required</span>
                                 </label>
                             </div>
 
@@ -246,8 +271,10 @@
         </div>
     </div>
 
-    <!-- Flatpickr JavaScript -->
+    <!-- Flatpickr & Leaflet JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 
     <!-- ══ AUTH GUARD SCRIPT — must load BEFORE bookbar.js ══ -->
     <script src="bookbar-auth.js?v=<?= time() ?>"></script>

@@ -132,7 +132,8 @@ main { margin-top: 70px; }
     transition: transform 0.2s, opacity 0.2s !important;
     opacity: 0.9;
 }
-.nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
+.nav-account-icon:hover { opacity: 1 !important; }
+
 .nav-account-icon.active::after { display: none !important; }
 
 /* =====================================================
@@ -143,7 +144,7 @@ main { margin-top: 70px; }
     max-width: 900px;
     margin: 0 auto;
     padding: 0 20px;
-    border-left: none; /* ← ensure no left border on container */
+    border-left: none;
 }
 
 /* Form heading area */
@@ -152,15 +153,32 @@ main { margin-top: 70px; }
     letter-spacing: 0.02em;
 }
 
+.form-select option { 
+    background-color: #121212 !important; 
+    color: white !important; 
+    padding: 12px !important;
+}
+
 .form-box {
-    background: #7A1719; /* ← changed from var(--card) #222222 */
-    border: none;         /* ← removed red border line */
-    padding: 48px;
-    border-radius: 16px;
-    box-shadow: 0 10px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(194,38,38,0.08);
+    background: #121212;
+    border: 1px solid rgba(255,255,255,0.08);
+
+    padding: clamp(24px, 5vw, 56px);
+    border-radius: 24px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.8);
     margin-top: 40px;
-    margin-bottom: 60px;
+    margin-bottom: 80px;
     position: relative;
+    overflow: hidden;
+}
+
+/* Subtle gradient glow inside form-box */
+.form-box::before {
+    content: '';
+    position: absolute; top: -100px; right: -100px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(194,38,38,0.08) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 .form-title {
@@ -176,7 +194,7 @@ main { margin-top: 70px; }
     content: '';
     display: block;
     width: 96px; height: 2px;
-    background: linear-gradient(to right, var(--white), transparent);
+    background: linear-gradient(to right, var(--red), transparent);
     border-radius: 2px;
     margin-top: 0.4rem;
 }
@@ -200,18 +218,24 @@ main { margin-top: 70px; }
 .form-input,
 .form-select,
 .form-textarea {
-    margin-top: 8px;
-    padding: 13px 16px;
-    border-radius: 8px;
-    background: #2a2a2a;
+    margin-top: 10px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
     color: white;
     border: 1px solid rgba(255,255,255,0.08);
     font-size: 0.95rem;
     font-family: 'Be Vietnam Pro', sans-serif;
-    transition: border-color 0.25s, background 0.25s;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
     text-transform: none;
     letter-spacing: normal;
     font-weight: 400;
+    width: 100%;
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 120px;
 }
 
 .form-input:focus,
@@ -219,12 +243,40 @@ main { margin-top: 70px; }
 .form-textarea:focus {
     outline: none;
     border-color: var(--red);
-    background: #313131;
-    box-shadow: 0 0 0 3px rgba(194,38,38,0.12);
+    background: rgba(255,255,255,0.05);
+    box-shadow: 0 0 0 4px rgba(194,38,38,0.15);
 }
 
 .form-input::placeholder { color: rgba(255,255,255,0.3); }
-.form-select option { background-color: #2a2a2a; color: white; }
+.form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 20px center;
+    padding-right: 48px;
+    background-color: #222 !important; /* Solid background for dropdown */
+}
+
+
+.map-select-btn {
+    width: 54px;
+    height: 54px;
+    background: linear-gradient(135deg, var(--red), var(--red-deep));
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(194,38,38,0.3);
+}
+.map-select-btn:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 6px 20px rgba(194,38,38,0.4);
+}
 
 .form-row { display: flex; gap: 20px; }
 .form-row .form-label { flex: 1; }
@@ -248,24 +300,29 @@ main { margin-top: 70px; }
 .submit-btn:hover {
     background: var(--red);
     color: #fff;
-    box-shadow: 0 6px 28px rgba(194,38,38,0.45);
-    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(194,38,38,0.5);
 }
 
 .submit-btn:active { transform: translateY(0); }
 
 .error-message {
-    color: #ff8888;
-    font-size: 0.8rem;
-    margin-top: 5px;
+    color: #ff6b6b;
+    font-size: 0.78rem;
+    margin-top: 8px;
     display: none;
     text-transform: none;
     letter-spacing: normal;
-    font-weight: 400;
+    font-weight: 600;
+    animation: authFadeIn 0.3s ease;
 }
 .error-message.show { display: block; }
 .form-input.error,
-.form-select.error { border-color: #ff6b6b; }
+.form-select.error { 
+    border-color: #ff6b6b; 
+    background: rgba(255, 107, 107, 0.05);
+    box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1);
+}
+
 
 /* =====================================================
    FLATPICKR
@@ -277,6 +334,7 @@ main { margin-top: 70px; }
 }
 .flatpickr-day.selected { background: #DB3639 !important; border-color: #DB3639 !important; }
 .flatpickr-day:hover { background: #DB3639 !important; border-color: #DB3639 !important; }
+
 
 /* =====================================================
    POPUP SUMMARY
@@ -299,12 +357,20 @@ main { margin-top: 70px; }
     border-radius: 16px;
     max-width: 600px;
     width: 90%;
-    max-height: 90vh;
+    max-height: 85vh;
     overflow-y: auto;
     box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(194,38,38,0.15);
     animation: slideUp 0.3s cubic-bezier(.16,1,.3,1);
     position: relative;
 }
+
+/* Custom scrollbar for popup */
+.popup-content::-webkit-scrollbar { width: 8px; }
+.popup-content::-webkit-scrollbar-track { background: rgba(0,0,0,0.4); border-radius: 10px; }
+.popup-content::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, var(--red), var(--red-deep)); border-radius: 10px; }
+.popup-content::-webkit-scrollbar-thumb:hover { background: var(--red); }
+
+
 
 /* Red top accent on popup */
 .popup-content::before {
@@ -617,4 +683,3 @@ footer a:hover { opacity: 0.85; }
             margin-left: 4px;
         }
         .auth-status-bar a:hover { opacity: 0.8; }
-

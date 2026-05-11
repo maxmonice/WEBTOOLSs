@@ -13,7 +13,12 @@
             userData.name  = sessionStorage.getItem('user_name')  || 'Guest';
             userData.email = sessionStorage.getItem('user_email') || '';
             updateUI();
+            loadOrderTracking();
+            loadBookings(); // Initialize bookings
+            setInterval(loadOrderTracking, 30000);
+            setInterval(loadBookings, 30000);
         }
+
 
         let userData = { name:'', email:'' };
 
@@ -138,10 +143,6 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             const orderId = localStorage.getItem('order_id');
             const hasPending = localStorage.getItem('order_pending') === 'true';
 
-            if (!hasPending && !orderId) {
-                renderNoOrder(section);
-                return;
-            }
 
             try {
                 const url = (orderId ? `get-order.php?order_id=${orderId}` : 'get-order.php') + `&t=${Date.now()}`;
@@ -166,8 +167,14 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     }
 
                     _currentOrder = order;
+                    
+                    // Sync localStorage if it was empty (e.g. login from new device)
+                    if (!orderId) localStorage.setItem('order_id', order.id);
+                    if (order.status !== 'delivered') localStorage.setItem('order_pending', 'true');
+
                     renderOrderCard(section, order);
                     return;
+
                 }
             } catch (e) { /* fallback */ }
 
@@ -243,10 +250,10 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     </button>
                     ` : ''}
                     <button class="btn-received" onclick="window.markAsReceived()" 
-                        style="width:100%; padding:14px; border-radius:10px; ${order.status !== 'delivered' ? 'opacity:0.5; cursor:not-allowed; filter:grayscale(1);' : ''}"
-                        ${order.status !== 'delivered' ? 'disabled' : ''}>
+                        style="width:100%; padding:14px; border-radius:10px; ${order.status !== 'delivered' ? 'opacity:0.5; cursor:not-allowed; filter:grayscale(1);' : ''}">
                         <i class="fas fa-check-circle"></i> ${order.status === 'delivered' ? 'Mark Received' : 'Waiting for Delivery'}
                     </button>
+
                     
                     ${order.status === 'pending' || order.status === 'preparing' ? `
                     <button class="btn-cancel-order" onclick="window.cancelOrder(${order.id})" style="width:100%; padding:12px;">
@@ -536,7 +543,12 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         };
 
         window.markAsReceived = function() {
+            if (!_currentOrder || _currentOrder.status !== 'delivered') {
+                showToast('Wait for rider to mark as delivered first!', true);
+                return;
+            }
             const modal = document.getElementById('riderRatingModal');
+
             if (modal && _currentOrder) {
                 // Populate Rider Name
                 const riderNameEl = document.getElementById('riderNamePlaceholder');
@@ -562,17 +574,18 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         window.closeRiderRating = function() {
             document.getElementById('riderRatingModal')?.classList.remove('open');
             document.body.style.overflow = '';
-            window.showFoodRatingCard();
+            window.showFoodRatingSection();
             window.clearOrderTracking(true);
         };
+
 
         window.ignoreRiderRating = function() {
             window.closeRiderRating();
         };
 
-        window.showFoodRatingCard = function() {
-            const modal = document.getElementById('foodRatingModal');
-            if (modal && _currentOrder) {
+        window.showFoodRatingSection = function() {
+            const section = document.getElementById('foodRatingSection');
+            if (section && _currentOrder) {
                 // Populate Items list
                 const itemsEl = document.getElementById('foodRatingItems');
                 if (itemsEl && _currentOrder.items) {
@@ -584,15 +597,16 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                         itemsEl.innerHTML = '';
                     }
                 }
-                modal.classList.add('open');
-                document.body.style.overflow = 'hidden';
+                section.style.display = 'block';
+                section.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         };
 
         window.ignoreFoodRating = function() {
-            document.getElementById('foodRatingModal')?.classList.remove('open');
-            document.body.style.overflow = '';
+            const section = document.getElementById('foodRatingSection');
+            if (section) section.style.display = 'none';
         };
+
 
         window.initStars = function(containerId) {
             const stars = document.querySelectorAll(`#${containerId} .star-btn`);
@@ -648,7 +662,6 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         window.submitFoodRating = async function() {
             const rating = window._selectedFoodRating || 0;
-            const comment = document.getElementById('foodComment')?.value || '';
 
             if (rating === 0) {
                 showToast('Please select a star rating', 'error');
@@ -656,11 +669,12 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             }
 
             // In a real app, you'd fetch() to save-rating.php here
-            console.log('Submitting Food Rating:', { rating, comment, orderId: _currentOrder?.id });
+            console.log('Submitting Food Rating:', { rating, orderId: _currentOrder?.id });
 
             showToast('Food feedback submitted!');
             window.ignoreFoodRating();
         };
+
 
         window.initStars('riderStars');
         window.initStars('foodStars');
@@ -670,3 +684,47 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         loadOrderTracking();
         // Faster polling (10s) when an order is active to detect delivery instantly
         setInterval(loadOrderTracking, 10000);
+
+        // ── Event Bookings ────────────────────────────────────────────────────────
+        async function loadBookings() {
+            const section = document.getElementById('eventBookingsSection');
+            if (!section) return;
+
+            try {
+                const res = await fetch('get-bookings.php');
+                const data = await res.json();
+
+                if (data.success && data.bookings.length > 0) {
+                    section.innerHTML = data.bookings.map(b => `
+                        <div class="booking-card" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:16px; padding:20px; margin-bottom:15px; position:relative; overflow:hidden;">
+                            <div class="booking-status-badge" style="position:absolute; top:20px; right:20px; padding:5px 12px; border-radius:30px; font-size:0.7rem; font-weight:700; text-transform:uppercase; background:${getStatusBg(b.status)}; color:#fff;">
+                                ${b.status}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px;">
+                                <div style="width:45px; height:45px; background:rgba(194,38,38,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--red);">
+                                    <i class="fa-solid fa-calendar-day" style="font-size:1.2rem;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size:1rem; font-weight:700; color:#fff;">${b.event_name}</div>
+                                    <div style="font-size:0.8rem; color:rgba(255,255,255,0.5);">${b.event_date} @ ${b.event_time}</div>
+                                </div>
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem;">
+                                <div style="color:rgba(255,255,255,0.4);"><i class="fa-solid fa-users" style="margin-right:5px; width:15px;"></i> Guests: <span style="color:#fff;">${b.num_guests}</span></div>
+                                <div style="color:rgba(255,255,255,0.4);"><i class="fa-solid fa-location-dot" style="margin-right:5px; width:15px;"></i> ${b.address.substring(0, 25)}...</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Error loading bookings:', e);
+            }
+        }
+
+        function getStatusBg(status) {
+            switch(status.toLowerCase()) {
+                case 'confirmed': return '#22c55e';
+                case 'cancelled': return '#ef4444';
+                default: return '#f59e0b';
+            }
+        }

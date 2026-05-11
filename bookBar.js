@@ -4,47 +4,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const navMenu = document.getElementById('navMenu');
     const navLinks = document.querySelectorAll('.nav-menu a');
 
-    mobileMenuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        navMenu.classList.toggle('active');
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            navMenu.classList.toggle('active');
 
-        const icon = mobileMenuBtn.querySelector('i');
-        if (navMenu.classList.contains('active')) {
-            icon.classList.remove('fa-bars');
-            icon.classList.add('fa-times');
-        } else {
-            icon.classList.remove('fa-times');
-            icon.classList.add('fa-bars');
-        }
-    });
+            const icon = mobileMenuBtn.querySelector('i');
+            if (navMenu.classList.contains('active')) {
+                icon.classList.remove('fa-bars');
+                icon.classList.add('fa-times');
+            } else {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
+        });
+    }
 
     navLinks.forEach(link => {
         link.addEventListener('click', () => {
             navMenu.classList.remove('active');
-            const icon = mobileMenuBtn.querySelector('i');
-            icon.classList.remove('fa-times');
-            icon.classList.add('fa-bars');
+            const icon = mobileMenuBtn?.querySelector('i');
+            if (icon) {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
         });
     });
 
     document.addEventListener('click', (e) => {
-        if (!navMenu.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+        if (navMenu && !navMenu.contains(e.target) && mobileMenuBtn && !mobileMenuBtn.contains(e.target)) {
             navMenu.classList.remove('active');
             const icon = mobileMenuBtn.querySelector('i');
-            icon.classList.remove('fa-times');
-            icon.classList.add('fa-bars');
+            if (icon) {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
         }
     });
 
-    // Initialize Date Picker
+    // ─── Auto-fill Logic ─────────────────────────────────────────────────────────
+    const fullNameInput = document.getElementById('fullName');
+    const emailInput = document.getElementById('emailAddress');
+    
+    const storedName = sessionStorage.getItem('user_name');
+    const storedEmail = sessionStorage.getItem('user_email');
+    
+    if (storedName && fullNameInput && !fullNameInput.value) fullNameInput.value = storedName;
+    if (storedEmail && emailInput && !emailInput.value) emailInput.value = storedEmail;
+
+    // ─── Date & Time Pickers ────────────────────────────────────────────────────
     flatpickr("#eventDate", {
         dateFormat: "F j, Y",
         minDate: "today",
         theme: "dark",
         disableMobile: true,
+        onChange: () => clearError('eventDate')
     });
 
-    // Initialize Time Picker
     flatpickr("#eventTime", {
         enableTime: true,
         noCalendar: true,
@@ -52,165 +68,154 @@ document.addEventListener('DOMContentLoaded', () => {
         time_24hr: false,
         theme: "dark",
         disableMobile: true,
+        onChange: () => clearError('eventTime')
     });
 
-    // Email Validation
-    const emailInput = document.getElementById('emailAddress');
-    const emailError = document.getElementById('emailError');
+    // ─── Leaflet Map Logic ──────────────────────────────────────────────────────
+    let map = null;
+    let marker = null;
+    const STORE_LOC = { lat: 14.5244, lng: 121.0559 };
+    const MAX_RADIUS_KM = 5.5;
 
-    function validateEmail(email) {
-        // Check if email is empty
-        if (!email || email.trim() === '') {
-            return 'Email address is required';
-        }
-        
-        // Check if email contains @
-        if (!email.includes('@')) {
-            return 'Email must include "@" symbol';
-        }
-        
-        // Split email by @
-        const parts = email.split('@');
-        
-        // Check if there's text before @
-        if (parts[0].trim() === '') {
-            return 'Email must have a username before "@"';
-        }
-        
-        // Check if there's a domain after @
-        if (parts.length < 2 || parts[1].trim() === '') {
-            return 'Email must include a domain after "@"';
-        }
-        
-        // Check if domain contains a dot
-        if (!parts[1].includes('.')) {
-            return 'Email domain must include "." (e.g., gmail.com)';
-        }
-        
-        // Check if there's text after the last dot
-        const domainParts = parts[1].split('.');
-        if (domainParts[domainParts.length - 1].trim() === '') {
-            return 'Email domain must be complete (e.g., .com, .net)';
-        }
-        
-        return null; // No error
+    window.initLeafletMap = function() {
+        document.getElementById('mapModalOverlay')?.remove();
+        initMapModal();
+    };
+
+    function initMapModal() {
+        const modalHTML = `
+        <div id="mapModalOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(8px);">
+          <div id="mapModalContent" style="background:#111;border-radius:20px;width:95%;max-width:900px;position:relative;box-shadow:0 0 50px rgba(0,0,0,1);display:flex;flex-direction:column;max-height:85vh;overflow:hidden;border: 1px solid #C22626;">
+            <div style="padding:18px 25px;background:linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%);display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;font-family:'Aclonica',sans-serif;color:#fff;font-size:1.1rem;">📍 Select Event Location</h3>
+                <button id="closeMapBtn" style="background:rgba(0,0,0,0.3);border:none;border-radius:50%;width:32px;height:32px;color:#fff;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="mapContainer" style="flex:1;min-height:400px;width:100%;"></div>
+            <div style="padding:20px 25px;background:#111;border-top:1px solid #222;">
+              <button id="confirmLocationBtn" disabled style="width:100%;padding:15px;background:#333;border:none;border-radius:12px;color:#666;font-weight:700;cursor:not-allowed;">Confirm Location</button>
+            </div>
+          </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        document.getElementById('closeMapBtn').onclick = closeMapModal;
+        document.getElementById('confirmLocationBtn').onclick = confirmLocation;
+
+        setTimeout(() => {
+            map = L.map('mapContainer').setView([STORE_LOC.lat, STORE_LOC.lng], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            L.circle([STORE_LOC.lat, STORE_LOC.lng], { radius: MAX_RADIUS_KM * 1000, color: '#C22626', fillOpacity: 0.1 }).addTo(map);
+
+            map.on('click', async (e) => {
+                const { lat, lng } = e.latlng;
+                if (marker) marker.setLatLng([lat, lng]); else marker = L.marker([lat, lng]).addTo(map);
+                await updateSelectedAddress(lat, lng);
+            });
+        }, 100);
     }
 
-    // Phone Number Validation
-    const phoneInput = document.getElementById('contactNumber');
-    const phoneError = document.getElementById('phoneError');
-
-    function validatePhilippinePhone(phone) {
-        // Remove any spaces or dashes
-        const cleanPhone = phone.replace(/[\s-]/g, '');
-        
-        // Check if empty
-        if (!cleanPhone || cleanPhone.trim() === '') {
-            return 'Contact number is required';
-        }
-        
-        // Check if it contains only numbers
-        if (!/^\d+$/.test(cleanPhone)) {
-            return 'Contact number must contain only digits';
-        }
-        
-        // Philippine mobile numbers must be 11 digits starting with 09
-        if (cleanPhone.length !== 11) {
-            return 'Mobile number must be 11 digits (e.g., 09XX XXX XXXX)';
-        }
-        
-        // Must start with 09
-        if (!cleanPhone.startsWith('09')) {
-            return 'Mobile number must start with 09';
-        }
-        
-        return null; // No error
+    async function updateSelectedAddress(lat, lng) {
+        const btn = document.getElementById('confirmLocationBtn');
+        try {
+            const res = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+            const data = await res.json();
+            const p = data.features?.[0]?.properties;
+            const addr = p ? [p.name, p.street, p.city].filter(Boolean).join(', ') : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            btn.disabled = false;
+            btn.style.background = 'linear-gradient(135deg,#C22626,#8B0A1E)';
+            btn.style.color = '#fff';
+            btn.style.cursor = 'pointer';
+            btn._address = addr;
+        } catch (e) { btn.disabled = true; }
     }
 
-    // Auto-format phone number as user types
-    phoneInput.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-        
-        // Limit to 11 digits
-        if (value.length > 11) {
-            value = value.slice(0, 11);
+    function closeMapModal() { document.getElementById('mapModalOverlay')?.remove(); if (map) map.remove(); map = null; }
+    function confirmLocation() {
+        const addr = document.getElementById('confirmLocationBtn')._address;
+        if (addr) {
+            document.getElementById('address').value = addr;
+            clearError('address');
         }
-        
-        e.target.value = value;
-        
-        // Clear error on input
-        phoneError.classList.remove('show');
-        phoneInput.classList.remove('error');
-    });
+        closeMapModal();
+    }
 
-    // Validate phone on blur
-    phoneInput.addEventListener('blur', function() {
-        const errorMessage = validatePhilippinePhone(this.value);
-        
-        if (errorMessage) {
-            phoneError.textContent = errorMessage;
-            phoneError.classList.add('show');
-            phoneInput.classList.add('error');
-        } else {
-            phoneError.classList.remove('show');
-            phoneInput.classList.remove('error');
+    // ─── Validation Logic ───────────────────────────────────────────────────────
+    const fields = [
+        { id: 'eventName', type: 'text', msg: 'Event name is required' },
+        { id: 'address', type: 'text', msg: 'Please provide or select an address' },
+        { id: 'eventDate', type: 'text', msg: 'Please select a date' },
+        { id: 'eventTime', type: 'text', msg: 'Please select a time' },
+        { id: 'eventType', type: 'select', msg: 'Please select an event type' },
+        { id: 'numGuests', type: 'select', msg: 'Please select the number of guests' },
+        { id: 'fullName', type: 'text', msg: 'Full name is required' },
+        { id: 'contactNumber', type: 'phone', msg: 'Valid 11-digit mobile number required' },
+        { id: 'emailAddress', type: 'email', msg: 'Valid email address required' }
+    ];
+
+    function clearError(id) {
+        const input = document.getElementById(id);
+        const error = document.getElementById(id + 'Error');
+        if (input) input.classList.remove('error');
+        if (error) error.classList.remove('show');
+    }
+
+    function showError(id, msg) {
+        const input = document.getElementById(id);
+        const error = document.getElementById(id + 'Error');
+        if (input) input.classList.add('error');
+        if (error) {
+            error.textContent = msg;
+            error.classList.add('show');
+        }
+    }
+
+    // Add real-time listeners to clear errors
+    fields.forEach(f => {
+        const el = document.getElementById(f.id);
+        if (el) {
+            el.addEventListener('input', () => clearError(f.id));
+            el.addEventListener('change', () => clearError(f.id));
+            el.addEventListener('blur', () => {
+                const val = el.value.trim();
+                if (!val) showError(f.id, f.msg);
+                else if (f.type === 'phone' && (val.length !== 11 || !val.startsWith('09'))) showError(f.id, f.msg);
+                else if (f.type === 'email' && !val.includes('@')) showError(f.id, f.msg);
+            });
         }
     });
 
-    // Real-time validation on blur
-    emailInput.addEventListener('blur', function() {
-        const errorMessage = validateEmail(this.value);
-        
-        if (errorMessage) {
-            emailError.textContent = errorMessage;
-            emailError.classList.add('show');
-            emailInput.classList.add('error');
-        } else {
-            emailError.classList.remove('show');
-            emailInput.classList.remove('error');
-        }
-    });
-
-    // Clear error on input
-    emailInput.addEventListener('input', function() {
-        emailError.classList.remove('show');
-        emailInput.classList.remove('error');
-    });
-
-    // Form submission validation
     const bookingForm = document.getElementById('bookingForm');
-    
-    bookingForm.addEventListener('submit', function(e) {
+    bookingForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        let isValid = true;
         
-        // Validate phone number
-        const phoneErrorMessage = validatePhilippinePhone(phoneInput.value);
-        if (phoneErrorMessage) {
-            phoneError.textContent = phoneErrorMessage;
-            phoneError.classList.add('show');
-            phoneInput.classList.add('error');
-            phoneInput.focus();
-            return false;
+        fields.forEach(f => {
+            const el = document.getElementById(f.id);
+            if (!el) return;
+            const val = el.value.trim();
+            
+            let fieldError = false;
+            if (!val) fieldError = true;
+            else if (f.type === 'phone' && (val.replace(/\D/g,'').length !== 11 || !val.startsWith('09'))) fieldError = true;
+            else if (f.type === 'email' && (!val.includes('@') || !val.includes('.'))) fieldError = true;
+
+            if (fieldError) {
+                showError(f.id, f.msg);
+                isValid = false;
+            } else {
+                clearError(f.id);
+            }
+        });
+
+        if (isValid) showSummaryPopup();
+        else {
+            const firstError = document.querySelector('.error-message.show');
+            if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        
-        // Validate email on submit
-        const emailErrorMessage = validateEmail(emailInput.value);
-        if (emailErrorMessage) {
-            emailError.textContent = emailErrorMessage;
-            emailError.classList.add('show');
-            emailInput.classList.add('error');
-            emailInput.focus();
-            return false;
-        }
-        
-        // If validation passes, show summary popup
-        showSummaryPopup();
     });
 
-    // Function to show summary popup
     function showSummaryPopup() {
-        // Get all form values
-        const formData = {
+        const data = {
             eventName: document.getElementById('eventName').value,
             address: document.getElementById('address').value,
             eventDate: document.getElementById('eventDate').value,
@@ -223,335 +228,83 @@ document.addEventListener('DOMContentLoaded', () => {
             notes: document.getElementById('notes').value || 'N/A'
         };
 
-        // Format event type for display
-        const eventTypeLabels = {
-            'wedding': 'Wedding',
-            'birthday': 'Birthday Party',
-            'corporate': 'Corporate Event',
-            'anniversary': 'Anniversary',
-            'graduation': 'Graduation',
-            'reunion': 'Reunion',
-            'conference': 'Conference',
-            'seminar': 'Seminar/Workshop',
-            'teambuilding': 'Team Building',
-            'holiday': 'Holiday Party',
-            'other': 'Other'
-        };
-
-        // Create popup HTML
         const popupHTML = `
             <div class="popup-overlay" id="summaryPopup">
                 <div class="popup-content">
                     <h2 class="popup-title">Booking Summary</h2>
                     <div class="summary-section">
                         <h3>Event Details</h3>
-                        <div class="summary-row">
-                            <span class="summary-label">Event Name:</span>
-                            <span class="summary-value">${formData.eventName}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Address:</span>
-                            <span class="summary-value">${formData.address}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Date:</span>
-                            <span class="summary-value">${formData.eventDate}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Time:</span>
-                            <span class="summary-value">${formData.eventTime}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Event Type:</span>
-                            <span class="summary-value">${eventTypeLabels[formData.eventType]}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Number of Guests:</span>
-                            <span class="summary-value">${formData.numGuests}</span>
-                        </div>
+                        <div class="summary-row"><span class="summary-label">Name:</span><span class="summary-value">${data.eventName}</span></div>
+                        <div class="summary-row"><span class="summary-label">Address:</span><span class="summary-value">${data.address}</span></div>
+                        <div class="summary-row"><span class="summary-label">Date:</span><span class="summary-value">${data.eventDate}</span></div>
+                        <div class="summary-row"><span class="summary-label">Time:</span><span class="summary-value">${data.eventTime}</span></div>
+                        <div class="summary-row"><span class="summary-label">Type:</span><span class="summary-value">${data.eventType}</span></div>
+                        <div class="summary-row"><span class="summary-label">Guests:</span><span class="summary-value">${data.numGuests}</span></div>
                     </div>
                     <div class="summary-section">
                         <h3>Contact Details</h3>
-                        <div class="summary-row">
-                            <span class="summary-label">Full Name:</span>
-                            <span class="summary-value">${formData.fullName}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Contact Number:</span>
-                            <span class="summary-value">${formData.contactNumber}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Email:</span>
-                            <span class="summary-value">${formData.emailAddress}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-label">Notes/Request:</span>
-                            <span class="summary-value">${formData.notes}</span>
-                        </div>
+                        <div class="summary-row"><span class="summary-label">Full Name:</span><span class="summary-value">${data.fullName}</span></div>
+                        <div class="summary-row"><span class="summary-label">Phone:</span><span class="summary-value">${data.contactNumber}</span></div>
+                        <div class="summary-row"><span class="summary-label">Email:</span><span class="summary-value">${data.emailAddress}</span></div>
+                        <div class="summary-row"><span class="summary-label">Notes:</span><span class="summary-value">${data.notes}</span></div>
                     </div>
                     <div class="popup-buttons">
-                        <button type="button" class="popup-btn cancel-btn" onclick="closeSummaryPopup()">Edit</button>
-                        <button type="button" class="popup-btn confirm-btn" onclick="confirmSubmission()">Confirm & Submit</button>
+                        <button class="popup-btn cancel-btn" onclick="closeSummaryPopup()">Edit</button>
+                        <button class="popup-btn confirm-btn" onclick="confirmSubmission()">Confirm & Submit</button>
                     </div>
                 </div>
-            </div>
-        `;
-
-        // Add popup to body
+            </div>`;
         document.body.insertAdjacentHTML('beforeend', popupHTML);
     }
 
-    // Global functions for popup buttons
-    window.closeSummaryPopup = function() {
-        const popup = document.getElementById('summaryPopup');
-        if (popup) {
-            popup.remove();
-        }
-    };
+    window.closeSummaryPopup = () => document.getElementById('summaryPopup')?.remove();
 
     window.confirmSubmission = function() {
-        // Close popup
         closeSummaryPopup();
-        
-        // Check if user is logged in
-        if (!window.__isLoggedIn) {
-            showNotification('Please log in to submit a booking', 'error');
-            return;
-        }
-        
-        // Get form data
-        const formData = {
+        if (!window.__isLoggedIn) { showNotification('Please log in first', 'error'); return; }
+
+        const submissionData = {
+            action: 'create_booking',
             eventName: document.getElementById('eventName').value,
-            address: document.getElementById('address').value,
+            fullName: document.getElementById('fullName').value,
+            contactNumber: document.getElementById('contactNumber').value,
+            emailAddress: document.getElementById('emailAddress').value,
             eventDate: document.getElementById('eventDate').value,
             eventTime: document.getElementById('eventTime').value,
             eventType: document.getElementById('eventType').value,
             numGuests: document.getElementById('numGuests').value,
-            fullName: document.getElementById('fullName').value,
-            contactNumber: document.getElementById('contactNumber').value,
-            emailAddress: document.getElementById('emailAddress').value,
+            address: document.getElementById('address').value,
             notes: document.getElementById('notes').value || 'N/A',
-            userEmail: sessionStorage.getItem('user_email') || 'guest@example.com',
-            userName: sessionStorage.getItem('user_name') || 'Guest User'
+            userEmail: sessionStorage.getItem('user_email'),
+            userName: sessionStorage.getItem('user_name')
         };
-        
-        // Validate required fields
-        if (!formData.eventName || !formData.fullName || !formData.contactNumber || !formData.emailAddress || !formData.eventDate || !formData.eventTime || !formData.eventType || !formData.numGuests || !formData.address) {
-            showNotification('Please fill in all required fields', 'error');
-            return;
-        }
-        
-        // Format date for database (convert from display format to Y-m-d)
-        const formatDateForDB = (dateStr) => {
-            if (!dateStr) return '';
-            // Handle format like "April 15, 2025" or "2025-04-15"
-            const date = new Date(dateStr);
-            if (isNaN(date.getTime())) {
-                // Try parsing as Y-m-d
-                const parts = dateStr.split('-');
-                if (parts.length === 3) {
-                    return dateStr; // Already in Y-m-d format
-                }
-                return '';
-            }
-            return date.toISOString().split('T')[0]; // Returns Y-m-d
-        };
-        
-        // Prepare data for submission
-        const submissionData = {
-            action: 'create_booking',
-            eventName: formData.eventName,
-            fullName: formData.fullName,
-            contactNumber: formData.contactNumber,
-            emailAddress: formData.emailAddress,
-            eventDate: formatDateForDB(formData.eventDate),
-            eventTime: formData.eventTime,
-            eventType: formData.eventType,
-            numGuests: formData.numGuests,
-            address: formData.address,
-            notes: formData.notes,
-            userEmail: formData.userEmail,
-            userName: formData.userName
-        };
-        
-        console.log('Submitting booking data:', submissionData);
-        
-        // Send booking data to server
+
         fetch('admin-bookings.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(submissionData)
         })
-        .then(response => {
-            console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            return response.json();
-        })
-        .then(data => {
-            console.log('Response data:', data);
-            if (data.success) {
-                // Show success message
-                showNotification('Booking request sent successfully!', 'success');
-                
-                // Reset form
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showNotification('Booking sent!', 'success');
                 bookingForm.reset();
-                
-                // Update admin dashboard stats
-                updateAdminStats();
-                
-                // Redirect to confirmation page after delay
                 setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
+                    window.location.href = 'account-dashboard.php';
+                }, 1500);
+
             } else {
-                showNotification(data.message || 'Failed to submit booking', 'error');
+                showNotification(d.message || 'Error', 'error');
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Failed to submit booking. Please try again.', 'error');
-        });
+        .catch(() => showNotification('Submission failed', 'error'));
     };
 
-    // Notification function
     function showNotification(message, type = 'success') {
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.innerHTML = `
-            <i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-            ${message}
-        `;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'success' ? '#22c55e' : '#ef4444'};
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            z-index: 9999;
-            font-family: 'Be Vietnam Pro', sans-serif;
-            font-size: 14px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            animation: slideIn 0.3s ease;
-        `;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
+        const n = document.createElement('div');
+        n.style.cssText = `position:fixed;top:20px;right:20px;background:${type === 'success' ? '#22c55e' : '#ef4444'};color:white;padding:15px 25px;border-radius:12px;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,0.3);font-weight:600;`;
+        n.textContent = message;
+        document.body.appendChild(n);
+        setTimeout(() => n.remove(), 2500);
     }
-
-    // Update admin stats function
-    function updateAdminStats() {
-        // This would typically fetch updated stats from the server
-        console.log('Updating admin dashboard stats...');
-    }
-
-    // Add CSS animations
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-        .popup-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .popup-content {
-            background: #222;
-            border: 1px solid rgba(194,38,38,0.4);
-            border-radius: 12px;
-            padding: 30px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .popup-title {
-            color: #fff;
-            font-family: 'Aclonica', sans-serif;
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .summary-section {
-            margin-bottom: 20px;
-        }
-        .summary-section h3 {
-            color: #C22626;
-            font-family: 'Aclonica', sans-serif;
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-        }
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .summary-label {
-            color: rgba(255,255,255,0.7);
-            font-weight: 500;
-        }
-        .summary-value {
-            color: #fff;
-            font-weight: 600;
-        }
-        .popup-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 25px;
-        }
-        .popup-btn {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-family: 'Be Vietnam Pro', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .cancel-btn {
-            background: transparent;
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.3);
-        }
-        .cancel-btn:hover {
-            background: rgba(255,255,255,0.1);
-        }
-        .confirm-btn {
-            background: linear-gradient(135deg, #C22626, #8B0A1E);
-            color: #fff;
-        }
-        .confirm-btn:hover {
-            opacity: 0.9;
-            transform: translateY(-2px);
-        }
-    `;
-    document.head.appendChild(style);
 });

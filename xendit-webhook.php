@@ -1,7 +1,9 @@
 <?php
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/env-bootstrap.php';
+
 webtools_load_env(__DIR__);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -11,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $callbackToken = trim((string)(getenv('XENDIT_WEBHOOK_TOKEN') ?: ''));
+
 if ($callbackToken !== '') {
     $header = '';
     foreach ($_SERVER as $key => $value) {
@@ -19,6 +22,7 @@ if ($callbackToken !== '') {
             break;
         }
     }
+
     if ($header !== $callbackToken) {
         http_response_code(403);
         echo 'Forbidden';
@@ -63,6 +67,7 @@ if (($evt['invoice'] ?? null) !== null && is_array($evt['invoice'])) {
 }
 
 $effectiveStatus = $statusFromRoot;
+
 if (($evt['invoice'] ?? null) !== null && is_array($evt['invoice'])) {
     $invSt = strtolower((string)($evt['invoice']['status'] ?? ''));
     if ($invSt !== '') {
@@ -74,6 +79,7 @@ foreach (['paid', 'settled'] as $ok) {
     if ($effectiveStatus !== $ok) {
         continue;
     }
+
     if ($possibleExternal === '' || strpos($possibleExternal, 'INV-ORDER-') !== 0) {
         break;
     }
@@ -87,6 +93,7 @@ foreach (['paid', 'settled'] as $ok) {
         );
 
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $possibleExternal) . '%';
+
         $stmt = $pdo->prepare(
             'SELECT id, notes FROM orders WHERE notes LIKE ? ORDER BY id DESC LIMIT 20'
         );
@@ -98,16 +105,22 @@ foreach (['paid', 'settled'] as $ok) {
             if (!is_array($notes)) {
                 continue;
             }
+
             $extStored = isset($notes['xendit']['external_id']) ? (string)$notes['xendit']['external_id'] : '';
             if ($extStored !== $possibleExternal) {
                 continue;
             }
-            $notes['xendit']['paid'] = true;
+
+            $notes['xendit']['paid']               = true;
             $notes['xendit']['webhook_invoice_id'] = $id ?: ($evt['invoice_id'] ?? null);
             $notes['xendit']['webhook_received_at'] = gmdate('c');
 
-            $upd = $pdo->prepare('UPDATE orders SET notes = ?, updated_at = NOW() WHERE id = ? LIMIT 1');
-            $upd->execute([json_encode($notes, JSON_UNESCAPED_UNICODE), (int)$row['id']]);
+            // FIX: Also update the status column so the order moves out of 'pending'
+            $upd = $pdo->prepare(
+                'UPDATE orders SET status = ?, notes = ?, updated_at = NOW() WHERE id = ? LIMIT 1'
+            );
+            $upd->execute(['confirmed', json_encode($notes, JSON_UNESCAPED_UNICODE), (int)$row['id']]);
+
             break;
         }
     } catch (Throwable $e) {
@@ -115,6 +128,7 @@ foreach (['paid', 'settled'] as $ok) {
         echo 'DB error';
         exit;
     }
+
     break;
 }
 
