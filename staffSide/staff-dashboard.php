@@ -179,7 +179,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         <div class="panel">
           <div class="panel-header"><span class="panel-title">Quick Actions</span></div>
           <div class="panel-body">
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="quick-actions-grid">
               <a href="staff-bookings.php" class="quick-action"><i class="fa-solid fa-calendar-plus"></i>Bookings</a>
               <a href="staff-orders.php" class="quick-action"><i class="fa-solid fa-clipboard-list"></i>Orders</a>
               <a href="staff-customers.php" class="quick-action"><i class="fa-solid fa-users"></i>View Customers</a>
@@ -197,10 +197,10 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 
       <!-- RECENT BOOKINGS -->
       <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Recent Bookings</span>
-          <a href="staff-bookings.php" class="btn btn-outline btn-sm">View All</a>
-        </div>
+          <div class="panel-header">
+            <span class="panel-title">Recent Bookings</span>
+            <a href="staff-bookings.php" class="btn btn-outline btn-sm">View All</a>
+          </div>
         <?php if (empty($bookings)): ?>
           <div style="padding:28px;text-align:center;color:var(--muted);">
             <i class="fa-solid fa-calendar-days" style="font-size:1.8rem;margin-bottom:8px;display:block;"></i>

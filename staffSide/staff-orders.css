@@ -38,6 +38,22 @@
 .pill-done     { background: rgba(34,197,94,.15);  color: #22c55e; border-color: rgba(34,197,94,.3); }
 .pill-cancel   { background: rgba(239,68,68,.1);   color: #ef4444; border-color: rgba(239,68,68,.25); }
 
+/* ── Filter tabs row ── */
+.filter-tabs-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+/* ── View modal info grid ── */
+.view-modal-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
 /* Rider confirmation modal */
 .confirm-overlay {
     position: fixed; inset: 0; z-index: 10000;
@@ -85,4 +101,51 @@
 .confirm-btn-send {
     background: linear-gradient(135deg,#c22626,#8b0a1e);
     color: #fff; border: none;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+    .permission-note { white-space: normal; }
+}
+
+@media (max-width: 640px) {
+    /* Filter tabs wrap */
+    .filter-tabs-row { gap: 6px; }
+    .filter-tabs-row .btn { flex: 1; min-width: calc(50% - 6px); text-align: center; justify-content: center; }
+
+    /* Action pills stack inside table cell */
+    .action-pill { padding: 4px 8px; font-size: 0.72rem; }
+
+    /* Search form inside panel-header stacks */
+    .panel-header form,
+    .filter-form {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        width: 100%;
+    }
+    .panel-header form .search-wrap,
+    .filter-form .search-wrap { max-width: 100%; }
+    .panel-header form .btn,
+    .filter-form .btn { width: 100%; justify-content: center; }
+
+    /* View modal info grid collapses to 1-col */
+    .view-modal-info-grid { grid-template-columns: 1fr; gap: 12px; }
+
+    /* Confirm modal full-width */
+    .confirm-modal { width: 95vw; max-width: 95vw; padding: 20px; }
+
+    /* ETA modal full-width */
+    #etaModal > div { width: 95vw !important; max-width: 95vw !important; }
+
+    /* View modal full-width */
+    #viewModal > div { width: 95vw !important; max-width: 95vw !important; padding: 20px !important; }
+}
+
+@media (max-width: 480px) {
+    .action-pill { font-size: 0.7rem; padding: 4px 7px; }
+    .confirm-actions { flex-direction: column; }
+    .confirm-btn { flex: unset; width: 100%; }
+    /* Filter tabs: each takes full row on very small screens */
+    .filter-tabs-row .btn { min-width: 100%; }
 }

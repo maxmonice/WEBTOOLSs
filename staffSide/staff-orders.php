@@ -206,7 +206,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
       </div>
 
       <!-- FILTER TABS -->
-      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="filter-tabs-row">
         <a href="staff-orders.php" class="btn btn-outline btn-sm <?= !$filter ? 'btn-primary' : '' ?>">All</a>
         <a href="staff-orders.php?filter=pending" class="btn btn-outline btn-sm <?= $filter==='pending' ? 'btn-primary' : '' ?>">Pending</a>
         <a href="staff-orders.php?filter=processing" class="btn btn-outline btn-sm <?= $filter==='processing' ? 'btn-primary' : '' ?>">Processing</a>
@@ -221,7 +221,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
           <span class="panel-title">Orders
             <span style="color:var(--muted);font-weight:400;font-size:0.82rem;margin-left:8px;">(<?= count($orders) ?> shown)</span>
           </span>
-          <form method="GET" style="display:flex;gap:10px;align-items:center;">
+          <form method="GET" class="filter-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <div class="search-wrap">
               <i class="fa-solid fa-magnifying-glass"></i>
               <input type="text" class="search-input" name="search" placeholder="Search customer…" value="<?= htmlspecialchars($search) ?>"/>
