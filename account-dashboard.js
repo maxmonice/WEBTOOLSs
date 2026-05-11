@@ -65,7 +65,52 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Flatpickr for Edit Booking
+            window._editDatePicker = flatpickr("#eEventDate", {
+                altInput: true,
+                altFormat: "F j, Y",
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                disable: [
+                    function(date) {
+                        // Check 3-day window (today + 2 days)
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const threeDaysOut = new Date();
+                        threeDaysOut.setDate(today.getDate() + 2);
+                        threeDaysOut.setHours(23,59,59,999);
+
+                        if (date >= today && date <= threeDaysOut) {
+                            // EXCEPT if it's the date already saved for this booking
+                            if (window._activeBooking && window._activeBooking.event_date) {
+                                const current = new Date(window._activeBooking.event_date);
+                                current.setHours(0,0,0,0);
+                                if (date.getTime() === current.getTime()) return false;
+                            }
+                            return true;
+                        }
+                        return false;
+                    }
+                ],
+                theme: "dark",
+                disableMobile: true
+            });
+
+
+
+
+
+            window._editTimePicker = flatpickr("#eEventTime", {
+                enableTime: true,
+                noCalendar: true,
+                dateFormat: "h:i K",
+                time_24hr: false,
+                theme: "dark",
+                disableMobile: true
+            });
+
             document.getElementById('newPw').addEventListener('input', function () {
+
                 const val  = this.value;
                 const wrap = document.getElementById('pwStrengthWrap');
                 if (!val) { wrap.style.display = 'none'; return; }
@@ -119,6 +164,7 @@
 
         // ── Toast ──
         function showToast(msg, isError = false) {
+            console.log('🔔 Showing Toast:', msg);
             const t = document.getElementById('toast');
             document.getElementById('toastMsg').textContent = msg;
             t.querySelector('i').className = isError ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check';
@@ -126,6 +172,7 @@
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 3500);
         }
+
 
         document.querySelectorAll('.modal-overlay').forEach(el => {
             el.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
@@ -137,6 +184,8 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         // ── Order Tracking ──
         let _currentOrder = null;
+        let _userBookings = [];
+
 
         async function loadOrderTracking() {
             const section = document.getElementById('orderTrackingSection');
@@ -324,7 +373,9 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         let miniMap;
         let miniRiderMarker;
         let miniDestMarker;
-        let miniRouteLine;
+        let customerRoutingControl;
+        let miniRoutingControl;
+
 
         let trackingSocket;
 
@@ -426,32 +477,52 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         }
 
         function updateCustomerRoute(startLatLng, endLatLng) {
-            if (customerRouteLine) {
-                customerMap.removeLayer(customerRouteLine);
+            if (customerRoutingControl) {
+                customerMap.removeControl(customerRoutingControl);
             }
 
-            customerRouteLine = L.polyline([startLatLng, endLatLng], {
-                color: '#C22626', weight: 4, opacity: 0.8, dashArray: '10, 10'
+            customerRoutingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(startLatLng[0], startLatLng[1]),
+                    L.latLng(endLatLng[0], endLatLng[1])
+                ],
+                lineOptions: {
+                    styles: [{color: '#C22626', opacity: 0.8, weight: 6}]
+                },
+                createMarker: function() { return null; },
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true,
+                show: false
             }).addTo(customerMap);
             
-            customerMap.fitBounds([startLatLng, endLatLng], { padding: [30, 30] });
-
             const distKm = getDistance(startLatLng[0], startLatLng[1], endLatLng[0], endLatLng[1]);
             const etaInMinutes = Math.max(1, Math.round((distKm / 20) * 60)); 
             const fsEtaEl = document.getElementById('fsEta');
             if (fsEtaEl) fsEtaEl.textContent = '~' + etaInMinutes + ' mins';
         }
 
+
         function updateMiniRoute(startLatLng, endLatLng) {
             if (!miniMap) return;
-            if (miniRouteLine) miniMap.removeLayer(miniRouteLine);
+            if (miniRoutingControl) miniMap.removeControl(miniRoutingControl);
 
-            miniRouteLine = L.polyline([startLatLng, endLatLng], {
-                color: '#C22626', weight: 3, opacity: 0.8, dashArray: '5, 5'
+            miniRoutingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(startLatLng[0], startLatLng[1]),
+                    L.latLng(endLatLng[0], endLatLng[1])
+                ],
+                lineOptions: {
+                    styles: [{color: '#C22626', opacity: 0.8, weight: 4}]
+                },
+                createMarker: function() { return null; },
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true,
+                show: false
             }).addTo(miniMap);
-            
-            miniMap.fitBounds([startLatLng, endLatLng], { padding: [15, 15] });
         }
+
 
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
@@ -683,48 +754,473 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         loadOrderTracking();
         // Faster polling (10s) when an order is active to detect delivery instantly
-        setInterval(loadOrderTracking, 10000);
-
-        // ── Event Bookings ────────────────────────────────────────────────────────
-        async function loadBookings() {
+        setInterval(loadOrderTracking, 10000);        async function loadBookings() {
             const section = document.getElementById('eventBookingsSection');
             if (!section) return;
 
             try {
                 const res = await fetch('get-bookings.php');
                 const data = await res.json();
+                
+                if (data.success) {
+                    _userBookings = data.bookings || [];
+                    const activeBookings = _userBookings.filter(b => b.status.toLowerCase() !== 'cancelled');
 
-                if (data.success && data.bookings.length > 0) {
-                    section.innerHTML = data.bookings.map(b => `
-                        <div class="booking-card" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:16px; padding:20px; margin-bottom:15px; position:relative; overflow:hidden;">
-                            <div class="booking-status-badge" style="position:absolute; top:20px; right:20px; padding:5px 12px; border-radius:30px; font-size:0.7rem; font-weight:700; text-transform:uppercase; background:${getStatusBg(b.status)}; color:#fff;">
-                                ${b.status}
+                    let html = '';
+                    if (activeBookings.length > 0) {
+                        html += `
+                            <div class="booking-list-container" style="background:transparent; border-top:none; border-radius:0 0 16px 16px; overflow:hidden;">
+                                ${activeBookings.map((b, i) => `
+                                    <div class="booking-item" onclick="window.openBookingDetail(${b.id})" style="padding:20px; cursor:pointer; transition: background 0.2s; position:relative; ${i < activeBookings.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.06);' : ''}">
+                                        <div class="booking-status-badge" style="position:absolute; top:20px; right:20px; padding:5px 12px; border-radius:30px; font-size:0.7rem; font-weight:700; text-transform:uppercase; background:${getStatusBg(b.status)}; color:#fff;">
+                                            ${b.status}
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:15px; margin-bottom:12px;">
+                                            <div style="width:40px; height:40px; background:rgba(194,38,38,0.1); border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--red);">
+                                                <i class="fa-solid fa-calendar-day" style="font-size:1.1rem;"></i>
+                                            </div>
+                                            <div>
+                                                <div style="font-size:0.95rem; font-weight:700; color:#fff;">${b.event_name}</div>
+                                                <div style="font-size:0.8rem; color:rgba(255,255,255,0.5);">${b.event_date} @ ${b.event_time}</div>
+                                            </div>
+                                        </div>
+                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.8rem;">
+                                            <div style="color:rgba(255,255,255,0.4);"><i class="fa-solid fa-cake-candles" style="margin-right:5px; width:15px;"></i> Type: <span style="color:#fff; text-transform:capitalize;">${b.event_type}</span></div>
+                                            <div style="color:rgba(255,255,255,0.4);"><i class="fa-solid fa-users" style="margin-right:5px; width:15px;"></i> Guests: <span style="color:#fff;">${b.num_guests}</span></div>
+                                            <div style="color:rgba(255,255,255,0.4); grid-column: span 2; text-overflow:ellipsis; white-space:nowrap; overflow:hidden;"><i class="fa-solid fa-location-dot" style="margin-right:5px; width:15px;"></i> ${b.address}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
                             </div>
-                            <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px;">
-                                <div style="width:45px; height:45px; background:rgba(194,38,38,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--red);">
-                                    <i class="fa-solid fa-calendar-day" style="font-size:1.2rem;"></i>
-                                </div>
-                                <div>
-                                    <div style="font-size:1rem; font-weight:700; color:#fff;">${b.event_name}</div>
-                                    <div style="font-size:0.8rem; color:rgba(255,255,255,0.5);">${b.event_date} @ ${b.event_time}</div>
-                                </div>
+                        `;
+                    }
+
+                    if (activeBookings.length === 0) {
+
+                        section.innerHTML = `
+                            <div class="booking-empty" style="text-align:center; padding: 40px 20px; color:rgba(255,255,255,0.4);">
+                                <i class="fa-solid fa-calendar-day" style="font-size:2rem; margin-bottom:15px; display:block; opacity:0.3;"></i>
+                                No active bookings found. <a href="bookbar.php" style="color:var(--red); font-weight:700;">Book now!</a>
                             </div>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem;">
-                                <div style="color:rgba(255,255,255,0.4);"><i class="fa-solid fa-users" style="margin-right:5px; width:15px;"></i> Guests: <span style="color:#fff;">${b.num_guests}</span></div>
-                                <div style="color:rgba(255,255,255,0.4);"><i class="fa-solid fa-location-dot" style="margin-right:5px; width:15px;"></i> ${b.address.substring(0, 25)}...</div>
-                            </div>
-                        </div>
-                    `).join('');
+                        `;
+                    } else {
+                        section.innerHTML = html;
+                    }
+
                 }
+                return data; // Return promise result
             } catch (e) {
                 console.error('Error loading bookings:', e);
             }
         }
 
+
+        let _activeBooking = null;
+
+        window.openBookingDetail = function(bookingId) {
+            const booking = _userBookings.find(b => b.id == bookingId);
+            if (!booking) return;
+            _activeBooking = booking;
+
+            // Check restriction (3 days before)
+            const bookingDate = new Date(booking.event_date);
+            const now = new Date();
+            const diffTime = bookingDate - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // 3-day rule: only EDITING is blocked within 3 days
+            // Cancellation is always allowed unless already cancelled
+            const canEdit = diffDays >= 3 && booking.status !== 'cancelled';
+            const canCancel = booking.status !== 'cancelled';
+            
+            // Populate View Mode
+            document.getElementById('bookingDetailStatusBadge').textContent = booking.status.toUpperCase();
+            document.getElementById('bookingDetailStatusBadge').style.background = getStatusBg(booking.status);
+            document.getElementById('vDetailName').textContent = booking.event_name;
+            document.getElementById('vDetailId').textContent = `Booking #BK-${String(booking.id).padStart(3, '0')}`;
+            document.getElementById('vDetailDateTime').textContent = `${booking.event_date} @ ${booking.event_time}`;
+            document.getElementById('vDetailGuests').textContent = `${booking.num_guests} Persons`;
+            document.getElementById('vDetailType').textContent = booking.event_type;
+            document.getElementById('vDetailAddress').textContent = booking.address;
+            document.getElementById('vDetailNotes').textContent = booking.notes || 'No special requests.';
+
+            // Always show buttons, let the logic handle the click
+            document.getElementById('btnEditBooking').style.display = 'flex';
+            document.getElementById('btnCancelBooking').style.display = canCancel ? 'flex' : 'none';
+            // Show restriction notice if applicable
+            document.getElementById('editRestrictionNotice').style.display = (!canEdit && canCancel) ? 'block' : 'none';
+
+
+            // Show Overlay
+            document.getElementById('bookingDetailFullscreen').classList.add('open');
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden'; // Lock HTML as well
+            window.toggleEditBooking(false);
+        };
+
+
+        window.closeBookingDetail = function() {
+            document.getElementById('bookingDetailFullscreen').classList.remove('open');
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        };
+
+        window.toggleEditBooking = function(isEdit) {
+            document.getElementById('bookingDetailView').style.display = isEdit ? 'none' : 'block';
+            document.getElementById('bookingEditContainer').style.display = isEdit ? 'block' : 'none';
+
+            if (isEdit && _activeBooking) {
+                // Update DatePicker restrictions dynamically to allow the CURRENT booking date
+                if (window._editDatePicker) {
+                    window._editDatePicker.set('disable', [
+                        function(date) {
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            const threeDaysOut = new Date();
+                            threeDaysOut.setDate(today.getDate() + 2);
+                            threeDaysOut.setHours(23,59,59,999);
+
+                            if (date >= today && date <= threeDaysOut) {
+                                if (_activeBooking && _activeBooking.event_date) {
+                                    const current = new Date(_activeBooking.event_date);
+                                    current.setHours(0,0,0,0);
+                                    if (date.getTime() === current.getTime()) return false;
+                                }
+                                return true;
+                            }
+                            return false;
+                        }
+                    ]);
+                }
+
+                document.getElementById('eEventName').value = _activeBooking.event_name || '';
+                
+                // Set Flatpickr dates
+                if (window._editDatePicker && _activeBooking.event_date) {
+                    window._editDatePicker.setDate(_activeBooking.event_date, false);
+                    window._editDatePicker.redraw();
+                }
+                if (window._editTimePicker && _activeBooking.event_time) {
+                    window._editTimePicker.setDate(_activeBooking.event_time, false);
+                }
+                
+                // Intelligent Event Type Matching
+                const typeEl = document.getElementById('eEventType');
+                const rawType = String(_activeBooking.event_type || '').toLowerCase();
+                let matchedType = 'other';
+                Array.from(typeEl.options).forEach(opt => {
+                    if (rawType.includes(opt.value)) matchedType = opt.value;
+                });
+                typeEl.value = matchedType;
+                
+                // Robust guest count matching
+                let rawGuests = String(_activeBooking.num_guests || '');
+                let guestVal = rawGuests.replace(/[^0-9]/g, ''); // Digits only
+                // If it's a range like 10-20, take the first number
+                if (rawGuests.includes('-')) guestVal = rawGuests.split('-')[0].trim();
+                
+                // Ensure the value exists in the dropdown, else find closest
+                const guestEl = document.getElementById('eNumGuests');
+                if (guestVal) {
+                    guestEl.value = guestVal;
+                }
+
+                document.getElementById('eAddress').value = _activeBooking.address || '';
+                document.getElementById('eNotes').value = _activeBooking.notes || '';
+
+            }
+        };
+
+
+
+
+
+        window.saveBookingEdits = async function() {
+            if (!_activeBooking) return;
+            
+            const fields = ['eEventName','eEventDate','eEventTime','eAddress','eEventType','eNumGuests'];
+            let hasError = false;
+            
+            fields.forEach(fid => {
+                const el = document.getElementById(fid);
+                const err = document.getElementById(fid + 'Error');
+                if (!el.value || el.value === 'null' || el.value === '') {
+                    el.classList.add('error');
+                    if (err) err.classList.add('show');
+                    hasError = true;
+                } else {
+                    el.classList.remove('error');
+                    if (err) err.classList.remove('show');
+                }
+            });
+
+            if (hasError) {
+                showToast('Please fill in all required fields.', true);
+                return;
+            }
+
+            const data = {
+                action: 'update_booking',
+                booking_id: _activeBooking.id,
+                eventName: document.getElementById('eEventName').value.trim(),
+                eventDate: document.getElementById('eEventDate').value,
+                eventTime: document.getElementById('eEventTime').value,
+                eventType: document.getElementById('eEventType').value,
+                numGuests: document.getElementById('eNumGuests').value,
+                address: document.getElementById('eAddress').value.trim(),
+                notes: document.getElementById('eNotes').value.trim()
+            };
+
+            // 3-day lead time check: New date must be at least 3 days from today.
+            const now = new Date();
+            const newDate = new Date(data.eventDate);
+            const newDiff = Math.ceil((newDate - now) / (1000 * 60 * 60 * 24));
+
+            if (newDiff < 3 && _activeBooking.status !== 'cancelled') {
+                showToast('New event date must be at least 3 days from today.', true);
+                const dtEl = document.getElementById('eEventDate');
+                dtEl.classList.add('error');
+                const dtErr = document.getElementById('eEventDateError');
+                if (dtErr) {
+                    dtErr.innerText = 'Must be at least 3 days away';
+                    dtErr.classList.add('show');
+                }
+                return;
+            }
+
+            try {
+                const res = await fetch('adminSide/admin-bookings.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    window.toggleEditBooking(false); // Close edit form
+                    window.closeBookingDetail(); // Close detail view
+                    await loadBookings(); // Refresh list
+                } else {
+                    showToast(result.message || 'Update failed', true);
+                }
+
+
+            } catch (e) {
+                console.error('Update Error:', e);
+                showToast('Update error: ' + e.message, true);
+            }
+        };
+
+
+
+
+        window.openCancelBookingModal = function() {
+            if (!_activeBooking) return;
+            document.getElementById('cancelBookingConfirmModal').classList.add('open');
+
+            
+            document.getElementById('confirmCancelBookingBtn').onclick = async () => {
+                const btn = document.getElementById('confirmCancelBookingBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
+                
+                try {
+                    const res = await fetch('adminSide/admin-bookings.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'update_status',
+                            booking_id: _activeBooking.id,
+                            status: 'cancelled'
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        closeCancelBookingModal();
+                        closeBookingDetail();
+                        await loadBookings();
+                    } else {
+                        showToast(result.message || 'Cancellation failed', true);
+                    }
+                } catch (e) {
+                    showToast('Network error.', true);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Yes, Cancel Booking';
+                }
+            };
+        };
+
+        window.closeCancelBookingModal = function() {
+            document.getElementById('cancelBookingConfirmModal').classList.remove('open');
+        };
+
         function getStatusBg(status) {
             switch(status.toLowerCase()) {
-                case 'confirmed': return '#22c55e';
-                case 'cancelled': return '#ef4444';
-                default: return '#f59e0b';
+                case 'confirmed': return 'linear-gradient(135deg, #16a34a, #22c55e)';
+                case 'cancelled': return 'linear-gradient(135deg, #991b1b, #ef4444)';
+                default: return 'linear-gradient(135deg, #9B0A1E, #C22626)'; // pending — matches site red
             }
+        }
+        
+        // ── MAP SELECTION FOR EDITING ──
+        const STORE_LOC = { lat: 14.5244, lng: 121.0559 };
+        const MAX_RADIUS_KM = 5.5;
+
+        window.initLeafletMapForEdit = function() {
+            let map = null;
+            let marker = null;
+            
+            const modalHTML = `
+            <div id="mapModalOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:20000;backdrop-filter:blur(8px);">
+              <div id="mapModalContent" style="background:#111;border-radius:20px;width:95%;max-width:900px;position:relative;box-shadow:0 0 50px rgba(0,0,0,1);display:flex;flex-direction:column;max-height:85vh;overflow:hidden;border: 1px solid #333;">
+                <div style="padding:18px 25px;background:linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%);display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;font-family:'Aclonica',sans-serif;color:#fff;font-size:1.1rem;">📍 Select Event Location</h3>
+                    <button id="closeMapBtn" style="background:rgba(0,0,0,0.3);border:none;border-radius:50%;width:32px;height:32px;color:#fff;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div style="padding:15px 25px;background:#222;border-bottom:1px solid #333;">
+                  <div style="position:relative;">
+                    <div style="display:flex;gap:10px;">
+                        <div style="position:relative;flex:1;">
+                            <i class="fas fa-map-marker-alt" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#C22626;font-size:0.9rem;"></i>
+                            <input id="mapSearchInput" placeholder="Search for street, city, or venue..."
+                                style="width:100%;padding:12px 16px 12px 35px;border-radius:8px;border:1px solid #444;background:#111;color:#fff;font-size:.95rem;outline:none;">
+                        </div>
+                        <button id="gpsLocationBtn" title="Use my current GPS" style="width:48px;background:linear-gradient(135deg,#C22626,#8B0A1E);border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-crosshairs"></i>
+                        </button>
+                    </div>
+                    <div id="mapSearchResults" style="display:none;position:absolute;top:100%;left:0;right:58px;background:#222;border:1px solid #444;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:20001;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+
+                  </div>
+                </div>
+
+                <div id="mapContainer" style="flex:1;min-height:400px;width:100%;"></div>
+                
+                <div style="padding:20px 25px;background:#111;border-top:1px solid #222;">
+                  <button id="confirmLocationBtn" disabled style="width:100%;padding:15px;background:#333;border:none;border-radius:12px;color:#666;font-weight:700;cursor:not-allowed;">Confirm Location</button>
+                </div>
+              </div>
+            </div>`;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            document.body.style.overflow = 'hidden';
+
+            const closeBtn = document.getElementById('closeMapBtn');
+            const confirmBtn = document.getElementById('confirmLocationBtn');
+            const gpsBtn = document.getElementById('gpsLocationBtn');
+            const overlay = document.getElementById('mapModalOverlay');
+
+            const cleanup = () => {
+                overlay.remove();
+                document.body.style.overflow = '';
+            };
+
+            closeBtn.onclick = cleanup;
+            confirmBtn.onclick = () => {
+                const addr = document.getElementById('mapSearchInput').value;
+                document.getElementById('eAddress').value = addr;
+                cleanup();
+            };
+
+            gpsBtn.onclick = async () => {
+                gpsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                navigator.geolocation.getCurrentPosition(async pos => {
+                    const { latitude: lat, longitude: lng } = pos.coords;
+                    map.setView([lat, lng], 17);
+                    if (marker) marker.setLatLng([lat, lng]); else marker = L.marker([lat, lng]).addTo(map);
+                    await updateSelectedAddressForEdit(lat, lng);
+                    gpsBtn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+                }, () => {
+                    alert('Unable to get your location.');
+                    gpsBtn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+                });
+            };
+
+            setTimeout(() => {
+                map = L.map('mapContainer').setView([STORE_LOC.lat, STORE_LOC.lng], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.circle([STORE_LOC.lat, STORE_LOC.lng], { radius: MAX_RADIUS_KM * 1000, color: '#C22626', fillOpacity: 0.1 }).addTo(map);
+
+                map.on('click', async (e) => {
+                    const { lat, lng } = e.latlng;
+                    if (marker) marker.setLatLng([lat, lng]); else marker = L.marker([lat, lng]).addTo(map);
+                    await updateSelectedAddressForEdit(lat, lng);
+                });
+
+                const searchInput = document.getElementById('mapSearchInput');
+                const resultsBox = document.getElementById('mapSearchResults');
+
+                searchInput.addEventListener('input', debounce(async () => {
+                    const query = searchInput.value.trim();
+                    if (query.length < 3) { resultsBox.style.display = 'none'; return; }
+                    try {
+                        const token = window.LOCATIONIQ_TOKEN || '';
+                        const res = await fetch(`https://us1.locationiq.com/v1/autocomplete.php?key=${token}&q=${encodeURIComponent(query)}&limit=5&lat=${STORE_LOC.lat}&lon=${STORE_LOC.lng}`);
+                        const data = await res.json();
+                        if (Array.isArray(data) && data.length > 0) {
+                            resultsBox.innerHTML = data.map(f => `
+                                <div class="map-suggestion-item" data-lat="${f.lat}" data-lon="${f.lon}" data-addr="${f.display_name}" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);color:#ccc;font-size:0.85rem;cursor:pointer;">
+                                    <i class="fas fa-map-marker-alt" style="margin-right:8px;color:#C22626;"></i>
+                                    ${f.display_name}
+                                </div>
+                            `).join('');
+                            resultsBox.style.display = 'block';
+                            resultsBox.querySelectorAll('.map-suggestion-item').forEach(item => {
+                                item.onclick = () => {
+                                    const lat = +item.dataset.lat; const lon = +item.dataset.lon;
+                                    map.setView([lat, lon], 17);
+                                    if (marker) marker.setLatLng([lat, lon]); else marker = L.marker([lat, lon]).addTo(map);
+                                    searchInput.value = item.dataset.addr;
+                                    updateSelectedAddressForEdit(lat, lon);
+                                    resultsBox.style.display = 'none';
+                                };
+                            });
+                        } else resultsBox.style.display = 'none';
+                    } catch (e) {}
+                }, 400));
+            }, 100);
+        };
+
+        async function updateSelectedAddressForEdit(lat, lng) {
+            const btn = document.getElementById('confirmLocationBtn');
+            const searchInput = document.getElementById('mapSearchInput');
+            if (!btn) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating...';
+
+            const R = 6371;
+            const dLat = (lat - STORE_LOC.lat) * Math.PI / 180;
+            const dLon = (lng - STORE_LOC.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(STORE_LOC.lat*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+            const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            
+            let addr = '';
+            try {
+                const token = window.LOCATIONIQ_TOKEN || '';
+                const res = await fetch(`https://us1.locationiq.com/v1/reverse?key=${token}&lat=${lat}&lon=${lng}&format=json`);
+                if (res.ok) {
+                    const data = await res.json();
+                    addr = data.display_name || '';
+                }
+            } catch (e) {}
+
+            if (distKm > MAX_RADIUS_KM) {
+                btn.innerHTML = 'Outside Delivery Radius';
+                btn.style.background = '#333';
+                btn.style.color = '#ef4444';
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = 'Confirm Location';
+                btn.style.background = 'linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%)';
+                btn.style.color = '#fff';
+                btn.style.cursor = 'pointer';
+                btn.disabled = false;
+                if (addr) searchInput.value = addr;
+            }
+        }
+
+        function debounce(func, wait) {
+            let t; return (...args) => { clearTimeout(t); t = setTimeout(() => func(...args), wait); };
         }

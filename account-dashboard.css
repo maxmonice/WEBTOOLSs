@@ -44,6 +44,9 @@
         .page-title { font-family: 'Aclonica', sans-serif; font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.15; margin-bottom: 40px; }
 
         .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 20px; transition: border-color 0.3s; }
+        .section-block.flush { padding: 0 !important; }
+        .section-block.flush .section-label { margin-top: 0; border-radius: 0; }
+
         /* Removed hover border-color */
 
         .section-label { display: flex; align-items: center; gap: 10px; padding: 14px 22px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
@@ -132,12 +135,7 @@
         .modal-foot.col { flex-direction: column; padding-top: 20px; }
         .btn-logout-confirm { width: 100%; padding: 13px; border: none; border-radius: 9px; background: var(--red); color: #fff; font-family: 'Be Vietnam Pro', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
         .btn-logout-confirm:hover { background: var(--red-dark); }
-
-        /* ── TOAST ── */
-        .toast { position: fixed; bottom: 28px; right: 28px; z-index: 9999; background: var(--surface); border: 1px solid var(--border-red); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; font-size: 0.84rem; font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.4); transform: translateY(80px); opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        .toast i { color: #22c55e; }
-        .toast.error i { color: #ef4444; }
+        
 
         /* ── FOOTER ── */
         footer { background: linear-gradient(135deg, #8B0A1E 0%, #C22626 60%, #9B0A1E 100%); padding: 60px 0 20px; color: white; font-size: 0.9rem; box-shadow: 0 -4px 24px rgba(0,0,0,0.3); }
@@ -185,7 +183,8 @@
         .order-track-address i { color:var(--red); margin-top:2px; flex-shrink:0; }
 
         /* Mini map */
-        .mini-map-wrap { position:relative; height:170px; border-radius:12px; overflow:hidden; cursor:pointer; background:#1a2235; border:1px solid rgba(255,255,255,0.08); margin-bottom:14px; transition:transform 0.2s, box-shadow 0.2s; }
+        .mini-map-wrap { position:relative; height:170px; border-radius:12px; overflow:hidden; cursor:pointer; background:#121212; border:1px solid rgba(255,255,255,0.08); margin-bottom:14px; transition:transform 0.2s, box-shadow 0.2s; }
+
         /* Removed hover transform and shadow */
 
         .mini-map-wrap::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.5)); pointer-events:none; z-index:2; }
@@ -242,7 +241,8 @@
         .food-rating-desc { font-size:0.75rem; color:var(--muted); margin-bottom:15px; }
 
         /* Fullscreen map overlay - Now truly full screen without padding */
-        .map-fullscreen-overlay { display:none; position:fixed; inset: 0; width: 100%; height: 100%; z-index:9000; background:#111827; flex-direction:column; border-radius: 0; overflow: hidden; border: none; box-shadow: none; padding: 0 !important; }
+        .map-fullscreen-overlay { display:none; position:fixed; inset: 0; width: 100%; height: 100%; z-index:9000; background:#121212; flex-direction:column; border-radius: 0; overflow: hidden; border: none; box-shadow: none; padding: 0 !important; }
+
 
 
         .map-fullscreen-overlay.open { display:flex; animation: slideUp 0.3s ease-out; }
@@ -251,12 +251,184 @@
         .map-fs-close { width:36px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.85rem; transition:background 0.2s; }
         .map-fs-close:hover { background:rgba(255,255,255,0.16); }
         .map-fs-body { flex:1; position:relative; overflow:hidden; }
-        #customer-map-view { width: 100%; height: 100%; background: #111827; }
+        #customer-map-view { width: 100%; height: 100%; background: #121212; }
+
         .leaflet-routing-container { display: none !important; }
-        .map-fs-card { position:absolute; bottom:0; left:0; right:0; background:rgba(17,24,39,0.95); backdrop-filter:blur(16px); border-top:1px solid rgba(255,255,255,0.08); padding:25px 25px 40px; z-index:400; }
+        .map-fs-card { position:absolute; bottom:0; left:0; right:0; background:rgba(18,18,18,0.95); backdrop-filter:blur(16px); border-top:1px solid rgba(255,255,255,0.08); padding:25px 25px 40px; z-index:400; }
+
 
         .map-fs-addr { font-size:0.82rem; color:rgba(255,255,255,0.55); margin-bottom:4px; }
         .map-fs-addr-val { font-size:0.95rem; font-weight:700; color:#fff; margin-bottom:16px; }
         .map-fs-progress { display:flex; align-items:center; margin-bottom:18px; }
         .map-fs-eta { display:flex; align-items:center; gap:8px; font-size:0.78rem; color:rgba(255,255,255,0.5); font-weight:600; }
         .map-fs-eta strong { color:#fff; font-size:1rem; }
+
+/* Error Validation Styling (Mirroring Book Bar) */
+.form-input.error, .form-select.error, .form-textarea.error {
+    border-color: #ff4d4d !important;
+    background: rgba(255, 77, 77, 0.03) !important;
+    box-shadow: 0 0 10px rgba(255, 77, 77, 0.1) !important;
+}
+
+.error-message {
+    display: none;
+    color: #ff4d4d;
+    font-size: 0.75rem;
+    margin-top: 5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    animation: slideInError 0.3s ease-out;
+}
+
+.error-message.show {
+    display: block;
+}
+
+@keyframes slideInError {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- MIGRATED FROM PHP --- */
+.btn-danger-gradient {
+  background: linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(194, 38, 38, 0.3);
+  transition: all 0.3s ease;
+}
+.btn-danger-gradient:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(194, 38, 38, 0.4);
+  filter: brightness(1.1);
+}
+
+.booking-item:hover {
+  background: rgba(255,255,255,0.04) !important;
+}
+.booking-list-container .booking-item:first-child {
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+.booking-list-container .booking-item:last-child {
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+.booking-fs-body {
+  overflow-y: auto;
+  height: calc(100vh - 70px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--red) transparent;
+}
+.booking-fs-body::-webkit-scrollbar { width: 6px; }
+.booking-fs-body::-webkit-scrollbar-track { background: transparent; }
+.booking-fs-body::-webkit-scrollbar-thumb { background: var(--red); border-radius: 10px; border: 2px solid #121212; }
+.booking-fs-body::-webkit-scrollbar-thumb:hover { background: var(--red-dark); }
+
+.form-title {
+    font-family: 'Aclonica', sans-serif;
+    font-size: 1.6rem;
+    margin-bottom: 28px;
+    color: #fff;
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+.form-title::after {
+    content: '';
+    display: block;
+    width: 96px; height: 2px;
+    background: linear-gradient(to right, var(--red), transparent);
+    border-radius: 2px;
+    margin-top: 0.4rem;
+}
+.form-group { display: flex; flex-direction: column; gap: 20px; }
+.form-label {
+    display: flex; flex-direction: column;
+    font-size: 0.82rem; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+}
+.form-input, .form-textarea {
+    margin-top: 10px; padding: 14px 18px; border-radius: 12px;
+    background: rgba(255,255,255,0.03); color: white;
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.95rem; font-family: 'Be Vietnam Pro', sans-serif;
+    transition: none; width: 100%;
+}
+.form-select {
+    margin-top: 10px; padding: 14px 18px; border-radius: 12px;
+    background: rgba(255,255,255,0.03); color: white;
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.95rem; font-family: 'Be Vietnam Pro', sans-serif;
+    width: 100%;
+    transition: none;
+}
+
+.form-input:focus, .form-textarea:focus {
+    outline: none; border-color: var(--red);
+    background: rgba(255,255,255,0.05);
+    box-shadow: 0 0 0 4px rgba(194,38,38,0.15);
+}
+.form-select:focus {
+    outline: none; border-color: var(--red);
+    background: rgba(255,255,255,0.05);
+}
+
+.form-row { display: flex; gap: 20px; }
+.form-row .form-label { flex: 1; }
+.form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 18px center;
+    padding-right: 44px;
+}
+.form-select option { background: #1a1a1a; color: white; }
+
+.submit-btn {
+    padding: 14px 30px; font-size: 0.95rem; font-weight: 700;
+    border-radius: 100px; background: linear-gradient(135deg, var(--red), var(--red-dark));
+    color: #fff; border: none; cursor: pointer; transition: all 0.25s;
+    font-family: 'Aclonica', sans-serif; letter-spacing: 0.03em;
+    box-shadow: 0 4px 15px rgba(194, 38, 38, 0.3);
+}
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(194, 38, 38, 0.45);
+    filter: brightness(1.1);
+}
+
+.map-select-btn {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--red), #8B0A1E);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 15px rgba(194, 38, 38, 0.3);
+}
+.map-select-btn:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 6px 20px rgba(194, 38, 38, 0.4);
+}
+
+.form-box {
+    background: #121212;
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: clamp(24px, 5vw, 56px);
+    border-radius: 24px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+    position: relative;
+    overflow: hidden;
+}
+.form-box::before {
+    content: '';
+    position: absolute; top: -100px; right: -100px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(194,38,38,0.08) 0%, transparent 70%);
+    pointer-events: none;
+}
+

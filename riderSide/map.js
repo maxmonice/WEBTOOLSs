@@ -5,8 +5,9 @@
 let map;
 let riderMarker;
 let customerMarker;
-let routeLine;
+let routingControl;
 let socket;
+
 
 // Store location: G3P4+5WV, Vulcan St, Pinagsama, Taguig
 const STORE_LAT = 14.52625;
@@ -120,20 +121,25 @@ function startRiderTracking() {
 
 
 function updateRoute(startLatLng, endLatLng) {
-    if (routeLine) {
-        map.removeLayer(routeLine);
+    if (routingControl) {
+        map.removeControl(routingControl);
     }
 
-    // Draw a direct guaranteed line between the two points
-    routeLine = L.polyline([startLatLng, endLatLng], {
-        color: '#C22626',
-        weight: 4,
-        opacity: 0.8,
-        dashArray: '10, 10' // Makes the line dashed
+    // Use Leaflet Routing Machine for professional routing
+    routingControl = L.Routing.control({
+        waypoints: [
+            L.latLng(startLatLng[0], startLatLng[1]),
+            L.latLng(endLatLng[0], endLatLng[1])
+        ],
+        lineOptions: {
+            styles: [{color: '#0044cc', opacity: 0.8, weight: 6}] // Professional Blue line
+        },
+        createMarker: function() { return null; }, // Hide default markers
+        addWaypoints: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: true,
+        show: false // Hide the instruction panel
     }).addTo(map);
-
-    // Auto-zoom map to fit both points
-    map.fitBounds([startLatLng, endLatLng], { padding: [50, 50] });
 
     // Calculate approximate ETA locally (based on distance)
     const distKm = getDistance(startLatLng[0], startLatLng[1], endLatLng[0], endLatLng[1]);
@@ -144,6 +150,7 @@ function updateRoute(startLatLng, endLatLng) {
     const etaValEl = document.querySelector('.eta-val');
     if (etaValEl) etaValEl.textContent = etaInMinutes;
 }
+
 
 // Haversine formula to get distance in km between two lat/lngs
 function getDistance(lat1, lon1, lat2, lon2) {

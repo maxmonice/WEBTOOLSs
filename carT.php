@@ -16,7 +16,15 @@ $xenditPublicKey = getenv('XENDIT_PUBLIC_KEY') ?: '';
 <script src="https://js.xendit.co/v1/xendit.min.js"></script>
 <script>
 window.XENDIT_PUBLIC_KEY = '<?php echo $xenditPublicKey; ?>';
+window.LOCATIONIQ_TOKEN = '<?php echo getenv('LOCATIONIQ_TOKEN') ?: ''; ?>';
 </script>
+<!-- LocationIQ Geocoder -->
+<link rel="stylesheet" href="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.css">
+<script src="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.js"></script>
+<!-- Leaflet Routing Machine -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
 <!-- Cart Button -->
 <div class="cart-btn cart-btn-fixed" id="cartBtn" role="button" tabindex="0"
      onclick="if(typeof openCart==='function') openCart();"

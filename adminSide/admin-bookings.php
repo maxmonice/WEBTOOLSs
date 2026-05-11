@@ -1,20 +1,32 @@
 <?php
 require_once 'admin-config.php';
 require_once '../activity-logger.php';
-requireAdmin();
 
-// Handle booking creation from frontend
+header('Content-Type: application/json');
+$data = null;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rawInput = file_get_contents('php://input');
-    error_log("Raw input received: " . $rawInput);
-    
-    if (empty($rawInput)) {
+    $data = json_decode($rawInput, true);
+
+    // If it's a booking creation, allow it without admin session
+    $publicActions = ['create_booking', 'update_booking', 'update_status'];
+    if ($data && isset($data['action']) && in_array($data['action'], $publicActions)) {
+        // Safe to proceed to specific action validation
+    } else {
+        requireAdmin();
+    }
+
+} else {
+    requireAdmin();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (empty($rawInput) && empty($data)) {
         error_log("No input data received");
         echo json_encode(['success' => false, 'message' => 'No data received']);
         exit;
     }
-    
-    $data = json_decode($rawInput, true);
     
     if (json_last_error() !== JSON_ERROR_NONE) {
         error_log("JSON decode error: " . json_last_error_msg());
@@ -48,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userEmail = trim($data['userEmail'] ?? '');
         $userName = trim($data['userName'] ?? '');
         
-        // Validate required fields - use isset and !empty combination
+        // Validate required fields
         if (empty($eventName) || empty($fullName) || empty($contactNumber) || empty($emailAddress) || 
             empty($eventDate) || empty($eventTime) || empty($eventType) || empty($numGuests) || empty($address)) {
             
@@ -63,93 +75,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($numGuests)) $missing[] = 'numGuests';
             if (empty($address)) $missing[] = 'address';
             
-            error_log("Missing fields: " . implode(', ', $missing));
             echo json_encode(['success' => false, 'message' => 'Missing required fields: ' . implode(', ', $missing)]);
             exit;
         }
         
-        // Validate email format
         if (!filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
-            error_log("Invalid email format: " . $emailAddress);
-            echo json_encode(['success' => false, 'message' => 'Invalid email format: ' . $emailAddress]);
+            echo json_encode(['success' => false, 'message' => 'Invalid email format']);
             exit;
         }
         
-        // Validate date format - try multiple formats
         $dateObj = DateTime::createFromFormat('Y-m-d', $eventDate);
+        if (!$dateObj) $dateObj = DateTime::createFromFormat('m/d/Y', $eventDate);
+        if (!$dateObj) $dateObj = DateTime::createFromFormat('F j, Y', $eventDate);
+        
         if (!$dateObj) {
-            $dateObj = DateTime::createFromFormat('m/d/Y', $eventDate);
-        }
-        if (!$dateObj) {
-            $dateObj = DateTime::createFromFormat('F j, Y', $eventDate);
-        }
-        if (!$dateObj) {
-            error_log("Invalid date format: " . $eventDate);
-            echo json_encode(['success' => false, 'message' => 'Invalid date format. Use YYYY-MM-DD format.']);
+            echo json_encode(['success' => false, 'message' => 'Invalid date format']);
             exit;
         }
         $formattedDate = $dateObj->format('Y-m-d');
         
-        // Validate time format
         $timeObj = DateTime::createFromFormat('H:i', $eventTime);
+        if (!$timeObj) $timeObj = DateTime::createFromFormat('h:i A', $eventTime);
+        
         if (!$timeObj) {
-            $timeObj = DateTime::createFromFormat('h:i A', $eventTime);
-        }
-        if (!$timeObj) {
-            error_log("Invalid time format: " . $eventTime);
-            echo json_encode(['success' => false, 'message' => 'Invalid time format. Use HH:MM format.']);
+            echo json_encode(['success' => false, 'message' => 'Invalid time format']);
             exit;
         }
         $formattedTime = $timeObj->format('H:i');
         
-        error_log("Processed data - Date: $formattedDate, Time: $formattedTime");
-        
-        // Insert booking into database using existing table structure
         $stmt = $pdo->prepare("
             INSERT INTO bookings (
-                user_id, status, event_date, notes, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, NOW(), NOW())
+                user_id, event_name, address, event_date, event_time, 
+                event_type, num_guests, full_name, contact_number, 
+                email_address, notes, user_email, user_name, 
+                status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
         ");
         
-        // Store all booking details in notes field as JSON
-        $bookingNotes = json_encode([
-            'event_name' => $eventName,
-            'address' => $address,
-            'event_time' => $formattedTime,
-            'event_type' => $eventType,
-            'num_guests' => $numGuests,
-            'full_name' => $fullName,
-            'contact_number' => $contactNumber,
-            'email_address' => $emailAddress,
-            'user_email' => $userEmail,
-            'user_name' => $userName,
-            'original_notes' => $notes
-        ]);
-        
         try {
-            $result = $stmt->execute([
-                null, // user_id (null for guest bookings)
-                'pending',
-                $formattedDate,
-                $bookingNotes
+            $stmt->execute([
+                null, $eventName, $address, $formattedDate, $formattedTime,
+                $eventType, $numGuests, $fullName, $contactNumber,
+                $emailAddress, $notes, $userEmail, $userName
             ]);
-            
-            if ($result) {
-                $bookingId = $pdo->lastInsertId();
-                
-                // Log booking creation activity
-                logActivity('booking_created', "Customer created booking for {$eventName} on {$formattedDate} with {$numGuests} guests", $userEmail, $userName);
-                
-                echo json_encode(['success' => true, 'message' => 'Booking created successfully', 'booking_id' => $bookingId]);
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Failed to insert booking']);
-            }
+            $bookingId = $pdo->lastInsertId();
+            logActivity('booking_created', "Customer created booking for {$eventName} on {$formattedDate}", $userEmail, $userName);
+            echo json_encode(['success' => true, 'message' => 'Booking created successfully', 'booking_id' => $bookingId]);
             exit;
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
             exit;
-        } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+    
+    if ($data['action'] === 'update_booking') {
+        $bookingId = $data['booking_id'] ?? 0;
+        
+        // Fetch booking to check existence, ownership, and status
+        $check = $pdo->prepare("SELECT user_id, email_address, event_date, status FROM bookings WHERE id = ?");
+        $check->execute([$bookingId]);
+        $b = $check->fetch();
+
+        if (!$b) {
+            echo json_encode(['success' => false, 'message' => 'Booking not found']);
+            exit;
+        }
+
+        // Ownership check: If not admin, must be the owner
+        if (!isset($_SESSION['is_admin'])) {
+            $ownerId = $_SESSION['user_id'] ?? -1;
+            $ownerEmail = $_SESSION['user_email'] ?? '';
+            if ($b['user_id'] != $ownerId && $b['email_address'] != $ownerEmail) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                exit;
+            }
+        }
+            
+        $eventName = trim($data['eventName'] ?? '');
+        $address = trim($data['address'] ?? '');
+        $eventDate = trim($data['eventDate'] ?? '');
+        $eventTime = trim($data['eventTime'] ?? '');
+        $eventType = trim($data['eventType'] ?? '');
+        $numGuests = trim($data['numGuests'] ?? '');
+        $notes = trim($data['notes'] ?? '');
+
+        // Format Date
+        $dateObj = DateTime::createFromFormat('Y-m-d', $eventDate);
+        if (!$dateObj) $dateObj = DateTime::createFromFormat('m/d/Y', $eventDate);
+        if (!$dateObj) $dateObj = DateTime::createFromFormat('F j, Y', $eventDate);
+        if (!$dateObj) {
+            echo json_encode(['success' => false, 'message' => 'Invalid date format']);
+            exit;
+        }
+        $formattedDate = $dateObj->format('Y-m-d');
+
+        // Format Time
+        $timeObj = DateTime::createFromFormat('H:i', $eventTime);
+        if (!$timeObj) $timeObj = DateTime::createFromFormat('h:i A', $eventTime);
+        if (!$timeObj) $timeObj = DateTime::createFromFormat('h:i K', $eventTime);
+        if (!$timeObj) {
+            echo json_encode(['success' => false, 'message' => 'Invalid time format']);
+            exit;
+        }
+        $formattedTime = $timeObj->format('H:i:s');
+
+        // 3-day lead time check: New date must be at least 3 days from now
+        $now = new DateTime();
+        $newDateObj = new DateTime($formattedDate);
+        $interval = $now->diff($newDateObj);
+        $daysLeft = $interval->days;
+
+        if (($interval->invert || $daysLeft < 3) && $b['status'] !== 'cancelled') {
+            echo json_encode(['success' => false, 'message' => 'New event date must be at least 3 days from today.']);
+            exit;
+        }
+
+
+
+        $stmt = $pdo->prepare("
+            UPDATE bookings SET 
+                event_name = ?, address = ?, event_date = ?, 
+                event_time = ?, event_type = ?, num_guests = ?, 
+                notes = ?, updated_at = NOW()
+            WHERE id = ?
+        ");
+        
+        try {
+            $stmt->execute([
+                $eventName, $address, $formattedDate, $formattedTime, 
+                $eventType, $numGuests, $notes, $bookingId
+            ]);
+            echo json_encode(['success' => true, 'message' => 'Booking updated successfully']);
+            exit;
+
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
             exit;
         }
     }
@@ -157,16 +217,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($data['action'] === 'update_status') {
         $bookingId = $data['booking_id'] ?? 0;
         $status = $data['status'] ?? 'pending';
-        
-        if (!in_array($status, ['confirmed', 'cancelled'])) {
-            echo json_encode(['success' => false, 'message' => 'Invalid status']);
-            exit;
+
+        // Ownership check if not admin (only allow cancellation)
+        if (!isset($_SESSION['is_admin'])) {
+            if ($status !== 'cancelled') {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized status update']);
+                exit;
+            }
+            $check = $pdo->prepare("SELECT user_id, email_address, event_date FROM bookings WHERE id = ?");
+            $check->execute([$bookingId]);
+            $b = $check->fetch();
+            if (!$b || ($b['user_id'] != ($_SESSION['user_id'] ?? -1) && $b['email_address'] != ($_SESSION['user_email'] ?? ''))) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                exit;
+            }
+
+
         }
-        
+
+
         $stmt = $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?");
         try {
             $stmt->execute([$status, $bookingId]);
-            echo json_encode(['success' => true, 'message' => "Booking $status successfully"]);
+            echo json_encode(['success' => true, 'message' => "Booking updated to $status"]);
             exit;
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
@@ -176,9 +249,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($data['action'] === 'clear_bookings') {
         try {
-            $stmt = $pdo->prepare("DELETE FROM bookings");
-            $stmt->execute();
-            echo json_encode(['success' => true, 'message' => 'All bookings cleared successfully']);
+            $pdo->exec("DELETE FROM bookings");
+            echo json_encode(['success' => true, 'message' => 'All bookings cleared']);
             exit;
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
@@ -188,134 +260,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($data['action'] === 'get_booking') {
         $id = $data['id'] ?? 0;
-        
         $stmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
-        try {
-            $stmt->execute([$id]);
-            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo json_encode(['success' => true, 'booking' => $booking]);
-            exit;
-        } catch (PDOException $e) {
-            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
-            exit;
-        }
+        $stmt->execute([$id]);
+        echo json_encode(['success' => true, 'booking' => $stmt->fetch()]);
+        exit;
     }
     
     if ($data['action'] === 'get_day_bookings') {
         $date = $data['date'] ?? '';
-        
         $stmt = $pdo->prepare("SELECT * FROM bookings WHERE event_date = ? ORDER BY created_at");
-        try {
-            $stmt->execute([$date]);
-            $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            echo json_encode(['success' => true, 'bookings' => $bookings]);
-            exit;
-        } catch (PDOException $e) {
-            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
-            exit;
-        }
+        $stmt->execute([$date]);
+        echo json_encode(['success' => true, 'bookings' => $stmt->fetchAll()]);
+        exit;
     }
 }
 
 // Get bookings for display
 $bookings = [];
 try {
-    $stmt = $pdo->prepare("SELECT * FROM bookings ORDER BY created_at DESC");
-    $stmt->execute();
-    $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    // Table already exists with different structure, just continue
-}
+    $bookings = $pdo->query("SELECT * FROM bookings ORDER BY created_at DESC")->fetchAll();
+} catch (PDOException $e) {}
 
-$viewMode = isset($_GET['view']) ? $_GET['view'] : 'calendar'; // calendar or table
-$requestedMonth = isset($_GET['month']) ? (int)$_GET['month'] : date('n');
-$requestedYear = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
-
-// Validate month/year
+$viewMode = $_GET['view'] ?? 'calendar';
+$requestedMonth = (int)($_GET['month'] ?? date('n'));
+$requestedYear = (int)($_GET['year'] ?? date('Y'));
 if ($requestedMonth < 1 || $requestedMonth > 12) $requestedMonth = date('n');
-if ($requestedYear < 2020 || $requestedYear > 2030) $requestedYear = date('Y');
-
 $currentMonth = $requestedMonth;
 $currentYear = $requestedYear;
 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $currentMonth, $currentYear);
 $firstDayOfWeek = date('w', strtotime("$currentYear-$currentMonth-01"));
 $today = ($currentYear == date('Y') && $currentMonth == date('n')) ? date('j') : null;
 
-// Get previous/next month for navigation
-$prevMonth = $currentMonth - 1;
-$nextMonth = $currentMonth + 1;
-$prevYear = $currentYear;
-$nextYear = $currentYear;
+$prevMonth = $currentMonth - 1; $nextMonth = $currentMonth + 1;
+$prevYear = $currentYear; $nextYear = $currentYear;
+if ($prevMonth < 1) { $prevMonth = 12; $prevYear--; }
+if ($nextMonth > 12) { $nextMonth = 1; $nextYear++; }
 
-if ($prevMonth < 1) {
-    $prevMonth = 12;
-    $prevYear = $currentYear - 1;
-}
-if ($nextMonth > 12) {
-    $nextMonth = 1;
-    $nextYear = $currentYear + 1;
-}
-
-// Group bookings by date - only for selected month/year
 $bookingsByDate = [];
 foreach ($bookings as $booking) {
-    $bookingDate = new DateTime($booking['event_date']);
-    $bookingMonth = (int)$bookingDate->format('n');
-    $bookingYear = (int)$bookingDate->format('Y');
-    
-    // Only include bookings for the selected month/year
-    if ($bookingMonth == $currentMonth && $bookingYear == $currentYear) {
-        $date = $bookingDate->format('j');
-        if (!isset($bookingsByDate[$date])) {
-            $bookingsByDate[$date] = [];
-        }
-        $bookingsByDate[$date][] = $booking;
+    $d = new DateTime($booking['event_date']);
+    if ((int)$d->format('n') == $currentMonth && (int)$d->format('Y') == $currentYear) {
+        $day = $d->format('j');
+        $bookingsByDate[$day][] = $booking;
     }
 }
 
-// Calendar generation function
 function generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOfWeek, $today, $bookingsByDate) {
     $calendar = '';
-    $day = 1;
-    
-    // Add empty cells for days before month starts
-    for ($i = 0; $i < $firstDayOfWeek; $i++) {
-        $calendar .= '<div class="cal-day empty"></div>';
-    }
-    
-    // Add days of the month
+    for ($i = 0; $i < $firstDayOfWeek; $i++) $calendar .= '<div class="cal-day empty"></div>';
     for ($day = 1; $day <= $daysInMonth; $day++) {
-        $isToday = ($day == $today);
-        $dayClass = $isToday ? 'cal-day today' : 'cal-day';
-        $calendar .= '<div class="' . $dayClass . '" onclick="showDayBookings(' . $day . ')">';
+        $cls = ($day == $today) ? 'cal-day today' : 'cal-day';
+        $calendar .= '<div class="' . $cls . '" onclick="showDayBookings(' . $day . ')">';
         $calendar .= '<div class="cal-day-num">' . $day . '</div>';
-        
-        // Add bookings for this day
         if (isset($bookingsByDate[$day])) {
-            foreach ($bookingsByDate[$day] as $booking) {
-                // Parse booking details from notes field
-                $bookingDetails = json_decode($booking['notes'], true) ?: [];
-                $fullName = $bookingDetails['full_name'] ?? 'Guest';
-                
-                $bookingId = '#BK-' . str_pad($booking['id'], 3, '0', STR_PAD_LEFT);
-                $customerName = substr($fullName, 0, 8);
-                $calendar .= '<div class="cal-event ' . $booking['status'] . '" onclick="event.stopPropagation(); showBookingDetails(' . $booking['id'] . ')">' . $bookingId . ' ' . $customerName . '</div>';
+            foreach ($bookingsByDate[$day] as $b) {
+                $bid = '#BK-' . str_pad($b['id'], 3, '0', STR_PAD_LEFT);
+                $name = substr($b['full_name'], 0, 8);
+                $calendar .= '<div class="cal-event ' . $b['status'] . '" onclick="event.stopPropagation(); showBookingDetails(' . $b['id'] . ')">' . $bid . ' ' . $name . '</div>';
             }
         }
-        
         $calendar .= '</div>';
     }
-    
-    // Add empty cells for days after month ends
     $totalCells = $firstDayOfWeek + $daysInMonth;
-    $remainingCells = 42 - $totalCells; // 6 rows * 7 days
-    for ($i = 0; $i < $remainingCells; $i++) {
-        $calendar .= '<div class="cal-day empty"></div>';
-    }
-    
+    for ($i = 0; $i < (42 - $totalCells); $i++) $calendar .= '<div class="cal-day empty"></div>';
     return $calendar;
 }
-
+$calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOfWeek, $today, $bookingsByDate);
+?>
 $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOfWeek, $today, $bookingsByDate);
 ?>
 

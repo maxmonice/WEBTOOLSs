@@ -203,31 +203,35 @@ function initMapModal() {
     }
 
     async function updateSelectedAddress(lat, lng) {
-        const searchInput = document.getElementById('mapSearchInput');
-        const mainAddressField = document.getElementById('cartAddress');
         const btn = document.getElementById('confirmLocationBtn');
+        const searchInput = document.getElementById('mapSearchInput');
+        if (!btn) return;
 
-        if (searchInput) searchInput.value = 'Locating address...';
+        // Use placeholder for loading state so it's not editable
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.placeholder = 'Locating address...';
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating...';
 
         try {
             const dist = getDistance(STORE_LOC.lat, STORE_LOC.lng, lat, lng);
             const isOutside = dist > MAX_RADIUS_KM;
 
-            // Using Photon for reverse geocoding as well (faster and consistent)
-            const res = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+            const token = window.LOCATIONIQ_TOKEN || 'YOUR_API_KEY';
+            const res = await fetch(`https://us1.locationiq.com/v1/reverse?key=${token}&lat=${lat}&lon=${lng}&format=json`);
             const data = await res.json();
-            const f = data.features ? data.features[0] : null;
-            let addr = '';
+            let addr = data.display_name || '';
 
-            if (f && f.properties) {
-                const p = f.properties;
-                addr = [p.name, p.street, p.district, p.city].filter(Boolean).join(', ');
-            }
 
             if (!addr) addr = 'Unknown Street - Please refine pin';
 
-            if (searchInput) searchInput.value = addr;
-            if (mainAddressField) mainAddressField.value = addr;
+            if (searchInput) {
+                searchInput.value = addr;
+                searchInput.placeholder = 'Search for street, city, or venue...';
+            }
+            btn._address = addr;
 
             if (isOutside) {
                 btn.disabled = true;
@@ -245,21 +249,25 @@ function initMapModal() {
                 btn.style.boxShadow = '0 8px 20px rgba(194,38,38,0.3)';
                 btn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Selection';
             }
-            btn._address = addr;
         } catch (e) {
             console.error('Reverse geocode failed', e);
-            if (searchInput) searchInput.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            if (searchInput) {
+                searchInput.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                searchInput.placeholder = 'Search for street, city, or venue...';
+            }
+            btn.disabled = false;
+            btn.innerHTML = 'Confirm Selection';
         }
     }
 
-    // Init map after modal is in DOM
+    // Init map after modal 
     setTimeout(() => {
         map = L.map('mapContainer').setView([STORE_LOC.lat, STORE_LOC.lng], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Store location pin
+        // 1. Store location pin
         L.marker([STORE_LOC.lat, STORE_LOC.lng], {
             icon: L.divIcon({
                 className: 'store-marker',
@@ -269,13 +277,37 @@ function initMapModal() {
             })
         }).addTo(map).bindPopup('<b>Our Store</b><br>Vulcan St, Taguig');
 
-        // Delivery Radius Circle
+        // 2. Delivery Radius Circle
         deliveryCircle = L.circle([STORE_LOC.lat, STORE_LOC.lng], {
             color: '#C22626',
             fillColor: '#C22626',
             fillOpacity: 0.1,
             radius: MAX_RADIUS_KM * 1000 // meters
         }).addTo(map);
+
+        // 3. LocationIQ Geocoder Control (Autocomplete)
+        const token = window.LOCATIONIQ_TOKEN || 'YOUR_API_KEY';
+        if (typeof L.Control.geocoder === 'function') {
+            const geocoder = L.Control.geocoder(token, {
+                placeholder: "Search for your street in Taguig...",
+                expanded: true,
+                position: 'topright'
+            }).addTo(map);
+
+            geocoder.on('select', function(e) {
+                const { lat, lng } = e.latlng;
+                const addr = e.feature.name;
+                map.setView([lat, lng], 17);
+                if (marker) marker.setLatLng([lat, lng]);
+                else marker = L.marker([lat, lng]).addTo(map);
+                const searchInput = document.getElementById('mapSearchInput');
+                if (searchInput) searchInput.value = addr;
+                updateSelectedAddress(lat, lng);
+            });
+        } else {
+            console.warn('LocationIQ Geocoder library not loaded yet.');
+        }
+
 
         // Click to pin
         map.on('click', async function (e) {
@@ -297,16 +329,16 @@ function initMapModal() {
             }
 
             try {
-                const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=14.55&lon=121.02&location_bias_scale=0.5`);
+                const token = window.LOCATIONIQ_TOKEN || 'YOUR_API_KEY';
+                // LocationIQ Autocomplete API
+                const res = await fetch(`https://us1.locationiq.com/v1/autocomplete.php?key=${token}&q=${encodeURIComponent(query)}&limit=5&lat=${STORE_LOC.lat}&lon=${STORE_LOC.lng}&tag=place:city,place:town,place:village,place:suburb,place:neighbourhood`);
                 const data = await res.json();
-                const features = data.features || [];
-
-                if (features.length > 0) {
-                    resultsBox.innerHTML = features.map(f => {
-                        const p = f.properties;
-                        const name = [p.name, p.street, p.city].filter(Boolean).join(', ');
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    resultsBox.innerHTML = data.map(f => {
+                        const name = f.display_name;
                         return `
-                            <div class="map-suggestion-item" data-lat="${f.geometry.coordinates[1]}" data-lon="${f.geometry.coordinates[0]}" data-addr="${name}" style="
+                            <div class="map-suggestion-item" data-lat="${f.lat}" data-lon="${f.lon}" data-addr="${name}" style="
                                 padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);
                                 color:#ccc;font-size:0.85rem;cursor:pointer;transition:all 0.2s;">
                                 <i class="fas fa-map-marker-alt" style="margin-right:8px;color:#C22626;"></i>
@@ -334,7 +366,8 @@ function initMapModal() {
                 } else {
                     resultsBox.style.display = 'none';
                 }
-            } catch (e) { console.error('Photon search failed', e); }
+            } catch (e) { console.error('LocationIQ search failed', e); }
+
         }, 400));
 
         // Handle Enter key (Photon)
@@ -397,16 +430,19 @@ async function validateAddressWithinRadius(address) {
     try {
         // Photon geocode search near Taguig.
         // NOTE: Photon expects q=... and returns features with geometry.coordinates [lon, lat]
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=1&lat=${STORE_LOC.lat}&lon=${STORE_LOC.lng}`);
+        // LocationIQ geocode search
+        const token = window.LOCATIONIQ_TOKEN || 'YOUR_API_KEY';
+        const res = await fetch(`https://us1.locationiq.com/v1/search?key=${token}&q=${encodeURIComponent(trimmed)}&format=json&limit=1`);
         const data = await res.json();
 
-        const f = data && data.features && data.features.length ? data.features[0] : null;
-        if (!f || !f.geometry || !Array.isArray(f.geometry.coordinates)) {
+        const f = data && data.length ? data[0] : null;
+        if (!f || !f.lat || !f.lon) {
             return { ok: false, message: 'Address not recognized. Please use the map to select a valid location.' };
         }
 
-        const lon = f.geometry.coordinates[0];
-        const lat = f.geometry.coordinates[1];
+        const lon = parseFloat(f.lon);
+        const lat = parseFloat(f.lat);
+
 
         // Distance check
         const R = 6371;
@@ -841,18 +877,63 @@ function showTopNotif(message, type = 'success') {
     const notifText = document.getElementById('topNotifText');
     if (!notif || !notifText) return;
 
-    const icon = type === 'success'
-        ? '<i class="fas fa-check-circle" style="margin-right:6px;color:#2ecc71"></i>'
-        : '<i class="fas fa-exclamation-circle" style="margin-right:6px;color:#e74c3c"></i>';
+    // Premium Top-Center Design (Slim & Pill-shaped)
+    notif.style.cssText = `
+        position: fixed;
+        top: 40px;
+        left: 50%;
+        transform: translate(-50%, -20px) scale(0.9);
+        background: rgba(18, 18, 18, 0.85);
+        border: none;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 16px;
 
-    notifText.innerHTML = icon + message;
-    notif.className = 'top-notif active ' + type;
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        backdrop-filter: blur(10px);
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+    `;
 
+
+
+
+    const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+    const iconColor = type === 'success' ? '#22c55e' : '#C22626';
+    
+    notifText.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+            <i class="fas ${iconClass}" style="color: ${iconColor}; font-size: 1rem;"></i>
+            <span style="font-size: 0.85rem; font-weight: 500; letter-spacing: 0.01em;">${message}</span>
+        </div>
+    `;
+
+
+    
+    notif.style.display = 'block';
+    
+    // Animate in
+    requestAnimationFrame(() => {
+        notif.style.opacity = '1';
+        notif.style.transform = 'translate(-50%, 0) scale(1)';
+    });
+
+    // Auto-hide
     setTimeout(() => {
-        notif.classList.add('hiding');
-        setTimeout(() => { notif.className = 'top-notif'; }, 400);
-    }, 4000);
+        notif.style.opacity = '0';
+        notif.style.transform = 'translate(-50%, -20px) scale(0.9)';
+        setTimeout(() => {
+            notif.style.display = 'none';
+        }, 400);
+    }, 3500);
+
 }
+
 
 // ─── Qty / Remove ─────────────────────────────────────────────────────────────
 function updateQty(idx, delta) {

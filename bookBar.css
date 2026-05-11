@@ -129,10 +129,8 @@ main { margin-top: 70px; }
     align-items: center;
     font-size: 1.35rem !important;
     color: white !important;
-    transition: transform 0.2s, opacity 0.2s !important;
     opacity: 0.9;
 }
-.nav-account-icon:hover { opacity: 1 !important; }
 
 .nav-account-icon.active::after { display: none !important; }
 
@@ -286,21 +284,21 @@ main { margin-top: 70px; }
     font-size: 1rem;
     font-weight: 700;
     border-radius: 100px;
-    background: #fff;
-    color: #111;
+    background: linear-gradient(135deg, var(--red), var(--red-deep));
+    color: #fff;
     border: none;
     cursor: pointer;
     transition: all 0.25s;
     font-family: 'Aclonica', sans-serif;
     margin-top: 30px;
     letter-spacing: 0.04em;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 18px rgba(194,38,38,0.3);
 }
 
 .submit-btn:hover {
-    background: var(--red);
-    color: #fff;
+    transform: translateY(-2px);
     box-shadow: 0 8px 32px rgba(194,38,38,0.5);
+    filter: brightness(1.1);
 }
 
 .submit-btn:active { transform: translateY(0); }
@@ -352,35 +350,27 @@ main { margin-top: 70px; }
 
 .popup-content {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1px solid rgba(255,255,255,0.1);
     padding: 40px;
     border-radius: 16px;
     max-width: 600px;
     width: 90%;
     max-height: 85vh;
     overflow-y: auto;
-    box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(194,38,38,0.15);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.8);
     animation: slideUp 0.3s cubic-bezier(.16,1,.3,1);
     position: relative;
 }
 
 /* Custom scrollbar for popup */
-.popup-content::-webkit-scrollbar { width: 8px; }
-.popup-content::-webkit-scrollbar-track { background: rgba(0,0,0,0.4); border-radius: 10px; }
-.popup-content::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, var(--red), var(--red-deep)); border-radius: 10px; }
-.popup-content::-webkit-scrollbar-thumb:hover { background: var(--red); }
+.popup-content::-webkit-scrollbar { width: 6px; }
+.popup-content::-webkit-scrollbar-track { background: transparent; }
+.popup-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+.popup-content::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 
 
-/* Red top accent on popup */
-.popup-content::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(to right, var(--red), var(--red-deep));
-    border-radius: 16px 16px 0 0;
-}
+/* Removed Red top accent on popup */
 
 @keyframes slideUp {
     from { transform: translateY(40px); opacity: 0; }
@@ -683,3 +673,98 @@ footer a:hover { opacity: 0.85; }
             margin-left: 4px;
         }
         .auth-status-bar a:hover { opacity: 0.8; }
+
+/* =====================================================
+   INFO MODAL & HELP ICON
+   ===================================================== */
+.form-help-icon {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    font-size: 1.5rem;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    z-index: 10;
+}
+
+.info-modal-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 6000;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    align-items: center; justify-content: center; padding: 24px;
+}
+
+.info-modal-overlay.open {
+    display: flex;
+    animation: authFadeIn 0.25s ease;
+}
+
+.info-modal {
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    width: 100%; max-width: 500px;
+    padding: 40px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+    position: relative;
+    overflow: hidden;
+    animation: authSlideUp 0.3s cubic-bezier(.16,1,.3,1);
+    text-align: center;
+}
+
+.info-modal-header {
+    margin-bottom: 25px;
+}
+
+.info-modal-header i {
+    font-size: 3rem;
+    color: var(--red);
+    margin-bottom: 20px;
+    display: block;
+}
+
+.info-modal-header h3 {
+    font-family: 'Aclonica', sans-serif;
+    font-size: 1.1rem;
+    color: #fff;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.info-modal-body p {
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.7;
+    margin-bottom: 30px;
+}
+
+.info-modal-body strong {
+    color: #fff;
+    font-weight: 700;
+}
+
+.info-modal-foot {
+    display: flex;
+    justify-content: center;
+}
+
+.info-btn-okay {
+    padding: 14px 40px;
+    background: linear-gradient(135deg, var(--red), var(--red-deep));
+    color: #fff;
+    border: none;
+    border-radius: 100px;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(194,38,38,0.25);
+}
+
+.info-btn-okay:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(194,38,38,0.45);
+    filter: brightness(1.1);
+}

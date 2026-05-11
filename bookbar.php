@@ -22,6 +22,20 @@
     
     <link rel="stylesheet" href="bookbar.css">
 
+    <script>
+        window.LOCATIONIQ_TOKEN = '<?php 
+            require_once __DIR__ . "/env-bootstrap.php";
+            webtools_load_env(__DIR__);
+            echo getenv("LOCATIONIQ_TOKEN") ?: ""; 
+        ?>';
+    </script>
+    <!-- LocationIQ Geocoder -->
+    <link rel="stylesheet" href="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.css">
+    <script src="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.js"></script>
+    <!-- Leaflet Routing Machine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
 
 
 </head>
@@ -69,9 +83,13 @@
                 </div>
 
                 <div class="form-box">
-
                     <!-- Auth status banner (dynamically shown) -->
                     <div id="authStatusBar" class="auth-status-bar" style="display:none;"></div>
+
+                    <!-- Help Icon -->
+                    <div class="form-help-icon" id="formHelpIcon" title="Booking Info">
+                        <i class="fa-solid fa-circle-question"></i>
+                    </div>
 
                     <form id="bookingForm">
                         <!-- Event Details -->
@@ -136,19 +154,20 @@
                                 Number of Guests:
                                 <select class="form-select" id="numGuests" required>
                                     <option value="" disabled selected>Select number of guests</option>
-                                    <option value="10-20">10 pax</option>
-                                    <option value="20-30">20 pax</option>
-                                    <option value="20-30">30 pax</option>
-                                    <option value="30-40">40 pax</option>
-                                    <option value="40-50">50 pax</option>
-                                    <option value="50-60">60 pax</option>
-                                    <option value="60-70">70 pax</option>
-                                    <option value="70-80">80 pax</option>
-                                    <option value="80-90">90 pax</option>
-                                    <option value="90-100">100 pax</option>
+                                    <option value="10">10 pax</option>
+                                    <option value="20">20 pax</option>
+                                    <option value="30">30 pax</option>
+                                    <option value="40">40 pax</option>
+                                    <option value="50">50 pax</option>
+                                    <option value="60">60 pax</option>
+                                    <option value="70">70 pax</option>
+                                    <option value="80">80 pax</option>
+                                    <option value="90">90 pax</option>
+                                    <option value="100">100 pax</option>
                                 </select>
                                 <span class="error-message" id="numGuestsError">Please select the number of guests</span>
                             </label>
+
 
 
 
@@ -271,6 +290,22 @@
         </div>
     </div>
 
+    <!-- ══ INFO MODAL ══ -->
+    <div class="info-modal-overlay" id="infoModal">
+        <div class="info-modal">
+            <div class="info-modal-header">
+                <i class="fa-solid fa-circle-info"></i>
+                <h3>WE CUSTOMIZE ACCORDING TO YOUR PREFERENCE AND BUDGET</h3>
+            </div>
+            <div class="info-modal-body">
+                <p>After booking, our team will call you to confirm your preferences, total budget, and booking details. If you have any questions before booking, please contact us at <strong>09392999912</strong>.</p>
+            </div>
+            <div class="info-modal-foot">
+                <button class="info-btn-okay" onclick="closeInfoModal()">Okay, I Understand</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Flatpickr & Leaflet JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -281,5 +316,17 @@
 
     <!-- bookbar.js loads AFTER the capture listener is registered -->
     <script src="bookbar.js"></script>
-</body>
-</html>
+<!-- DUPLICATE BOOKING WARNING MODAL -->
+<div class="modal-overlay" id="duplicateBookingModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:20000; backdrop-filter:blur(10px); align-items:center; justify-content:center;">
+    <div class="modal-content" style="background:#111; border:1px solid rgba(255,255,255,0.08); border-radius:24px; padding:40px; max-width:450px; text-align:center; box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+        <div style="width:80px; height:80px; background:rgba(245,158,11,0.1); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#f59e0b; margin:0 auto 25px; font-size:2.5rem;">
+            <i class="fa-solid fa-circle-exclamation"></i>
+        </div>
+        <h2 style="font-family:'Aclonica',sans-serif; color:#fff; font-size:1.5rem; margin-bottom:15px;">Active Booking Found</h2>
+        <p style="color:rgba(255,255,255,0.6); line-height:1.6; margin-bottom:30px;">It looks like you already have an active event booking. Would you like to proceed with another one?</p>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <button onclick="continueBooking()" style="background:linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%); color:#fff; border:none; padding:16px; border-radius:12px; font-weight:700; cursor:pointer; font-size:1rem; transition: transform 0.2s;">Book Anyway</button>
+            <button onclick="closeDuplicateModal()" style="background:rgba(255,255,255,0.03); color:#fff; border:1px solid rgba(255,255,255,0.08); padding:16px; border-radius:12px; font-weight:700; cursor:pointer; font-size:1rem;">Cancel</button>
+        </div>
+    </div>
+</div>

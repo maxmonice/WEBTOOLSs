@@ -7,12 +7,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 <link rel="stylesheet" href="account-dashboard.css">
 
-</style>
+<script>
+    window.LOCATIONIQ_TOKEN = '<?php 
+        require_once __DIR__ . "/env-bootstrap.php";
+        webtools_load_env(__DIR__);
+        echo getenv("LOCATIONIQ_TOKEN") ?: ""; 
+    ?>';
+</script>
+
 
 </head>
 <body>
@@ -74,7 +85,7 @@
     </div>
 
     <!-- My Event Bookings -->
-    <div class="section-block" id="bookingsBlock">
+    <div class="section-block flush" id="bookingsBlock">
       <div class="section-label"><i class="fa-solid fa-calendar-check"></i> My Event Bookings</div>
       <div id="eventBookingsSection">
         <div class="booking-empty" style="text-align:center; padding: 40px 20px; color:rgba(255,255,255,0.4);">
@@ -375,24 +386,198 @@
   </div>
 </div>
 
-<style>
-.btn-danger-gradient {
-  background: linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%) !important;
-  border: none !important;
-  box-shadow: 0 4px 15px rgba(194, 38, 38, 0.3);
-  transition: all 0.3s ease;
-}
-.btn-danger-gradient:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(194, 38, 38, 0.4);
-  filter: brightness(1.1);
-}
-</style>
+<!-- BOOKING DETAIL FULLSCREEN MODAL -->
+<div class="map-fullscreen-overlay" id="bookingDetailFullscreen" style="z-index:10002;">
+  <div class="map-fs-header">
+    <span class="map-fs-title"><i class="fas fa-calendar-alt" style="color:#fff; margin-right:8px;"></i>Booking Details</span>
+    <button class="map-fs-close" onclick="closeBookingDetail()"><i class="fa-solid fa-xmark" style="color:#fff;"></i></button>
+  </div>
 
-<!-- TOAST -->
-<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toastMsg">Done!</span></div>
+  
+  <div class="booking-fs-body" style="padding: 20px 20px 40px; width: 100%; color: #fff; background: #121212; height: calc(100vh - 70px); overflow-y: auto;">
+    <!-- View Mode (Centered but NOT boxed) -->
+    <div id="bookingDetailView" style="max-width: 900px; margin: 0 auto;">
+        <div class="booking-header" style="text-align:center; margin-bottom:20px;">
+            <div id="bookingDetailStatusBadge" style="display:inline-block; padding:6px 16px; border-radius:100px; font-size:0.65rem; font-weight:800; text-transform:uppercase; margin-bottom:10px; letter-spacing: 0.1em; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">PENDING</div>
+            <h1 id="vDetailName" style="font-family:'Aclonica',sans-serif; font-size:1.8rem; margin-bottom:4px; color:#fff;">Event Name</h1>
+            <p id="vDetailId" style="color:rgba(255,255,255,0.4); font-size:0.8rem; font-weight:500;">Booking #BK-001</p>
+        </div>
 
+        <div class="booking-info-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:15px;">
+            <div class="info-item" style="background:rgba(255,255,255,0.03); padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,0.06);">
+                <label style="color:rgba(255,255,255,0.3); font-size:0.6rem; font-weight:800; text-transform:uppercase; display:block; margin-bottom:6px; letter-spacing:0.1em;">Date & Time</label>
+                <div id="vDetailDateTime" style="font-weight:700; font-size:1rem; color:#fff;">Oct 24, 2025 @ 10:00 AM</div>
+            </div>
+            <div class="info-item" style="background:rgba(255,255,255,0.03); padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,0.06);">
+                <label style="color:rgba(255,255,255,0.3); font-size:0.6rem; font-weight:800; text-transform:uppercase; display:block; margin-bottom:6px; letter-spacing:0.1em;">Guests</label>
+                <div id="vDetailGuests" style="font-weight:700; font-size:1rem; color:#fff;">50 Persons</div>
+            </div>
+            <div class="info-item" style="background:rgba(255,255,255,0.03); padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,0.06);">
+                <label style="color:rgba(255,255,255,0.3); font-size:0.6rem; font-weight:800; text-transform:uppercase; display:block; margin-bottom:6px; letter-spacing:0.1em;">Event Type</label>
+                <div id="vDetailType" style="font-weight:700; font-size:1rem; color:#fff;">Birthday</div>
+            </div>
+        </div>
+
+        <div class="info-item" style="background:rgba(255,255,255,0.03); padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,0.06); margin-bottom:15px;">
+            <label style="color:rgba(255,255,255,0.3); font-size:0.6rem; font-weight:800; text-transform:uppercase; display:block; margin-bottom:6px; letter-spacing:0.1em;">Location Address</label>
+            <div id="vDetailAddress" style="font-weight:500; font-size:0.9rem; line-height:1.4; color:#fff;">123 Main St, Barangay Central, Taguig City</div>
+        </div>
+
+        <div class="info-item" style="background:rgba(255,255,255,0.03); padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,0.06); margin-bottom:20px;">
+            <label style="color:rgba(255,255,255,0.3); font-size:0.6rem; font-weight:800; text-transform:uppercase; display:block; margin-bottom:6px; letter-spacing:0.1em;">Special Notes</label>
+            <div id="vDetailNotes" style="color:rgba(255,255,255,0.7); font-style:italic; font-size:0.85rem; line-height:1.4;">No special requests.</div>
+        </div>
+
+        <div id="bookingActionButtons" style="display:flex; flex-direction: column; gap:10px; align-items: center; margin-top: 20px;">
+            <button id="btnEditBooking" class="submit-btn" style="width: 100%; max-width: 260px; padding:12px; border-radius:100px; font-size:0.9rem;" onclick="toggleEditBooking(true)">
+                <i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>Edit Details
+            </button>
+            <button id="btnCancelBooking" class="btn-cancel" style="width: 100%; max-width: 260px; padding: 12px; border-radius: 100px; font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.9rem;" onclick="openCancelBookingModal()">
+                <i class="fa-solid fa-trash-can" style="margin-right:8px;"></i>Cancel Booking
+            </button>
+        </div>
+
+
+
+
+        <p id="editRestrictionNotice" style="text-align:center; margin-top:20px; font-size:0.85rem; color:rgba(255,255,255,0.4); display:none; font-weight:500;">
+            <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i> Editing is locked within 3 days of the event. You can still cancel.
+        </p>
+    </div>
+
+    <!-- Edit Mode (Wrapped in Form Box) -->
+    <div class="form-box" id="bookingEditContainer" style="display:none; max-width: 900px; margin: 0 auto;">
+        <div id="bookingEditView">
+            <h2 class="form-title" style="margin-bottom: 30px;">Edit Booking</h2>
+
+            <div class="form-group">
+
+                <label class="form-label">
+                    Event Name:
+                    <input type="text" id="eEventName" class="form-input" placeholder="Enter event name" />
+                    <span class="error-message" id="eEventNameError">Please enter an event name</span>
+                </label>
+
+                <div class="form-row">
+                    <label class="form-label">
+                        Event Date:
+                        <input type="text" id="eEventDate" class="form-input" placeholder="Select date" readonly />
+                        <span class="error-message" id="eEventDateError">Please select a date</span>
+                    </label>
+                    <label class="form-label">
+                        Event Time:
+                        <input type="text" id="eEventTime" class="form-input" placeholder="Select time" readonly />
+                        <span class="error-message" id="eEventTimeError">Please select a time</span>
+                    </label>
+                </div>
+
+
+                <div class="form-row">
+                    <label class="form-label">
+                        Event Type:
+                        <select id="eEventType" class="form-select">
+                            <option value="wedding">Wedding</option>
+                            <option value="birthday">Birthday Party</option>
+                            <option value="corporate">Corporate Event</option>
+                            <option value="anniversary">Anniversary</option>
+                            <option value="graduation">Graduation</option>
+                            <option value="reunion">Reunion</option>
+                            <option value="teambuilding">Team Building</option>
+                            <option value="holiday">Holiday Party</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <span class="error-message" id="eEventTypeError">Please select an event type</span>
+                    </label>
+                    <label class="form-label">
+                        Number of Guests:
+                        <select id="eNumGuests" class="form-select">
+                            <option value="10">10 pax</option>
+                            <option value="20">20 pax</option>
+                            <option value="30">30 pax</option>
+                            <option value="40">40 pax</option>
+                            <option value="50">50 pax</option>
+                            <option value="60">60 pax</option>
+                            <option value="70">70 pax</option>
+                            <option value="80">80 pax</option>
+                            <option value="90">90 pax</option>
+                            <option value="100">100 pax</option>
+                        </select>
+                        <span class="error-message" id="eNumGuestsError">Please select guest count</span>
+                    </label>
+                </div>
+
+                <label class="form-label">
+                    Location Address:
+                    <div style="position:relative; display:flex; gap:10px; margin-top:10px;">
+                        <input type="text" id="eAddress" class="form-input" style="flex:1; margin-top:0;" placeholder="Enter event address" />
+                        <button type="button" class="map-select-btn" onclick="initLeafletMapForEdit()" title="Select on Map">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </button>
+                    </div>
+                    <span class="error-message" id="eAddressError">Please provide an address</span>
+                </label>
+
+
+                <label class="form-label">
+                    Special Notes / Requests:
+                    <textarea id="eNotes" class="form-textarea" rows="4" placeholder="Any special requests?"></textarea>
+                </label>
+            </div>
+
+            
+            <div style="text-align: center; margin-top: 30px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                <button class="submit-btn" style="width: 100%; max-width: 260px; padding: 12px; font-size: 0.9rem;" onclick="saveBookingEdits()">
+                    <i class="fa-solid fa-floppy-disk" style="margin-right:8px;"></i>Save Changes
+                </button>
+                <button class="btn-cancel" style="width: 100%; max-width: 260px; padding: 12px; border-radius: 100px; font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.9rem;" onclick="toggleEditBooking(false)">
+                    Cancel
+                </button>
+            </div>
+
+
+        </div>
+    </div>
+  </div> <!-- End FS Body -->
+
+
+
+<!-- CANCEL BOOKING CONFIRMATION MODAL -->
+<div class="modal-overlay" id="cancelBookingConfirmModal" style="z-index:10005;">
+  <div class="modal" style="background:rgba(18,18,18,0.95); backdrop-filter:blur(15px); border:1px solid rgba(255,255,255,0.08); box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+    <div class="modal-head" style="border-bottom:1px solid rgba(255,255,255,0.05); padding:20px 25px;">
+      <h3 style="font-family:'Aclonica',sans-serif; color:#fff; font-size:1.1rem;">Cancel Booking</h3>
+      <button class="modal-close" onclick="closeCancelBookingModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="logout-confirm-body" style="padding:40px 25px; text-align:center;">
+      <div class="logout-confirm-icon" style="background:rgba(239,68,68,0.1); border:none; color:#ef4444; width:70px; height:70px; font-size:2rem; margin:0 auto 20px;">
+        <i class="fa-solid fa-circle-exclamation"></i>
+      </div>
+      <h3 style="color:#fff; margin-bottom:12px; font-size:1.4rem;">Cancel this event?</h3>
+      <p style="color:rgba(255,255,255,0.6); line-height:1.6;">Are you sure you want to cancel your event booking? This will notify our staff and free up the schedule.</p>
+    </div>
+    <div class="modal-foot col" style="padding:0 25px 25px 25px; border:none; gap:12px;">
+      <button class="btn-logout-confirm btn-danger-gradient" id="confirmCancelBookingBtn" style="padding:16px; border-radius:12px;">Yes, Cancel Booking</button>
+      <button class="btn-cancel" onclick="closeCancelBookingModal()" style="padding:16px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); color:#fff;">No, Keep it</button>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <script src="http://localhost:3000/socket.io/socket.io.js"></script>
 <script src="account-dashboard.js?v=<?= time() ?>"></script>
