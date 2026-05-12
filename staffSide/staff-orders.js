@@ -1,4 +1,35 @@
-function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+(function () {
+  'use strict';
+  var overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  document.body.appendChild(overlay);
+
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    var icon = document.querySelector('.sidebar-toggle i');
+    if (icon) icon.className = 'fa-solid fa-xmark';
+  }
+  function closeSidebarMenu() {
+    document.getElementById('sidebar').classList.remove('open');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    var icon = document.querySelector('.sidebar-toggle i');
+    if (icon) icon.className = 'fa-solid fa-bars';
+  }
+  window.toggleSidebar = function () {
+    document.getElementById('sidebar').classList.contains('open') ? closeSidebarMenu() : openSidebar();
+  };
+  overlay.addEventListener('click', closeSidebarMenu);
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.nav-item:not(.locked)').forEach(function (item) {
+      item.addEventListener('click', function () { if (window.innerWidth <= 900) closeSidebarMenu(); });
+    });
+  });
+  window.addEventListener('resize', function () { if (window.innerWidth > 900) closeSidebarMenu(); });
+})();
+
 let pendingCompleteOrderId = null;
 
 // ── ETA Modal ──
@@ -101,7 +132,7 @@ function openViewModal(order) {
     `).join('');
 
     const content = `
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+        <div class="view-modal-info-grid">
             <div>
                 <p style="margin:0 0 5px; color:rgba(255,255,255,0.4); font-size:0.75rem; text-transform:uppercase;">Customer</p>
                 <p style="margin:0; font-weight:700;">${order.customer_name}</p>

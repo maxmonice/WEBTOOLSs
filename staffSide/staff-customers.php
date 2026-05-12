@@ -108,7 +108,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
       </div>
 
       <!-- SIMPLE STAT -->
-      <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+      <div class="stats-grid stats-grid--2col">
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-users"></i></div>
           <div class="stat-card-value"><?= number_format($totalCustomers) ?></div>
@@ -131,7 +131,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
           <span class="panel-title">All Customers
             <span style="color:var(--muted);font-weight:400;font-size:0.82rem;margin-left:8px;">(<?= count($users) ?> shown)</span>
           </span>
-          <form method="GET" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <form method="GET" class="filter-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <div class="search-wrap">
               <i class="fa-solid fa-magnifying-glass"></i>
               <input type="text" class="search-input" name="search" placeholder="Search name or email…" value="<?= htmlspecialchars($search) ?>"/>

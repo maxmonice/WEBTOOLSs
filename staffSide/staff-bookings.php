@@ -215,7 +215,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
             <span style="color:var(--muted);font-weight:400;font-size:0.82rem;margin-left:8px;">(<?= count($bookings) ?> shown)</span>
           </span>
           <div class="filter-bar">
-            <form method="GET" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <form method="GET" class="filter-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <div class="search-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" class="search-input" name="search" placeholder="Search customer…" value="<?= htmlspecialchars($search) ?>"/>

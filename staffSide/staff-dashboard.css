@@ -77,3 +77,29 @@
 .task-dot.done   { background: #22c55e; }
 .task-text { font-size: 0.83rem; color: rgba(255,255,255,0.8); flex: 1; }
 .task-time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+
+/* ── Quick-actions grid (replaces inline style) ── */
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    /* Access banner stacks */
+    .access-banner { flex-direction: column; align-items: flex-start; gap: 8px; font-size: 0.78rem; }
+
+    /* Quick actions always 2-col */
+    .quick-action { padding: 14px 8px; font-size: 0.72rem; gap: 6px; }
+    .quick-action i { font-size: 1.1rem; }
+
+    /* Task items */
+    .task-text { font-size: 0.78rem; }
+}
+
+@media (max-width: 360px) {
+    /* Quick actions drop to 1-col if really tiny */
+    .quick-actions-grid { grid-template-columns: 1fr; }
+    .quick-action { padding: 12px 6px; }
+}
