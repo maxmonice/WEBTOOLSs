@@ -14,8 +14,10 @@
             userData.email = sessionStorage.getItem('user_email') || '';
             updateUI();
             loadOrderTracking();
-            loadBookings(); // Initialize bookings
-            setInterval(loadOrderTracking, 8000); // 8s polling for faster sync
+            loadBookings();
+            // Start socket early so it's ready when order is shipped
+            setupSocketListener();
+            setInterval(loadOrderTracking, 8000);
             setInterval(loadBookings, 8000);
         }
 
@@ -220,7 +222,6 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             const orderId = localStorage.getItem('order_id');
             const hasPending = localStorage.getItem('order_pending') === 'true';
 
-
             try {
                 const url = (orderId ? `get-order.php?order_id=${orderId}` : 'get-order.php') + `&t=${Date.now()}`;
                 const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
@@ -229,10 +230,10 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 if (data.success && data.order) {
                     const order = data.order;
                     console.log('📦 Current Status:', order.status, 'Updated At:', order.updated_at);
-                    
+
                     // ── Auto-clear if delivered for > 30 mins ──
                     if (order.status === 'delivered' && order.updated_at) {
-                        const deliveredTime = new Date(order.updated_at.replace(' ', 'T')).getTime(); // Better ISO support
+                        const deliveredTime = new Date(order.updated_at.replace(' ', 'T')).getTime();
                         const now = new Date().getTime();
                         const diffMins = (now - deliveredTime) / (1000 * 60);
                         console.log('🕒 Minutes since delivery:', diffMins.toFixed(1));
@@ -244,16 +245,37 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     }
 
                     _currentOrder = order;
-                    
+
                     // Sync localStorage if it was empty (e.g. login from new device)
                     if (!orderId) localStorage.setItem('order_id', order.id);
                     if (order.status !== 'delivered') localStorage.setItem('order_pending', 'true');
 
+                    // Join socket rooms when order is on the way
+                    if (order.status === 'shipped') {
+                        if (trackingSocket && trackingSocket.connected) {
+                            trackingSocket.emit('join-order', order.id);
+                            trackingSocket.emit('join-chat', order.id);
+                        }
+                        // HTTP fallback: update map markers from polled rider location
+                        if (order.rider_lat && order.rider_lng) {
+                            const riderLatLng = [order.rider_lat, order.rider_lng];
+                            if (customerRiderMarker) {
+                                customerRiderMarker.setLatLng(riderLatLng);
+                            }
+                            if (miniRiderMarker) {
+                                miniRiderMarker.setLatLng(riderLatLng);
+                            }
+                            if (order.delivery_latitude && order.delivery_longitude) {
+                                DEST_LAT = order.delivery_latitude;
+                                DEST_LNG = order.delivery_longitude;
+                            }
+                        }
+                    }
+
                     renderOrderCard(section, order);
                     return;
-
                 }
-            } catch (e) { /* fallback */ }
+            } catch (e) { console.warn('Tracking poll error:', e); }
 
             if (hasPending) {
                 renderGenericPending(section);
@@ -338,8 +360,11 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
                 <div class="track-actions" style="display:flex; flex-direction:column; gap:10px; width:100%;">
                     ${isOnTheWay ? `
-                    <button class="btn-view-map" onclick="window.openMapFullscreen()" style="width:100%; background:linear-gradient(135deg,#C22626,#8B0A1E); border:none; color:#fff; padding:14px; border-radius:10px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 15px rgba(194,38,38,0.3); cursor:pointer; transition: transform 0.2s;">
+                    <button class="btn-view-map" onclick="window.openMapFullscreen()" style="width:100%; background:linear-gradient(135deg,#C22626,#8B0A1E); border:none; color:#fff; padding:14px; border-radius:10px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
                         <i class="fas fa-map-marked-alt"></i> Track Rider Live
+                    </button>
+                    <button onclick="window.openChatModal()" style="width:100%; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15); color:#fff; padding:12px; border-radius:10px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; font-family:inherit; font-size:0.9rem;">
+                        <i class="fas fa-comment-dots" style="color:#22c55e;"></i> Chat with Rider
                     </button>
                     ` : ''}
                     <button class="btn-received" onclick="window.markAsReceived()" 
@@ -347,14 +372,13 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                         <i class="fas fa-check-circle"></i> ${order.status === 'delivered' ? 'Mark Received' : 'Waiting for Delivery'}
                     </button>
 
-                    
-                    ${order.status === 'pending' || order.status === 'preparing' ? `
+                    ${(order.status === 'pending' || order.status === 'confirmed') ? `
                     <button class="btn-cancel-order" onclick="window.cancelOrder(${order.id})" style="width:100%; padding:12px;">
                         <i class="fas fa-times-circle"></i> Cancel Order
                     </button>
-                    ` : order.status === 'on_the_way' || order.status === 'picked_up' ? `
-                     <button class="btn-cancel-order" disabled title="Cannot cancel while rider is on route" style="width:100%; padding:12px; opacity:0.3;">
-                        <i class="fas fa-times-circle"></i> Cancel Order
+                    ` : order.status === 'shipped' ? `
+                    <button class="btn-cancel-order" disabled title="Cannot cancel — rider is already on the way" style="width:100%; padding:12px; opacity:0.3; cursor:not-allowed;">
+                        <i class="fas fa-times-circle"></i> Cannot Cancel — Rider On Route
                     </button>
                     ` : ''}
                 </div>
@@ -384,11 +408,11 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     <small style="color:var(--muted); font-size:0.75rem;">Tracking will be available once the rider picks up your order.</small>
                 </div>
 
-                <div class="track-actions" style="margin-top:10px; width:100%; flex-direction:column;">
+                <div class="track-actions" style="margin-top:10px; width:100%; display:flex; flex-direction:column; gap:10px;">
                     <button class="btn-received" disabled style="width:100%; opacity:0.5; cursor:not-allowed; filter:grayscale(1);">
                         <i class="fas fa-check-circle"></i> Waiting for Delivery
                     </button>
-                    <button class="btn-cancel-order" onclick="window.cancelOrder()" style="margin-top:8px; width:100%;">
+                    <button class="btn-cancel-order" onclick="window.cancelOrder()" style="width:100%;">
                         <i class="fas fa-times-circle"></i> Cancel Order
                     </button>
                 </div>
@@ -494,40 +518,69 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             if (socketSetupDone) return;
             socketSetupDone = true;
             try {
-                trackingSocket = io('http://localhost:3000');
+                trackingSocket = io('http://localhost:3000', {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionAttempts: 10,
+                    reconnectionDelay: 3000
+                });
                 trackingSocket.on('connect', () => {
-                    console.log("Connected to socket server! ID: " + trackingSocket.id);
-                    if (_currentOrder) {
-                        trackingSocket.emit('join-order', _currentOrder.id);
-                        trackingSocket.emit('join-chat', _currentOrder.id);
+                    console.log('✅ Socket connected! ID: ' + trackingSocket.id);
+                    // Use _currentOrder if set, else fall back to localStorage
+                    const orderId = (_currentOrder && _currentOrder.id) || localStorage.getItem('order_id');
+                    if (orderId) {
+                        trackingSocket.emit('join-order', orderId);
+                        trackingSocket.emit('join-chat', orderId);
+                        console.log('📡 Joined rooms for order:', orderId);
                     }
+                });
+
+                // Re-join on reconnect
+                trackingSocket.on('reconnect', () => {
+                    const orderId = (_currentOrder && _currentOrder.id) || localStorage.getItem('order_id');
+                    if (orderId) {
+                        trackingSocket.emit('join-order', orderId);
+                        trackingSocket.emit('join-chat', orderId);
+                    }
+                });
+
+                trackingSocket.on('connect_error', (e) => {
+                    console.warn('⚠️ Socket error (HTTP fallback active):', e.message);
                 });
 
                 trackingSocket.on('receive-location', (data) => {
                     const newLatLng = [data.lat, data.lng];
-                    
                     if (customerRiderMarker) {
                         customerRiderMarker.setLatLng(newLatLng);
-                        updateCustomerRoute(newLatLng, [DEST_LAT, DEST_LNG]);
+                        if (DEST_LAT && DEST_LNG) updateCustomerRoute(newLatLng, [DEST_LAT, DEST_LNG]);
                     }
-                    
                     if (miniRiderMarker) {
                         miniRiderMarker.setLatLng(newLatLng);
-                        updateMiniRoute(newLatLng, [DEST_LAT, DEST_LNG]);
+                        if (DEST_LAT && DEST_LNG) updateMiniRoute(newLatLng, [DEST_LAT, DEST_LNG]);
                     }
                 });
 
                 trackingSocket.on('new-message', (data) => {
                     if (_currentOrder && data.orderId == _currentOrder.id) {
                         appendCustomerMessage(data);
-                        // Show badge or notification if modal is closed
-                        if (!document.getElementById('chatModal').classList.contains('open')) {
-                            showToast('New message from rider!');
+                        const chatModal = document.getElementById('chatModal');
+                        if (chatModal && !chatModal.classList.contains('open')) {
+                            showToast('💬 New message from rider!');
                         }
                     }
                 });
+
+                // Real-time order status updates
+                trackingSocket.on('order-status-update', (data) => {
+                    const myId = (_currentOrder && _currentOrder.id) || localStorage.getItem('order_id');
+                    if (myId && data.orderId == myId) {
+                        console.log('📦 Real-time status:', data.status);
+                        loadOrderTracking();
+                    }
+                });
+
             } catch (e) {
-                console.warn('Socket.io not available or server offline.');
+                console.warn('Socket.io not available, HTTP polling active.');
             }
         }
 

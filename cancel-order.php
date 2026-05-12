@@ -43,6 +43,9 @@ try {
     $stmt = $pdo->prepare("UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = ?");
     $stmt->execute([$orderId]);
 
+    // Notify all connected clients via Socket.io
+    @file_get_contents("http://localhost:3000/emit?event=order-status-update&orderId={$orderId}&status=cancelled");
+
     echo json_encode(['success' => true, 'message' => 'Order cancelled successfully']);
 
 } catch (Exception $e) {

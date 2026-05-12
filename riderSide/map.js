@@ -70,14 +70,27 @@ function initMap() {
     riderMarker = L.marker([STORE_LAT, STORE_LNG], { icon: riderIcon }).addTo(map);
     
     if (ACTIVE_ORDER_ID > 0) {
-        customerMarker = L.marker([DEST_LAT, DEST_LNG], { icon: destIcon }).addTo(map);
+        // Only add destination marker if we have valid coordinates
+        if (DEST_LAT !== 0 && DEST_LNG !== 0) {
+            customerMarker = L.marker([DEST_LAT, DEST_LNG], { icon: destIcon }).addTo(map);
+        }
         
         // Connect to Socket.io
         try {
-            socket = io('http://localhost:3000');
-            socket.on('connect', () => console.log('Socket connected!'));
+            socket = io('http://localhost:3000', {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 2000
+            });
+            socket.on('connect', () => {
+                console.log('✅ Socket connected! Joining order room:', ACTIVE_ORDER_ID);
+                socket.emit('join-order', ACTIVE_ORDER_ID);
+                socket.emit('join-chat', ACTIVE_ORDER_ID);
+            });
+            socket.on('connect_error', (e) => console.warn('Socket error:', e.message));
         } catch (e) {
-            console.error('Socket.io connection failed. Is the Node server running?', e);
+            console.warn('Socket.io unavailable, falling back to polling.', e);
         }
 
         startRiderTracking();
@@ -86,40 +99,62 @@ function initMap() {
 
 
 function startRiderTracking() {
-    if ("geolocation" in navigator) {
-        
-        navigator.geolocation.watchPosition(
-            (position) => {
-                const currentLatLng = [position.coords.latitude, position.coords.longitude];
-
-                // 1. Update Rider Marker locally
-                riderMarker.setLatLng(currentLatLng);
-
-                // 2. Redraw routing path & calculate ETA
-                updateRoute(currentLatLng, [DEST_LAT, DEST_LNG]);
-
-                // 3. Emit position to Customer via Socket.io
-                if (socket && socket.connected) {
-                    socket.emit('send-location', {
-                        orderId: ACTIVE_ORDER_ID,
-                        lat: currentLatLng[0],
-                        lng: currentLatLng[1]
-                    });
-                }
-            },
-            (error) => {
-                console.error("Error getting location:", error.message);
-                showToast("Location access required for tracking.");
-            },
-            {
-                enableHighAccuracy: true,
-                maximumAge: 5000,
-                timeout: 10000
-            }
-        );
-    } else {
-        showToast("Geolocation is not supported by your browser.");
+    if (!('geolocation' in navigator)) {
+        showToast('⚠️ Geolocation not supported by this browser.');
+        return;
     }
+
+    navigator.geolocation.watchPosition(
+        (position) => {
+            const currentLatLng = [position.coords.latitude, position.coords.longitude];
+
+            // 1. Update Rider Marker locally
+            riderMarker.setLatLng(currentLatLng);
+            map.panTo(currentLatLng);
+
+            // 2. Redraw routing path & calculate ETA
+            if (DEST_LAT !== 0 && DEST_LNG !== 0) {
+                updateRoute(currentLatLng, [DEST_LAT, DEST_LNG]);
+            }
+
+            // 3. Emit position to Customer via Socket.io
+            if (socket && socket.connected) {
+                socket.emit('send-location', {
+                    orderId: ACTIVE_ORDER_ID,
+                    lat: currentLatLng[0],
+                    lng: currentLatLng[1]
+                });
+            }
+
+            // 4. Also save location via HTTP as fallback for polling customers
+            saveLocationHTTP(currentLatLng[0], currentLatLng[1]);
+        },
+        (error) => {
+            const msgs = {
+                1: 'Location permission denied. Please enable it in browser settings.',
+                2: 'Location unavailable. Check GPS signal.',
+                3: 'Location request timed out. Retrying...'
+            };
+            showToast('⚠️ ' + (msgs[error.code] || error.message));
+            console.error('Geolocation error:', error);
+        },
+        {
+            enableHighAccuracy: true,
+            maximumAge: 3000,
+            timeout: 15000
+        }
+    );
+}
+
+// Fallback: save rider location via HTTP so customer polling can also get it
+function saveLocationHTTP(lat, lng) {
+    if (!ACTIVE_ORDER_ID) return;
+    const fd = new FormData();
+    fd.append('action', 'update_rider_location');
+    fd.append('order_id', ACTIVE_ORDER_ID);
+    fd.append('lat', lat);
+    fd.append('lng', lng);
+    fetch('rider-orders-api.php', { method: 'POST', body: fd }).catch(() => {});
 }
 
 
@@ -175,12 +210,10 @@ function showToast(msg) {
 }
 
 window.triggerDeliveryConfirm = function() {
-    alert('Delivery button pressed!');
     const modal = document.getElementById('confirmModal');
     if (modal) {
         modal.classList.add('open');
     } else {
-        console.error('confirmModal element not found');
         if (confirm('Are you sure you want to mark this order as delivered?')) {
             window.handleDeliverySuccess();
         }

@@ -179,9 +179,11 @@ function doAcceptOrder(orderId) {
       if (d.success) {
         closeOrderDetail();
         showToast('✅ Order accepted! Opening map...', 'success');
+        // Use order_id from response as fallback in case orderId variable is stale
+        const navId = d.order_id || orderId;
         setTimeout(() => {
-          window.location.href = 'map.php?order_id=' + orderId;
-        }, 1500);
+          window.location.href = 'map.php?order_id=' + navId;
+        }, 1200);
       } else {
         showToast('❌ ' + (d.message || 'Could not accept order'), 'error');
       }
@@ -197,10 +199,10 @@ function showToast(msg, type) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ── Auto-refresh every 15 seconds for new orders ──────
+// ── Auto-refresh every 8 seconds for new orders ───────
 function startAutoRefresh() {
   loadOrders();
-  setInterval(loadOrders, 15000);
+  setInterval(loadOrders, 8000); // Match customer polling for consistent sync
 }
 
 // ── Init ──────────────────────────────────────────────

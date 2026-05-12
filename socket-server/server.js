@@ -13,6 +13,22 @@ const io = require('socket.io')(http, {
     }
 });
 
+// HTTP endpoint for PHP to emit socket events
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.get('/emit', (req, res) => {
+    const { event, orderId, status } = req.query;
+    if (event && orderId) {
+        io.to(`order_${orderId}`).emit(event, { orderId: parseInt(orderId), status });
+        io.to(`chat_${orderId}`).emit(event, { orderId: parseInt(orderId), status });
+        console.log(`[HTTP→Socket] Emitted '${event}' for order ${orderId} with status: ${status}`);
+        res.json({ success: true });
+    } else {
+        res.status(400).json({ error: 'Missing event or orderId' });
+    }
+});
+
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
@@ -69,6 +85,17 @@ io.on('connection', (socket) => {
             timestamp,
             orderId
         });
+    });
+
+    // Order Status Updates (rider accepts, delivers, etc.)
+    socket.on('status-update', (data) => {
+        const { orderId, status } = data;
+        if (!orderId || !status) return;
+        console.log(`Order ${orderId} status changed to: ${status}`);
+        // Notify customer and any admin/staff in the order room
+        io.to(`order_${orderId}`).emit('order-status-update', { orderId, status });
+        // Also notify the chat room
+        io.to(`chat_${orderId}`).emit('order-status-update', { orderId, status });
     });
 
     socket.on('disconnect', () => {

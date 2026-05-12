@@ -121,7 +121,9 @@ if ($action === 'accept_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => false, 'message' => 'Order is not sent to rider yet.']);
             exit;
         }
-        echo json_encode(['success' => true, 'message' => 'Order accepted! Head to the pickup.']);
+        // Notify all connected clients via Socket.io
+        @file_get_contents("http://localhost:3000/emit?event=order-status-update&orderId={$orderId}&status=shipped");
+        echo json_encode(['success' => true, 'message' => 'Order accepted! Head to the pickup.', 'order_id' => $orderId]);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
@@ -138,6 +140,8 @@ if ($action === 'deliver_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->prepare("UPDATE orders SET status = 'delivered', updated_at = NOW() WHERE id = ?")
             ->execute([$orderId]);
+        // Notify all connected clients via Socket.io HTTP emit
+        @file_get_contents("http://localhost:3000/emit?event=order-status-update&orderId={$orderId}&status=delivered");
         echo json_encode(['success' => true]);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -209,6 +213,39 @@ if ($action === 'get_order_details') {
         echo json_encode(['success' => true, 'order' => $order]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Order not found']);
+    }
+    exit;
+}
+
+// ── Update rider's GPS location (HTTP fallback for socket) ──
+if ($action === 'update_rider_location' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $orderId = (int)($_POST['order_id'] ?? 0);
+    $lat     = (float)($_POST['lat'] ?? 0);
+    $lng     = (float)($_POST['lng'] ?? 0);
+    if ($orderId && $lat && $lng) {
+        $pdo->prepare("UPDATE orders SET rider_lat = ?, rider_lng = ?, updated_at = NOW() WHERE id = ? AND rider_id = ?")
+            ->execute([$lat, $lng, $orderId, (string)$riderId]);
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Missing data']);
+    }
+    exit;
+}
+
+// ── Get rider's current GPS location (for customer polling) ──
+if ($action === 'get_rider_location') {
+    $orderId = (int)($_GET['order_id'] ?? 0);
+    if ($orderId) {
+        $stmt = $pdo->prepare("SELECT rider_lat, rider_lng FROM orders WHERE id = ? AND status = 'shipped'");
+        $stmt->execute([$orderId]);
+        $row = $stmt->fetch();
+        if ($row && $row['rider_lat']) {
+            echo json_encode(['success' => true, 'lat' => (float)$row['rider_lat'], 'lng' => (float)$row['rider_lng']]);
+        } else {
+            echo json_encode(['success' => false]);
+        }
+    } else {
+        echo json_encode(['success' => false]);
     }
     exit;
 }
