@@ -1320,6 +1320,7 @@ select.form-control option,
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
 
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-archive.php" class="nav-item"><i class="fa-solid fa-box-archive"></i> Archive</a>
       <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
 
       <div class="nav-section-label">System</div>

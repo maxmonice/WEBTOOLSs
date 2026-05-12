@@ -119,6 +119,7 @@ $unreadCount = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
       <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-archive.php" class="nav-item"><i class="fa-solid fa-box-archive"></i> Archive</a>
       <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
@@ -272,6 +273,7 @@ $unreadCount = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
               <a href="admin-bookings.php" class="quick-action"><i class="fa-solid fa-calendar-plus"></i>New Booking</a>
               <a href="admin-orders.php" class="quick-action"><i class="fa-solid fa-clipboard-list"></i>View Orders</a>
               <a href="admin-content.php" class="quick-action"><i class="fa-solid fa-plus"></i>Add Product</a>
+              <a href="admin-archive.php" class="quick-action"><i class="fa-solid fa-box-archive"></i>View Archive</a>
               <a href="admin-orders.php" class="quick-action"><i class="fa-solid fa-chart-line"></i>Sales Report</a>
               <a href="admin-logs.php" class="quick-action"><i class="fa-solid fa-shield-halved"></i>Audit Logs</a>
             </div>
