@@ -15,9 +15,37 @@
             updateUI();
             loadOrderTracking();
             loadBookings(); // Initialize bookings
-            setInterval(loadOrderTracking, 30000);
-            setInterval(loadBookings, 30000);
+            setInterval(loadOrderTracking, 8000); // 8s polling for faster sync
+            setInterval(loadBookings, 8000);
         }
+
+        window.cancelOrder = async function(orderId) {
+            const id = orderId || localStorage.getItem('order_id');
+            if (!id) {
+                showToast('Order not found.', true);
+                return;
+            }
+
+            if (!confirm('Are you sure you want to cancel this order?')) return;
+            try {
+                const res = await fetch('cancel-order.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: id })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Order cancelled successfully.');
+                    localStorage.removeItem('order_pending');
+                    localStorage.removeItem('order_id');
+                    loadOrderTracking();
+                } else {
+                    showToast(data.message || 'Could not cancel order.', true);
+                }
+            } catch (e) {
+                showToast('Network error while cancelling.', true);
+            }
+        };
 
 
         let userData = { name:'', email:'' };
@@ -236,13 +264,29 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         function statusToStep(status) {
             if (status === 'delivered') return 3;
-            if (status === 'shipped' || status === 'on_the_way' || status === 'picked_up' || status === 'on_route') return 2;
+            if (['shipped', 'on_the_way', 'picked_up', 'on_route'].includes(status)) return 2;
             return 1;
+        }
+
+        function getStatusLabel(status) {
+            const map = {
+                'pending': 'Pending',
+                'confirmed': 'Preparing',
+                'processing': 'Processing',
+                'shipped': 'On the Way',
+                'on_the_way': 'On the Way',
+                'picked_up': 'On the Way',
+                'on_route': 'On the Way',
+                'delivered': 'Delivered',
+                'cancelled': 'Cancelled'
+            };
+            return map[status] || status.replace(/_/g, ' ');
         }
 
         function renderOrderCard(section, order) {
             const step = statusToStep(order.status);
             const isOnTheWay = (step === 2);
+            const statusLabel = getStatusLabel(order.status);
             const fmt  = n => '₱' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
             
             if (isOnTheWay && Number.isFinite(Number(order.delivery_latitude)) && Number.isFinite(Number(order.delivery_longitude))) {
@@ -253,7 +297,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             section.innerHTML = `
             <div class="order-track-card">
                 <div class="order-track-header">
-                    <span class="order-track-badge ${isOnTheWay?'live':''}"><span class="dot"></span>${order.status.replace(/_/g,' ')}</span>
+                    <span class="order-track-badge ${isOnTheWay?'live':''}"><span class="dot"></span>${statusLabel}</span>
                     <span class="order-track-id">Order #${order.id}</span>
                 </div>
                 <div class="order-track-address">
@@ -344,7 +388,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     <button class="btn-received" disabled style="width:100%; opacity:0.5; cursor:not-allowed; filter:grayscale(1);">
                         <i class="fas fa-check-circle"></i> Waiting for Delivery
                     </button>
-                    <button class="btn-cancel-order" onclick="cancelOrder()" style="margin-top:8px; width:100%;">
+                    <button class="btn-cancel-order" onclick="window.cancelOrder()" style="margin-top:8px; width:100%;">
                         <i class="fas fa-times-circle"></i> Cancel Order
                     </button>
                 </div>
@@ -452,9 +496,10 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             try {
                 trackingSocket = io('http://localhost:3000');
                 trackingSocket.on('connect', () => {
-                    console.log("Connected to tracking server! ID: " + trackingSocket.id);
+                    console.log("Connected to socket server! ID: " + trackingSocket.id);
                     if (_currentOrder) {
                         trackingSocket.emit('join-order', _currentOrder.id);
+                        trackingSocket.emit('join-chat', _currentOrder.id);
                     }
                 });
 
@@ -471,10 +516,107 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                         updateMiniRoute(newLatLng, [DEST_LAT, DEST_LNG]);
                     }
                 });
+
+                trackingSocket.on('new-message', (data) => {
+                    if (_currentOrder && data.orderId == _currentOrder.id) {
+                        appendCustomerMessage(data);
+                        // Show badge or notification if modal is closed
+                        if (!document.getElementById('chatModal').classList.contains('open')) {
+                            showToast('New message from rider!');
+                        }
+                    }
+                });
             } catch (e) {
                 console.warn('Socket.io not available or server offline.');
             }
         }
+
+        // ── Customer Chat Functions ──
+        window.openChatModal = function() {
+            if (!_currentOrder) {
+                showToast('No active order to chat about.', true);
+                return;
+            }
+            document.getElementById('chatModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+            
+            // Focus input
+            setTimeout(() => document.getElementById('customer-chat-input').focus(), 300);
+            
+            // Join room if not joined
+            if (trackingSocket && trackingSocket.connected) {
+                trackingSocket.emit('join-chat', _currentOrder.id);
+            } else {
+                setupSocketListener();
+            }
+        };
+
+        window.closeChatModal = function() {
+            document.getElementById('chatModal').classList.remove('open');
+            document.body.style.overflow = '';
+        };
+
+        function sendCustomerMessage() {
+            const input = document.getElementById('customer-chat-input');
+            const message = input.value.trim();
+            if (!message || !_currentOrder || !trackingSocket) return;
+
+            const data = {
+                orderId: _currentOrder.id,
+                sender: 'customer',
+                message: message,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            trackingSocket.emit('send-message', data);
+            input.value = '';
+        }
+
+        function appendCustomerMessage(data) {
+            const container = document.getElementById('customer-chat-messages');
+            if (!container) return;
+            
+            const div = document.createElement('div');
+            const isMe = data.sender === 'customer';
+            
+            div.style.cssText = `
+                max-width: 80%;
+                padding: 10px 14px;
+                border-radius: 18px;
+                font-size: 0.9rem;
+                line-height: 1.4;
+                align-self: ${isMe ? 'flex-end' : 'flex-start'};
+                background: ${isMe ? 'var(--red)' : 'rgba(255,255,255,0.08)'};
+                color: #fff;
+                border-bottom-${isMe ? 'right' : 'left'}-radius: 4px;
+                border: ${isMe ? 'none' : '1px solid rgba(255,255,255,0.05)'};
+            `;
+            
+            div.innerHTML = `
+                ${data.message}
+                <span style="font-size:0.65rem; opacity:0.6; margin-top:4px; display:block; text-align:right;">${data.timestamp}</span>
+            `;
+            
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Initialize event listeners for customer chat
+        document.addEventListener('DOMContentLoaded', () => {
+            const sendBtn = document.getElementById('customer-send-btn');
+            const input = document.getElementById('customer-chat-input');
+            const chatBtn = document.getElementById('customerChatBtn');
+
+            if (sendBtn) sendBtn.onclick = sendCustomerMessage;
+            if (input) {
+                input.onkeypress = (e) => {
+                    if (e.key === 'Enter') sendCustomerMessage();
+                };
+            }
+            if (chatBtn) {
+                chatBtn.onclick = window.openChatModal;
+            }
+        });
 
         function updateCustomerRoute(startLatLng, endLatLng) {
             if (customerRoutingControl) {

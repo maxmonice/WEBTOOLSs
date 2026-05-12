@@ -20,12 +20,12 @@ if ($orderId > 0) {
     $stmt->execute([$orderId, $riderId]);
     $order = $stmt->fetch();
 } else {
+    // Auto-fetch the active shipping order for this rider if none provided
     $stmt = $pdo->prepare("
         SELECT id, delivery_latitude, delivery_longitude, address
         FROM orders
         WHERE rider_id = ? AND status = 'shipped'
-        ORDER BY updated_at DESC
-        LIMIT 1
+        ORDER BY updated_at DESC LIMIT 1
     ");
     $stmt->execute([$riderId]);
     $order = $stmt->fetch();
@@ -62,22 +62,43 @@ if ($order) {
         </div>
 
         <div class="page-content map-page">
-        <?php if (!$order): ?>
-        <div class="empty-state-map">
-            <div>
-                <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px;">No active delivery to track</div>
-                <div style="opacity:.8;font-size:.9rem;margin-bottom:16px;">Accept an order first from the Orders page.</div>
-                <a href="orders.php" class="empty-link">Go to Orders</a>
+            <div id="map-view"></div>
+
+            <?php if ($order): ?>
+            <div class="delivery-card" id="deliveryCard">
+                <div class="card-header-toggle" onclick="toggleDeliveryCard()">
+                    <div class="card-title-text">
+                        <i class="fas fa-route"></i> Active Delivery
+                    </div>
+                    <i class="fas fa-chevron-down" id="toggleIcon"></i>
+                </div>
+                <div class="card-expandable-content" id="cardContent">
+                    <div class="card-label-text">Delivering to:</div>
+                    <div class="address"><?= htmlspecialchars($order['address']) ?></div>
+                    <div class="eta-box">ETA: <span class="eta-val">--</span> mins</div>
+                    <button class="deliver-btn" onclick="triggerDeliveryConfirm()">Mark as Delivered</button>
+                </div>
             </div>
-        </div>
-        <?php else: ?>
-        <div id="map-view"></div>
-        
-        <div class="delivery-card">
-            <div style="font-size:0.9rem;opacity:0.8;">Delivering to:</div>
-            <div class="address"><?= htmlspecialchars($order['address']) ?></div>
-            <div class="eta-box">ETA: <span class="eta-val">--</span> mins</div>
-            <button class="deliver-btn" onclick="triggerDeliveryConfirm()">Mark as Delivered</button>
+            <script>
+                function toggleDeliveryCard() {
+                    const card = document.getElementById('deliveryCard');
+                    const content = document.getElementById('cardContent');
+                    const icon = document.getElementById('toggleIcon');
+                    
+                    if (content.style.display === 'none') {
+                        content.style.display = 'block';
+                        icon.className = 'fas fa-chevron-down';
+                        card.style.bottom = 'calc(12px + env(safe-area-inset-bottom, 0px))';
+                    } else {
+                        content.style.display = 'none';
+                        icon.className = 'fas fa-chevron-up';
+                        card.style.bottom = 'calc(12px + env(safe-area-inset-bottom, 0px))';
+                    }
+                }
+                // Start minimized if you want, but user said "if im on route", 
+                // so let's keep it expanded if they are on route, but allow minimizing.
+            </script>
+            <?php endif; ?>
         </div>
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -88,51 +109,12 @@ if ($order) {
             const DEST_LAT = <?= (float)($order['delivery_latitude'] ?? 0) ?>;
             const DEST_LNG = <?= (float)($order['delivery_longitude'] ?? 0) ?>;
         </script>
+        <div class="toast" id="toast"></div>
+        <script src="theme-manager.js"></script>
         <script src="map.js?v=<?= time() ?>"></script>
         <script>
-            function triggerDeliveryConfirm() {
-                const modal = document.getElementById('confirmModal');
-                if (modal) {
-                    modal.classList.add('open');
-                } else {
-                    if (confirm('Are you sure you want to mark this order as delivered?')) {
-                        handleDeliverySuccess();
-                    }
-                }
-            }
-
-            function closeConfirmModal() {
-                document.getElementById('confirmModal')?.classList.remove('open');
-            }
-
-            function handleDeliverySuccess() {
-                const orderId = ACTIVE_ORDER_ID;
-                if (!orderId) {
-                    alert('❌ Error: Missing Order ID');
-                    return;
-                }
-
-                const fd = new FormData();
-                fd.append('action', 'deliver_order');
-                fd.append('order_id', orderId);
-
-                fetch('rider-orders-api.php', { method: 'POST', body: fd })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            closeConfirmModal();
-                            alert('✅ Order delivered!');
-                            window.location.href = 'orders.php';
-                        } else {
-                            alert('❌ ' + (data.message || 'Error updating status'));
-                        }
-                    })
-                    .catch(() => alert('❌ Network error'));
-            }
+            // Note: handleDeliverySuccess and other modal functions are managed in map.js
         </script>
-        
-        <?php endif; ?>
-        </div>
 
         <div class="bottom-nav">
             <button class="nav-item" onclick="window.location.href='orders.php'">
@@ -140,6 +122,10 @@ if ($order) {
             </button>
             <button class="nav-item active">
                 <i class="fas fa-map-marked-alt"></i><span>Map</span>
+            </button>
+            <button class="nav-item" onclick="window.location.href='chat.php'">
+                <div class="nav-dot" id="chat-badge"></div>
+                <i class="fas fa-comment-dots"></i><span>Chat</span>
             </button>
             <button class="nav-item" onclick="window.location.href='history.php'">
                 <i class="fas fa-history"></i><span>History</span>

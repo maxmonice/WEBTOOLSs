@@ -43,17 +43,23 @@ function loadOrders() {
     .catch(() => {
       document.getElementById('loading-state').style.display = 'none';
       document.getElementById('empty-state').style.display = 'flex';
+      document.getElementById('stat-incoming').textContent = '0';
     });
 }
 
 function renderOrderCards(orders) {
   const container = document.getElementById('orders-list');
-  container.innerHTML = orders.map(order => `
-    <div class="order-card ${order.status !== 'confirmed' ? 'locked' : ''}" data-id="${order.id}" onclick="handleOrderTap(${JSON.stringify(order).replace(/"/g, '&quot;')})">
+  container.innerHTML = orders.map(order => {
+    const isShipped = order.status === 'shipped';
+    const isConfirmed = order.status === 'confirmed';
+    const isLocked = !isShipped && !isConfirmed;
+    
+    return `
+    <div class="order-card ${isLocked ? 'locked' : ''}" data-id="${order.id}" onclick="handleOrderTap(${JSON.stringify(order).replace(/"/g, '&quot;')})">
       <div class="order-card-header">
         <span class="order-id">${order.order_num}</span>
-        <span class="order-badge ${order.status === 'confirmed' ? 'sent' : 'prep'}">
-          ${order.status === 'confirmed' ? 'Sent' : 'Preparing'}
+        <span class="order-badge ${isShipped ? 'delivering' : isConfirmed ? 'sent' : 'prep'}">
+          ${isShipped ? 'Delivering' : isConfirmed ? 'Sent' : 'Preparing'}
         </span>
       </div>
       <div class="order-info-row">
@@ -71,18 +77,21 @@ function renderOrderCards(orders) {
       ${order.eta ? `<div class="order-info-row" style="color:#f39c12;"><i class="fas fa-clock"></i><span>Ready in: ${order.eta}</span></div>` : ''}
       <div class="order-footer">
         <span class="order-total">${order.total}</span>
-        ${order.status === 'confirmed'
+        ${isConfirmed
           ? `<button class="accept-btn" onclick="event.stopPropagation();quickAccept(${order.id})"><i class="fas fa-route"></i> On Route</button>`
+          : isShipped
+          ? `<button class="accept-btn" onclick="event.stopPropagation();window.location.href='map.php?order_id=${order.id}'" style="background:#22c55e;"><i class="fas fa-map-marked-alt"></i> View Map</button>`
           : `<button class="accept-btn secondary" disabled><i class="fas fa-clock"></i> Waiting</button>`
         }
       </div>
     </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function handleOrderTap(order) {
   if (typeof order === 'string') order = JSON.parse(order.replace(/&quot;/g, '"'));
-  if (order.status !== 'confirmed') {
+  if (order.status !== 'confirmed' && order.status !== 'shipped') {
     showToast('This order is still being prepared by staff.', 'error');
     return;
   }
@@ -103,24 +112,39 @@ function openOrderDetail(order) {
 
   // Build items list
   const itemsHtml = (order.items && order.items.length)
-    ? order.items.map(item => `
+    ? order.items.map(item => {
+        let price = item.price || item.subtotal || 0;
+        if (typeof price === 'string') price = price.replace(/[^\d.]/g, '');
+        const formattedPrice = parseFloat(price || 0).toFixed(2);
+        
+        return `
         <div class="order-item-row">
           <div class="item-name-qty">
             <span class="item-qty-badge">${item.quantity || 1}x</span>
             <span>${item.name || 'Item'}</span>
           </div>
-          <span class="item-price">₱${parseFloat(item.price || item.subtotal || 0).toFixed(2)}</span>
-        </div>`).join('')
+          <span class="item-price">₱${formattedPrice}</span>
+        </div>`;
+      }).join('')
     : `<div style="padding:12px;color:rgba(255,255,255,0.4);font-size:0.85rem;">${order.items_summary || 'No item details'}</div>`;
 
   document.getElementById('detailItems').innerHTML = itemsHtml;
   const mainBtn = document.getElementById('detailMainBtn');
+  
   if (order.status === 'confirmed') {
     mainBtn.disabled = false;
     mainBtn.innerHTML = '<i class="fas fa-route"></i> On Route';
+    mainBtn.onclick = acceptFromDetail;
+    mainBtn.style.background = '';
+  } else if (order.status === 'shipped') {
+    mainBtn.disabled = false;
+    mainBtn.innerHTML = '<i class="fas fa-map-marked-alt"></i> Back to Map';
+    mainBtn.onclick = () => window.location.href = 'map.php?order_id=' + order.id;
+    mainBtn.style.background = '#22c55e';
   } else {
     mainBtn.disabled = true;
     mainBtn.innerHTML = '<i class="fas fa-clock"></i> Waiting for Staff';
+    mainBtn.style.background = '';
   }
   document.getElementById('orderDetailModal').classList.add('open');
 }

@@ -21,25 +21,40 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
       <div class="app-logo">Luke's Seafood</div>
       <div class="app-subtitle">Rider Dashboard</div>
     </div>
-    <div class="rider-badge"><div class="dot"></div>Online</div>
+    <div class="rider-badge" id="header-status-badge">
+      <div class="dot" id="header-status-dot"></div>
+      <span id="header-status-text">Online</span>
+    </div>
   </div>
 
   <!-- ACCOUNT PAGE -->
   <div class="page-content">
-    <div class="account-hero">
-      <div class="avatar">
-        🏍️
-        <div class="avatar-online"></div>
-      </div>
-      <div class="account-name">Marco Rivera</div>
-      <div class="account-id">Rider ID: LKS-R-0042</div>
-      <div class="rating-row">
-        <div class="rating-stars">★★★★★</div>
-        <div class="rating-val">4.9</div>
-      </div>
-    </div>
-
     <div class="account-body">
+
+      <div class="account-section">
+        <div class="account-section-title">Personal Info</div>
+        <div class="account-row">
+          <div class="account-row-icon"><i class="fas fa-user"></i></div>
+          <div class="account-row-text">
+            <div class="account-row-label">Full Name</div>
+            <div class="account-row-sub">Marco Rivera</div>
+          </div>
+        </div>
+        <div class="account-row">
+          <div class="account-row-icon"><i class="fas fa-phone"></i></div>
+          <div class="account-row-text">
+            <div class="account-row-label">Mobile Number</div>
+            <div class="account-row-sub">0917 123 4567</div>
+          </div>
+        </div>
+        <div class="account-row">
+          <div class="account-row-icon"><i class="fas fa-motorcycle"></i></div>
+          <div class="account-row-text">
+            <div class="account-row-label">Vehicle Plate</div>
+            <div class="account-row-sub">ABC 1234</div>
+          </div>
+        </div>
+      </div>
 
       <div class="account-section">
         <div class="account-section-title">Status</div>
@@ -47,9 +62,9 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
           <div class="account-row-icon green"><i class="fas fa-circle"></i></div>
           <div class="account-row-text">
             <div class="account-row-label">Online Status</div>
-            <div class="account-row-sub">You are currently online</div>
+            <div class="account-row-sub" id="online-status-sub">You are currently online</div>
           </div>
-          <div class="toggle-switch on" onclick="toggleSwitch(this)"></div>
+          <div class="toggle-switch on" id="online-toggle" onclick="toggleSwitch(this)"></div>
         </div>
         <div class="account-row">
           <div class="account-row-icon amber"><i class="fas fa-bell"></i></div>
@@ -62,76 +77,22 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
       </div>
 
       <div class="account-section">
-        <div class="account-section-title">Personal Info</div>
-        <div class="account-row">
-          <div class="account-row-icon"><i class="fas fa-user"></i></div>
-          <div class="account-row-text">
-            <div class="account-row-label">Full Name</div>
-            <div class="account-row-sub">Marco Rivera</div>
-          </div>
-          <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
-        </div>
-        <div class="account-row">
-          <div class="account-row-icon"><i class="fas fa-phone"></i></div>
-          <div class="account-row-text">
-            <div class="account-row-label">Mobile Number</div>
-            <div class="account-row-sub">0917 123 4567</div>
-          </div>
-          <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
-        </div>
-        <div class="account-row">
-          <div class="account-row-icon"><i class="fas fa-motorcycle"></i></div>
-          <div class="account-row-text">
-            <div class="account-row-label">Vehicle Plate</div>
-            <div class="account-row-sub">ABC 1234</div>
-          </div>
-          <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
-        </div>
-      </div>
-
-      <div class="account-section">
-        <div class="account-section-title">Earnings</div>
-        <div class="account-row">
-          <div class="account-row-icon green"><i class="fas fa-peso-sign"></i></div>
-          <div class="account-row-text">
-            <div class="account-row-label">Total Earnings</div>
-            <div class="account-row-sub">All time</div>
-          </div>
-          <div class="account-row-right" style="font-weight:800;color:#4ade80">₱48,240</div>
-        </div>
-        <div class="account-row">
-          <div class="account-row-icon green"><i class="fas fa-calendar"></i></div>
-          <div class="account-row-text">
-            <div class="account-row-label">This Month</div>
-            <div class="account-row-sub">April 2026</div>
-          </div>
-          <div class="account-row-right" style="font-weight:800;color:#4ade80">₱12,860</div>
-        </div>
-        <div class="account-row">
-          <div class="account-row-icon"><i class="fas fa-box"></i></div>
-          <div class="account-row-text">
-            <div class="account-row-label">Total Deliveries</div>
-            <div class="account-row-sub">Completed orders</div>
-          </div>
-          <div class="account-row-right" style="font-weight:800">284</div>
-        </div>
-      </div>
-
-      <div class="account-section">
         <div class="account-section-title">Settings</div>
-        <div class="account-row">
-          <div class="account-row-icon"><i class="fas fa-lock"></i></div>
+        <div class="account-row" onclick="window.location.href='admin-chat.php'">
+          <div class="account-row-icon"><i class="fas fa-headset"></i></div>
           <div class="account-row-text">
-            <div class="account-row-label">Change Password</div>
+            <div class="account-row-label">Admin Support</div>
+            <div class="account-row-sub">Chat with Luke's Admin</div>
           </div>
           <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
         </div>
         <div class="account-row">
-          <div class="account-row-icon"><i class="fas fa-shield-alt"></i></div>
+          <div class="account-row-icon"><i class="fas fa-moon"></i></div>
           <div class="account-row-text">
-            <div class="account-row-label">Privacy Policy</div>
+            <div class="account-row-label">Switch Theme</div>
+            <div class="account-row-sub">Switch between dark and light theme</div>
           </div>
-          <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
+          <div class="toggle-switch on" id="theme-toggle" onclick="toggleTheme()"></div>
         </div>
       </div>
 
@@ -150,6 +111,10 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
     <button class="nav-item" onclick="window.location.href='map.php'">
       <i class="fas fa-map-marked-alt"></i><span>Map</span>
     </button>
+    <button class="nav-item" onclick="window.location.href='chat.php'">
+      <div class="nav-dot" id="chat-badge"></div>
+      <i class="fas fa-comment-dots"></i><span>Chat</span>
+    </button>
     <button class="nav-item" onclick="window.location.href='history.php'">
       <i class="fas fa-history"></i><span>History</span>
     </button>
@@ -161,6 +126,7 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="theme-manager.js"></script>
 <script src="account.js?v=<?= time() ?>"></script>
 </body>
 </html>

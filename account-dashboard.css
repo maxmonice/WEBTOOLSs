@@ -173,14 +173,16 @@
         }
 
         /* ── ORDER TRACKING MAP ── */
-        .order-track-card { padding: 16px 22px 20px; }
-        .order-track-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-        .order-track-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(194,38,38,0.12); border:1px solid var(--border-red); border-radius:20px; padding:4px 12px; font-size:0.72rem; font-weight:700; color:var(--red); letter-spacing:0.06em; text-transform:uppercase; }
-        .order-track-badge .dot { width:7px; height:7px; border-radius:50%; background:var(--red); animation:pulse-dot 1.4s infinite; }
-        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(1.4);} }
-        .order-track-id { font-size:0.75rem; color:var(--muted); font-weight:600; }
-        .order-track-address { font-size:0.82rem; color:var(--text); font-weight:600; margin-bottom:14px; display:flex; align-items:flex-start; gap:8px; line-height:1.4; }
-        .order-track-address i { color:var(--red); margin-top:2px; flex-shrink:0; }
+        .order-track-card { padding: 16px 22px 20px; background: rgba(255,255,255,0.02); border-radius: 12px; }
+        .order-track-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; }
+        .order-track-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(194,38,38,0.15); border:1px solid rgba(194,38,38,0.3); border-radius:20px; padding:6px 14px; font-size:0.75rem; font-weight:800; color:#fff; letter-spacing:0.06em; text-transform:uppercase; box-shadow: 0 0 15px rgba(194,38,38,0.1); }
+        .order-track-badge.live { background:rgba(34,197,94,0.15); border-color:rgba(34,197,94,0.3); color:#fff; }
+        .order-track-badge.live .dot { background:#22c55e; }
+        .order-track-badge .dot { width:8px; height:8px; border-radius:50%; background:var(--red); animation:pulse-dot 1.4s infinite; }
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(1.3);} }
+        .order-track-id { font-size:0.8rem; color:rgba(255,255,255,0.6); font-weight:700; letter-spacing: 0.02em; }
+        .order-track-address { font-size:0.9rem; color:var(--text); font-weight:600; margin-bottom:16px; display:flex; align-items:flex-start; gap:10px; line-height:1.4; }
+        .order-track-address i { color:var(--red); margin-top:3px; flex-shrink:0; font-size: 1rem; }
 
         /* Mini map */
         .mini-map-wrap { position:relative; height:170px; border-radius:12px; overflow:hidden; cursor:pointer; background:#121212; border:1px solid rgba(255,255,255,0.08); margin-bottom:14px; transition:transform 0.2s, box-shadow 0.2s; }

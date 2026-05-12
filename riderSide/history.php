@@ -31,15 +31,6 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
       <div class="section-sub">Your completed deliveries</div>
       <div class="earnings-card">
         <div class="earning-item">
-          <div class="earning-val" style="color:#4ade80">₱3,420</div>
-          <div class="earning-lbl">This Week</div>
-        </div>
-        <div class="earning-item">
-          <div class="earning-val">₱12,860</div>
-          <div class="earning-lbl">This Month</div>
-        </div>
-        <div class="earning-divider"></div>
-        <div class="earning-item">
           <div class="earning-val">47</div>
           <div class="earning-lbl">Deliveries</div>
         </div>
@@ -50,72 +41,33 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
       </div>
     </div>
 
+    <!-- SEARCH BAR -->
+    <div class="history-search-wrap">
+      <div class="search-input-inner">
+        <i class="fas fa-search"></i>
+        <input type="text" id="historySearch" placeholder="Search customer, address, or order #..." oninput="handleHistorySearch()">
+      </div>
+    </div>
+
     <div class="history-body">
-      <div class="history-date-label">Today</div>
-
-      <div class="history-card" onclick="viewDelivery('ORD-2830')">
-        <div class="history-icon green"><i class="fas fa-check"></i></div>
-        <div class="history-info">
-          <div class="history-name">Ana Gabutin — #ORD-2830</div>
-          <div class="history-meta">3 items · Brgy. Batasan Hills</div>
-        </div>
-        <div class="history-right">
-          <div class="history-amount">+₱420</div>
-          <div class="history-time">2:30 PM</div>
-        </div>
+      <!-- Dynamically populated by history.js -->
+      <div style="text-align:center;padding:40px;opacity:0.5;">
+        <i class="fas fa-spinner fa-spin" style="font-size:2rem;margin-bottom:15px;"></i>
+        <div>Loading history...</div>
       </div>
+    </div>
+  </div>
 
-      <div class="history-card" onclick="viewDelivery('ORD-2825')">
-        <div class="history-icon green"><i class="fas fa-check"></i></div>
-        <div class="history-info">
-          <div class="history-name">Benz Cruz — #ORD-2825</div>
-          <div class="history-meta">2 items · Brgy. Payatas</div>
-        </div>
-        <div class="history-right">
-          <div class="history-amount">+₱280</div>
-          <div class="history-time">1:15 PM</div>
-        </div>
+  <!-- ORDER DETAILS MODAL -->
+  <div class="history-modal" id="historyModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="modalOrderNum">#ORD-0000</div>
+        <button class="close-modal" onclick="closeModal()"><i class="fas fa-times"></i></button>
       </div>
-
-      <div class="history-date-label">Yesterday</div>
-
-      <div class="history-card" onclick="viewDelivery('ORD-2818')">
-        <div class="history-icon green"><i class="fas fa-check"></i></div>
-        <div class="history-info">
-          <div class="history-name">Clara Orias — #ORD-2818</div>
-          <div class="history-meta">5 items · Brgy. Commonwealth</div>
-        </div>
-        <div class="history-right">
-          <div class="history-amount">+₱875</div>
-          <div class="history-time">6:45 PM</div>
-        </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Content injected by JS -->
       </div>
-
-      <div class="history-card" onclick="viewDelivery('ORD-2810')">
-        <div class="history-icon green"><i class="fas fa-check"></i></div>
-        <div class="history-info">
-          <div class="history-name">Diego Tan — #ORD-2810</div>
-          <div class="history-meta">1 item · Brgy. Novaliches</div>
-        </div>
-        <div class="history-right">
-          <div class="history-amount">+₱195</div>
-          <div class="history-time">4:20 PM</div>
-        </div>
-      </div>
-
-      <div class="history-card" onclick="viewDelivery('ORD-2804')">
-        <div class="history-icon green"><i class="fas fa-check"></i></div>
-        <div class="history-info">
-          <div class="history-name">Eva Manalo — #ORD-2804</div>
-          <div class="history-meta">4 items · Brgy. Gulod</div>
-        </div>
-        <div class="history-right">
-          <div class="history-amount">+₱560</div>
-          <div class="history-time">11:00 AM</div>
-        </div>
-      </div>
-
-      <div style="height:16px"></div>
     </div>
   </div>
 
@@ -126,6 +78,10 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
     </button>
     <button class="nav-item" onclick="window.location.href='map.php'">
       <i class="fas fa-map-marked-alt"></i><span>Map</span>
+    </button>
+    <button class="nav-item" onclick="window.location.href='chat.php'">
+      <div class="nav-dot" id="chat-badge"></div>
+      <i class="fas fa-comment-dots"></i><span>Chat</span>
     </button>
     <button class="nav-item active">
       <i class="fas fa-history"></i><span>History</span>
@@ -138,6 +94,7 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="theme-manager.js"></script>
 <script src="history.js?v=<?= time() ?>"></script>
 </body>
 </html>

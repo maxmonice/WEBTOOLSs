@@ -3,32 +3,26 @@
    ===================================================== */
 
 .account-hero {
-  background: linear-gradient(160deg, var(--red-deep), var(--red));
-  padding: 24px 20px 28px;
+  background: #000;
+  padding: 32px 20px;
   display: flex; flex-direction: column;
-  align-items: center; gap: 10px;
+  align-items: center; gap: 12px;
   position: relative; overflow: hidden;
-}
-.account-hero::before {
-  content: '';
-  position: absolute; top: -60px; right: -60px;
-  width: 200px; height: 200px; border-radius: 50%;
-  background: rgba(255,255,255,.04);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
 .avatar {
-  width: 80px; height: 80px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--red-deep), rgba(255,255,255,.1));
-  border: 3px solid rgba(255,255,255,.3);
+  width: 84px; height: 84px; border-radius: 50%;
+  background: #111;
+  border: 3px solid var(--red);
   display: flex; align-items: center; justify-content: center;
-  font-size: 2rem; position: relative; z-index: 1;
+  font-size: 2.2rem; position: relative; z-index: 1;
 }
 .avatar-online {
-  position: absolute; bottom: 3px; right: 3px;
-  width: 16px; height: 16px;
+  position: absolute; bottom: 4px; right: 4px;
+  width: 18px; height: 18px;
   background: var(--green); border-radius: 50%;
-  border: 2px solid var(--red-deep);
-  box-shadow: 0 0 8px var(--green);
+  border: 3px solid #000;
 }
 
 .account-name {
@@ -95,7 +89,7 @@
 
 .toggle-switch {
   width: 44px; height: 24px;
-  background: rgba(255,255,255,.2);
+  background: var(--red);
   border-radius: 12px; position: relative;
   cursor: pointer; transition: background .3s; flex-shrink: 0;
 }
@@ -119,3 +113,24 @@
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .logout-btn:active { background: rgba(194,38,38,.25); }
+
+/* Light Theme Overrides */
+.light-theme .account-row { border-bottom-color: rgba(0,0,0,0.08); }
+.light-theme .account-row:active { background: rgba(0,0,0,0.03); }
+.light-theme .account-row-icon {
+  background: #fff;
+  border-color: rgba(0,0,0,0.08);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.light-theme .account-row-icon.green { color: var(--green); }
+.light-theme .account-row-icon.amber { color: var(--amber); }
+.light-theme .account-row-label { color: #000; }
+.light-theme .account-row-sub { color: rgba(0,0,0,0.5); }
+.light-theme .toggle-switch { background: var(--red); }
+.light-theme .toggle-switch.on { background: var(--green); }
+.light-theme .logout-btn {
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.1);
+  color: #000;
+}
+.light-theme .logout-btn span { color: #000; }

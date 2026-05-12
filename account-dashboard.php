@@ -205,6 +205,9 @@
       <div class="track-step"><div class="track-dot" id="fsDot3"><i class="fas fa-box" style="font-size:0.55rem"></i></div><div class="track-label">Delivered</div></div>
     </div>
     <div class="map-fs-eta"><i class="fas fa-clock" style="color:#C22626"></i> Estimated arrival: <strong id="fsEta">~15 mins</strong></div>
+    <button class="chat-with-rider-btn" id="customerChatBtn" style="width:100%; margin-top:15px; background:var(--red); color:#fff; border:none; padding:12px; border-radius:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
+      <i class="fas fa-comment-dots"></i> Chat with Rider
+    </button>
   </div>
 </div>
 
@@ -382,6 +385,27 @@
     <div class="modal-foot col">
       <button class="btn-logout-confirm btn-danger-gradient" id="confirmCancelBtn">Yes, Cancel Order</button>
       <button class="btn-cancel" onclick="closeCancelModal()">No, Keep Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHAT MODAL -->
+<div class="modal-overlay" id="chatModal" style="z-index: 10010;">
+  <div class="modal" style="width: 100%; max-width: 400px; height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: #0d0204;">
+    <div class="modal-head" style="padding: 15px 20px; background: var(--red-deep); border: none;">
+      <h3 style="color:#fff; font-size: 1rem;"><i class="fas fa-comment-dots" style="margin-right:8px;"></i> Chat with Rider</h3>
+      <button class="modal-close" onclick="closeChatModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="customer-chat-messages" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; background: rgba(0,0,0,0.2);">
+      <!-- Messages here -->
+    </div>
+    <div style="padding:15px; border-top:1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02);">
+      <div style="display:flex; gap:10px; background:rgba(255,255,255,0.05); border-radius:24px; padding:5px 5px 5px 15px; border:1px solid rgba(255,255,255,0.1);">
+        <input type="text" id="customer-chat-input" placeholder="Type a message..." style="flex:1; background:none; border:none; color:#fff; padding:8px 0; outline:none; font-size:0.9rem;">
+        <button id="customer-send-btn" style="width:36px; height:36px; border-radius:50%; background:var(--red); color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
     </div>
   </div>
 </div>

@@ -16,8 +16,8 @@ const DEFAULT_CENTER = [STORE_LAT, STORE_LNG];
 
 // Custom Icons
 const riderIconHtml = `
-  <div style="width:36px;height:36px;border-radius:50%;background:rgba(194,38,38,0.25);border:2px solid rgba(194,38,38,0.5);display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(194,38,38,0.4)">
-    <i class="fas fa-motorcycle" style="color:#C22626;font-size:1.1rem;"></i>
+  <div style="display:flex;align-items:center;justify-content:center;">
+    <i class="fa-solid fa-fish" style="color:#C22626;font-size:1.8rem;filter: drop-shadow(0 0 5px rgba(194,38,38,0.4));"></i>
   </div>
 `;
 const riderIcon = L.divIcon({
@@ -68,17 +68,20 @@ function initMap() {
     // Init markers (rider starts at store, destination is destination)
     L.marker([STORE_LAT, STORE_LNG], { icon: storeIcon }).addTo(map); // Static store marker
     riderMarker = L.marker([STORE_LAT, STORE_LNG], { icon: riderIcon }).addTo(map);
-    customerMarker = L.marker([DEST_LAT, DEST_LNG], { icon: destIcon }).addTo(map);
+    
+    if (ACTIVE_ORDER_ID > 0) {
+        customerMarker = L.marker([DEST_LAT, DEST_LNG], { icon: destIcon }).addTo(map);
+        
+        // Connect to Socket.io
+        try {
+            socket = io('http://localhost:3000');
+            socket.on('connect', () => console.log('Socket connected!'));
+        } catch (e) {
+            console.error('Socket.io connection failed. Is the Node server running?', e);
+        }
 
-    // Connect to Socket.io
-    try {
-        socket = io('http://localhost:3000');
-        socket.on('connect', () => console.log('Socket connected!'));
-    } catch (e) {
-        console.error('Socket.io connection failed. Is the Node server running?', e);
+        startRiderTracking();
     }
-
-    startRiderTracking();
 }
 
 

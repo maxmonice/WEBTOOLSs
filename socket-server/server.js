@@ -53,6 +53,24 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Chat System
+    socket.on('join-chat', (orderId) => {
+        console.log(`User joined chat for Order: ${orderId}`);
+        socket.join(`chat_${orderId}`);
+    });
+
+    socket.on('send-message', (data) => {
+        const { orderId, sender, message, timestamp } = data;
+        console.log(`New message for Order ${orderId} from ${sender}: ${message}`);
+        // Emit to everyone in the chat room (including sender if they have multiple tabs)
+        io.to(`chat_${orderId}`).emit('new-message', {
+            sender,
+            message,
+            timestamp,
+            orderId
+        });
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });

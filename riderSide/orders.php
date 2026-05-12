@@ -31,12 +31,11 @@ $riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
   <!-- ORDERS PAGE -->
   <div class="page-content">
     <div class="orders-hero">
-      <div class="hero-greeting">Good day,</div>
-      <div class="hero-name"><?= $riderName ?> 🏍️</div>
+      <div class="hero-greeting" style="color:rgba(255,255,255,0.8)">Good day,</div>
+      <div class="hero-name" style="color:#fff"><?= $riderName ?> 🏍️</div>
       <div class="hero-stats">
-        <div class="stat-card"><div class="stat-val" id="stat-incoming">—</div><div class="stat-lbl">Incoming</div></div>
-        <div class="stat-card"><div class="stat-val" id="stat-today">—</div><div class="stat-lbl">Today</div></div>
-        <div class="stat-card"><div class="stat-val" id="stat-earned">₱0</div><div class="stat-lbl">Earned</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-incoming" style="color:#fff">0</div><div class="stat-lbl" style="color:rgba(255,255,255,0.7)">Incoming</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-today" style="color:#fff">0</div><div class="stat-lbl" style="color:rgba(255,255,255,0.7)">Today</div></div>
       </div>
     </div>
 
@@ -45,15 +44,15 @@ $riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
 
     <!-- Empty state (shown when no orders) -->
     <div class="empty-state" id="empty-state" style="display:none;">
-      <i class="fa-solid fa-motorcycle" style="color: rgb(255,255,255);"></i>
+      <i class="fa-solid fa-motorcycle"></i>
       <div class="empty-text">No incoming orders</div>
-      <div style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:4px;">Orders will appear here when they are ready</div>
+      <div class="empty-sub">Orders will appear here when they are ready</div>
     </div>
 
     <!-- Loading state -->
-    <div id="loading-state" style="text-align:center;padding:40px;color:rgba(255,255,255,0.4);">
-      <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;margin-bottom:10px;display:block;"></i>
-      Loading orders…
+    <div id="loading-state" class="loading-orders">
+      <i class="fa-solid fa-spinner fa-spin"></i>
+      <span>Loading orders…</span>
     </div>
   </div>
 
@@ -65,6 +64,10 @@ $riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
     </button>
     <button class="nav-item" onclick="window.location.href='map.php'">
       <i class="fas fa-map-marked-alt"></i><span>Map</span>
+    </button>
+    <button class="nav-item" onclick="window.location.href='chat.php'">
+      <div class="nav-dot" id="chat-badge"></div>
+      <i class="fas fa-comment-dots"></i><span>Chat</span>
     </button>
     <button class="nav-item" onclick="window.location.href='history.php'">
       <i class="fas fa-history"></i><span>History</span>
@@ -98,11 +101,11 @@ $riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
         </div>
       </div>
       <div class="detail-section">
-        <div class="detail-section-header"><i class="fas fa-box"></i> Order Items</div>
+        <div class="detail-section-header"><i class="fas fa-shopping-bag"></i> Order Items</div>
         <div id="detailItems"></div>
-        <div class="detail-row" style="border-top:1px solid rgba(255,255,255,.08)">
-          <span class="detail-label" style="font-weight:800;color:#fff">Total</span>
-          <span class="detail-val" id="detailTotal" style="color:var(--red);font-size:1rem">—</span>
+        <div class="detail-row total-row">
+          <span class="detail-label">Total</span>
+          <span class="detail-val" id="detailTotal">₱0.00</span>
         </div>
       </div>
       <div class="action-row">
@@ -121,6 +124,7 @@ $riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
   // Pass rider session data to JS
   const RIDER_ID = <?= (int)$_SESSION['rider_id'] ?>;
 </script>
+<script src="theme-manager.js"></script>
 <script src="orders.js?v=<?= time() ?>"></script>
 </body>
 </html>

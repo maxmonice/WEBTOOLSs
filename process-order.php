@@ -98,6 +98,27 @@ try {
         exit;
     }
 
+    // --- Phone Number Validation ---
+    $currentMobile = trim((string)($paymentDetails['mobile'] ?? ''));
+    if (!empty($currentMobile)) {
+        // Check if this mobile number has been used by a different email in past orders
+        $checkStmt = $pdo->prepare("
+            SELECT user_email FROM orders 
+            WHERE notes LIKE ? AND user_email != ? 
+            LIMIT 1
+        ");
+        $checkStmt->execute(['%' . $currentMobile . '%', $userEmail]);
+        $existing = $checkStmt->fetch();
+
+        if ($existing) {
+            echo json_encode([
+                'success' => false, 
+                'message' => 'This phone number is already registered to another customer account. Please use a different number.'
+            ]);
+            exit;
+        }
+    }
+
     $orderNotes = json_encode([
         'items'           => $items,
         'payment_details' => $paymentDetails,
