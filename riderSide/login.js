@@ -27,11 +27,12 @@
   function showError(msg) {
     const box  = document.getElementById('errorBox');
     document.getElementById('errorText').textContent = msg;
-    box.classList.remove('hidden');
+    box.style.display = 'flex';
   }
 
   function clearError() {
-    document.getElementById('errorBox').classList.add('hidden');
+    const box = document.getElementById('errorBox');
+    if (box) box.style.display = 'none';
   }
 
   async function doLogin() {

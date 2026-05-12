@@ -375,6 +375,32 @@ header {
 .item-pieces { font-size: 0.72rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
 .item-rating { color: #d4a320; font-size: 0.7rem; padding: 4px 12px 12px; opacity: 0.85; width: 100%; text-align: center; }
 
+/* Discount Badge */
+.discount-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 44px;
+    height: 44px;
+    background: #FA0102;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(250, 1, 2, 0.4);
+    z-index: 10;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    animation: badgePop 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+}
+
+@keyframes badgePop {
+    from { transform: scale(0) rotate(-45deg); opacity: 0; }
+    to { transform: scale(1) rotate(0); opacity: 1; }
+}
+
 /* =====================================================
    MODAL
    ===================================================== */

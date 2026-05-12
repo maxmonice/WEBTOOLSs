@@ -1,6 +1,6 @@
-/* riderSide/login.css — Overrides for Rider Portal theme consistency */
+/* staffSide/login.css — Staff Portal Login styling */
 
-.rider-login-page {
+.staff-login-page {
     background: radial-gradient(circle at center, #8b0a1e 0%, #1a0408 100%) !important;
     min-height: 100vh;
     min-height: 100dvh;
@@ -9,13 +9,13 @@
 
 /* Hide scrollbar on desktop but allow on mobile if needed */
 @media (min-width: 769px) {
-    .rider-login-page {
+    .staff-login-page {
         overflow: hidden;
     }
 }
 
 @media (max-width: 768px) {
-    .rider-login-page {
+    .staff-login-page {
         overflow-y: auto;
         overflow-x: hidden;
     }
@@ -101,9 +101,13 @@
     text-align: left;
 }
 
+.input-wrap {
+    position: relative;
+}
+
 .input-wrap input {
     width: 100%;
-    background: #f1eded; /* Light gray as in screenshot */
+    background: #f1eded;
     border: none;
     border-radius: 14px;
     padding: 18px 20px 18px 48px;
@@ -161,15 +165,6 @@
     filter: brightness(1.2);
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(194, 38, 38, 0.4);
-}
-
-.rider-strip-dot {
-    animation: dot-blink 1.5s infinite;
-}
-
-@keyframes dot-blink { 
-    0%, 100% { opacity: 1; } 
-    50% { opacity: 0.3; } 
 }
 
 .auth-error {

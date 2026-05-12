@@ -58,7 +58,10 @@
       <div class="section-label"><i class="fa-solid fa-user"></i> Profile &amp; Account Info</div>
       <div class="profile-card">
         <div class="avatar-wrap">
-          <div class="avatar" id="avatarInitial">?</div>
+          <div class="avatar" id="avatarContainer">
+            <span id="avatarInitial">?</span>
+            <img id="avatarImg" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:none;" />
+          </div>
           <div class="avatar-badge"></div>
         </div>
         <div class="profile-info">
@@ -77,10 +80,28 @@
     </div>
 
     <!-- Track Your Order -->
-    <div class="section-block" id="trackingBlock">
+    <div class="section-block" id="trackingBlock" style="display:none;">
       <div class="section-label"><i class="fa-solid fa-location-dot"></i> Track Your Order</div>
       <div id="orderTrackingSection">
         <!-- Populated by loadOrderTracking() -->
+      </div>
+    </div>
+
+    <!-- My Messages -->
+    <div class="section-block">
+      <div class="section-label"><i class="fa-solid fa-comments"></i> My Messages</div>
+      <div class="messages-list" id="messagesList">
+        <div class="message-thread-item" onclick="openAdminChat()">
+            <div class="thread-avatar admin"><i class="fas fa-headset"></i></div>
+            <div class="thread-info">
+                <div class="thread-header">
+                    <span class="thread-name">Luke's Admin Support</span>
+                    <span class="thread-time" id="admin-last-time"></span>
+                </div>
+                <div class="thread-preview" id="admin-last-msg">Start a conversation with our team.</div>
+            </div>
+        </div>
+        <div id="riderChatThread"></div>
       </div>
     </div>
 
@@ -92,6 +113,40 @@
           <i class="fa-solid fa-calendar-day" style="font-size:2rem; margin-bottom:15px; display:block; opacity:0.3;"></i>
           No active bookings found. <a href="bookbar.php" style="color:var(--red); font-weight:700;">Book now!</a>
         </div>
+      </div>
+    </div>
+
+    <!-- History Section -->
+    <div class="section-block">
+      <div class="section-label"><i class="fa-solid fa-clock-rotate-left"></i> Transaction History</div>
+      <div class="menu-rows">
+        <a class="menu-row" href="#" onclick="openHistory(); return false;">
+          <div class="mr-left">
+            <div class="mr-icon"><i class="fa-solid fa-receipt"></i></div>
+            <div class="mr-text">
+              <div class="mr-title">View History</div>
+              <div class="mr-sub">See your past orders and completed event bookings</div>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right mr-arrow"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Promo Section -->
+    <div class="section-block" id="promoDashboardBlock">
+      <div class="section-label"><i class="fa-solid fa-ticket"></i> Promo & Rewards</div>
+      <div class="menu-rows">
+        <a class="menu-row" href="#" onclick="openPromos(); return false;">
+          <div class="mr-left">
+            <div class="mr-icon"><i class="fa-solid fa-tags"></i></div>
+            <div class="mr-text">
+              <div class="mr-title">Promo Codes</div>
+              <div class="mr-sub">Claim discounts and special offers</div>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right mr-arrow"></i>
+        </a>
       </div>
     </div>
 
@@ -141,36 +196,22 @@
       </div>
     </div>
 
-    <!-- Help & Support -->
+    <!-- Admin Support Section -->
     <div class="section-block">
       <div class="section-label"><i class="fa-solid fa-circle-question"></i> Help &amp; Support</div>
       <div class="menu-rows">
-        <a class="menu-row" href="#" onclick="return false;">
-          <div class="mr-left">
-            <div class="mr-icon"><i class="fa-solid fa-book-open"></i></div>
-            <div class="mr-text"><div class="mr-title">Help Center</div><div class="mr-sub">Browse FAQs and guides</div></div>
-          </div>
-          <i class="fa-solid fa-chevron-right mr-arrow"></i>
-        </a>
-        <hr class="menu-divider">
-        <a class="menu-row" href="mailto:lukeseafoods28@gmail.com">
+        <a class="menu-row" href="#" onclick="openAdminChatFullscreen(); return false;">
           <div class="mr-left">
             <div class="mr-icon"><i class="fa-solid fa-headset"></i></div>
-            <div class="mr-text"><div class="mr-title">Contact Support</div><div class="mr-sub">Reach out to our admin team</div></div>
+            <div class="mr-text">
+              <div class="mr-title">Chat with Admin</div>
+              <div class="mr-sub">Reach out to our support team for any concerns</div>
+            </div>
           </div>
           <i class="fa-solid fa-chevron-right mr-arrow"></i>
-        </a>
-        <hr class="menu-divider">
-        <a class="menu-row" href="https://www.facebook.com/lukeseafoodtrading" target="_blank">
-          <div class="mr-left">
-            <div class="mr-icon"><i class="fa-brands fa-facebook-messenger"></i></div>
-            <div class="mr-text"><div class="mr-title">Message Us on Facebook</div><div class="mr-sub">Chat with us directly</div></div>
-          </div>
-          <i class="fa-solid fa-arrow-up-right-from-square mr-arrow"></i>
         </a>
       </div>
     </div>
-
     <!-- Logout -->
     <div class="logout-block">
       <button class="logout-btn" onclick="openLogout()">
@@ -182,6 +223,79 @@
 
   </div>
 </main>
+
+<!-- FULLSCREEN PROMO OVERLAY -->
+<div class="map-fullscreen-overlay" id="promoFullscreen" style="z-index:10001; background: #0a0a0a;">
+  <div class="map-fs-header" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <span class="map-fs-title"><i class="fa-solid fa-ticket" style="color:#C22626;margin-right:8px;"></i>Promo Codes</span>
+    <button class="map-fs-close" onclick="closePromos()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  
+  <div class="promo-portal-body" style="padding: 30px 20px; max-width: 700px; margin: 0 auto;">
+    <div class="promo-search-box" style="position: relative; margin-bottom: 30px;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--muted);"></i>
+        <input type="text" id="promoSearchInput" placeholder="Enter promo code (e.g. N3WUS3R)" 
+               style="width: 100%; padding: 18px 18px 18px 50px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; color: #fff; font-size: 1rem; outline: none; transition: border-color 0.3s;"
+               oninput="handlePromoSearch()">
+    </div>
+
+    <div id="promoResultsList" class="promo-list" style="display: flex; flex-direction: column; gap: 15px;">
+        <!-- Populated via JS -->
+    </div>
+  </div>
+</div>
+
+<!-- NEW USER PROMO MODAL -->
+<div class="modal-overlay" id="newUserPromoModal" style="z-index:10005;">
+  <div class="modal" style="background:rgba(18,18,18,0.95); backdrop-filter:blur(15px); border:1px solid rgba(255,255,255,0.08); box-shadow:0 25px 50px rgba(0,0,0,0.5); width:90%; max-width:400px;">
+    <div class="modal-body" style="padding:40px 25px; text-align:center;">
+      <div class="promo-gift-icon" style="background:rgba(194,38,38,0.1); color:#C22626; width:80px; height:80px; font-size:2.5rem; margin:0 auto 25px; border-radius:50%; display:grid; place-items:center; animation: bounce 2s infinite;">
+        <i class="fa-solid fa-gift"></i>
+      </div>
+      <h2 style="font-family:'Aclonica',sans-serif; color:#fff; margin-bottom:12px; font-size:1.6rem;">Welcome Gift!</h2>
+      <p style="color:rgba(255,255,255,0.7); line-height:1.6; margin-bottom:30px;">Get <strong style="color:var(--red);">30% OFF</strong> on your first order with the code <strong style="color:var(--red);">N3WUS3R</strong>.</p>
+      
+      <button class="btn-save" onclick="claimNewUserPromo()" style="width:100%; padding:18px; border-radius:12px; font-weight:800; font-size:1rem; letter-spacing:0.05em; text-transform:uppercase;">Claim Now</button>
+      <button class="btn-cancel" onclick="closeModal('newUserPromoModal')" style="width:100%; margin-top:12px; border:none; background:transparent;">Maybe Later</button>
+    </div>
+  </div>
+</div>
+
+<!-- FULLSCREEN HISTORY OVERLAY -->
+<div class="map-fullscreen-overlay" id="historyFullscreen" style="z-index:10001; background: #0a0a0a;">
+  <div class="map-fs-header" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <span class="map-fs-title"><i class="fa-solid fa-clock-rotate-left" style="color:#C22626;margin-right:8px;"></i>Transaction History</span>
+    <button class="map-fs-close" onclick="closeHistory()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  
+  <!-- Tabs Header -->
+  <div class="history-tabs-header">
+    <button class="history-tab active" data-tab="past-orders" onclick="switchHistoryTab('past-orders')">
+      <i class="fa-solid fa-bag-shopping"></i> Past Orders
+    </button>
+    <button class="history-tab" data-tab="past-bookings" onclick="switchHistoryTab('past-bookings')">
+      <i class="fa-solid fa-calendar-check"></i> Past Events
+    </button>
+  </div>
+
+  <div class="history-body-container">
+    <!-- Past Orders Tab -->
+    <div id="past-orders" class="history-tab-content active">
+      <div id="pastOrdersList" class="history-list">
+        <!-- Populated via JS -->
+        <div class="loading-state"><i class="fas fa-circle-notch fa-spin"></i> Loading history...</div>
+      </div>
+    </div>
+
+    <!-- Past Bookings Tab -->
+    <div id="past-bookings" class="history-tab-content">
+      <div id="pastBookingsList" class="history-list">
+        <!-- Populated via JS -->
+        <div class="loading-state"><i class="fas fa-circle-notch fa-spin"></i> Loading history...</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- FULLSCREEN MAP (Absolute Fixed overlay) -->
 <div class="map-fullscreen-overlay" id="mapFullscreen" style="z-index:10001;">
@@ -257,6 +371,19 @@
       <button class="modal-close" onclick="closeEdit()"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
+      <!-- Profile Picture Section -->
+      <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:25px; position:relative;">
+        <div id="editAvatarPreview" style="width:100px; height:100px; border-radius:50%; background:linear-gradient(135deg, var(--red-dark), var(--red)); display:flex; align-items:center; justify-content:center; font-family:'Aclonica',sans-serif; font-size:2.2rem; color:#fff; cursor:pointer; position:relative; overflow:hidden; border:4px solid var(--surface2); box-shadow:0 10px 20px rgba(0,0,0,0.3);" onclick="document.getElementById('inputPhoto').click()">
+          <span id="editAvatarInitial">?</span>
+          <img id="editAvatarImg" style="width:100%; height:100%; object-fit:cover; display:none;" />
+          <div style="position:absolute; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">
+            <i class="fa-solid fa-camera" style="font-size:1.5rem;"></i>
+          </div>
+        </div>
+        <input type="file" id="inputPhoto" style="display:none;" accept="image/*" onchange="previewProfilePhoto(this)" />
+        <p style="font-size:0.75rem; color:var(--muted); margin-top:10px; font-weight:600;">Click to change photo</p>
+      </div>
+
       <div class="field-group"><label>Full Name</label><input type="text" id="inputName" placeholder="Your full name" /></div>
       <div class="field-group"><label>Email Address</label><input type="email" id="inputEmail" placeholder="Your email" /></div>
     </div>
@@ -389,7 +516,7 @@
   </div>
 </div>
 
-<!-- CHAT MODAL -->
+<!-- CHAT MODAL (Rider) -->
 <div class="modal-overlay" id="chatModal" style="z-index: 10010;">
   <div class="modal" style="width: 100%; max-width: 400px; height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: #0d0204;">
     <div class="modal-head" style="padding: 15px 20px; background: var(--red-deep); border: none;">
@@ -405,6 +532,36 @@
         <button id="customer-send-btn" style="width:36px; height:36px; border-radius:50%; background:var(--red); color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer;">
           <i class="fas fa-paper-plane"></i>
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN CHAT FULLSCREEN OVERLAY -->
+<div class="map-fullscreen-overlay" id="adminChatFullscreen" style="z-index:10011;">
+  <div class="admin-chat-header" style="background: var(--red-deep); padding: 15px 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); position: relative; z-index: 10;">
+    <button class="back-btn" onclick="closeAdminChatFullscreen()" style="background: none; border: none; color: #fff; font-size: 1.1rem; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;"><i class="fas fa-chevron-left"></i></button>
+    <div class="admin-avatar" style="width: 40px; height: 40px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; color: var(--red); font-size: 1.2rem;"><i class="fas fa-user-shield"></i></div>
+    <div class="admin-info">
+      <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0; color: #fff;">Admin Support</h3>
+      <p style="font-size: 0.7rem; opacity: 0.7; margin: 0; color: #fff;">Always active for you</p>
+    </div>
+  </div>
+  
+  <div class="chat-container" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0d0204;">
+    <div class="chat-messages" id="admin-chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background-image: radial-gradient(rgba(194, 38, 38, 0.05) 1px, transparent 1px); background-size: 20px 20px;">
+      <div class="message customer" style="align-self: flex-start; max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 0.9rem; line-height: 1.4; background: rgba(255, 255, 255, 0.08); color: #fff; border-bottom-left-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.05);">
+        Hello! How can we help you today?
+        <span class="message-time" style="font-size: 0.65rem; opacity: 0.6; margin-top: 4px; display: block; text-align:right;">System</span>
+      </div>
+    </div>
+
+    <div class="chat-input-area" style="padding: 15px; background: rgba(0, 0, 0, 0.2); border-top: 1px solid rgba(255, 255, 255, 0.05);">
+      <div class="input-wrapper" style="display: flex; align-items: flex-end; gap: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 24px; padding: 5px 5px 5px 15px; border: 1px solid rgba(255,255,255,0.1);">
+        <button class="attach-btn" onclick="document.getElementById('admin-chat-file').click()" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.1rem; padding: 10px 5px; cursor: pointer;"><i class="fas fa-paperclip"></i></button>
+        <input type="file" id="admin-chat-file" style="display:none;" accept="image/*" onchange="handleAdminChatFile(this)">
+        <textarea id="admin-chat-input" placeholder="Type your concern..." rows="1" style="flex: 1; background: none; border: none; color: #fff; padding: 10px 0; font-family: inherit; font-size: 0.9rem; outline: none; resize: none; max-height: 100px;"></textarea>
+        <button id="admin-send-btn" class="send-btn" onclick="sendAdminMessage()" style="width: 40px; height: 40px; border-radius: 50%; background: var(--red); color: #fff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><i class="fas fa-paper-plane"></i></button>
       </div>
     </div>
   </div>
@@ -565,6 +722,28 @@
 
 
 
+
+<!-- LOGOUT CONFIRMATION MODAL -->
+<div class="modal-overlay" id="logoutModal" style="z-index:10005;">
+  <div class="modal" style="background:rgba(18,18,18,0.95); backdrop-filter:blur(15px); border:1px solid rgba(255,255,255,0.08); box-shadow:0 25px 50px rgba(0,0,0,0.5); width:90%; max-width:400px;">
+    <div class="modal-head" style="border-bottom:1px solid rgba(255,255,255,0.05); padding:20px 25px;">
+      <h3 style="font-family:'Aclonica',sans-serif; color:#fff; font-size:1.1rem;">Logout</h3>
+      <button class="modal-close" onclick="closeLogout()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="logout-confirm-body" style="padding:40px 25px; text-align:center;">
+      <div class="logout-confirm-icon" style="background:rgba(239,68,68,0.1); border:none; color:#ef4444; width:70px; height:70px; font-size:2rem; margin:0 auto 20px; border-radius:50%; display:grid; place-items:center;">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </div>
+      <h3 style="color:#fff; margin-bottom:12px; font-size:1.4rem;">Leaving so soon?</h3>
+      <p style="color:rgba(255,255,255,0.6); line-height:1.6;">Are you sure you want to log out of your account?</p>
+    </div>
+    <div class="modal-foot col" style="padding:0 25px 25px 25px; border:none; gap:12px; display:flex; flex-direction:column;">
+      <button class="btn-logout-confirm btn-danger-gradient" onclick="doLogout()" style="padding:16px; border-radius:12px; width:100%; background:linear-gradient(135deg, #C22626, #8B0A1E); color:#fff; border:none; font-weight:700; cursor:pointer;">Yes, Log Me Out</button>
+      <button class="btn-cancel" onclick="closeLogout()" style="padding:16px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); color:#fff; width:100%; font-weight:600; cursor:pointer;">No, Stay Logged In</button>
+    </div>
+  </div>
+</div>
+
 <!-- CANCEL BOOKING CONFIRMATION MODAL -->
 <div class="modal-overlay" id="cancelBookingConfirmModal" style="z-index:10005;">
   <div class="modal" style="background:rgba(18,18,18,0.95); backdrop-filter:blur(15px); border:1px solid rgba(255,255,255,0.08); box-shadow:0 25px 50px rgba(0,0,0,0.5);">
@@ -598,15 +777,41 @@
 
 
 
+<!-- Toast Notification -->
+<div id="toast" class="toast">
+  <i class="fa-solid fa-circle-check"></i>
+  <span id="toastMsg">Message here</span>
+</div>
+
 <!-- Flatpickr JS -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-<script src="http://localhost:3000/socket.io/socket.io.js"></script>
-<script src="account-dashboard.js?v=<?= time() ?>"></script>
+    <!-- ══ CHAT OVERLAY ══ -->
+    <div class="chat-overlay" id="chatOverlay">
+        <div class="chat-window">
+            <div class="chat-header">
+                <div class="chat-header-info">
+                    <div class="chat-avatar" id="chatAvatar">A</div>
+                    <div>
+                        <div class="chat-name" id="chatTargetName">Admin Support</div>
+                        <div class="chat-status" id="chatTargetStatus">Online</div>
+                    </div>
+                </div>
+                <button class="chat-close" onclick="closeChat()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages here -->
+            </div>
+            <div class="chat-input-area">
+                <textarea id="chatInput" placeholder="Type a message..." rows="1"></textarea>
+                <button id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
 
-
-
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <script src="account-dashboard.js?v=<?= time() ?>"></script>
 </body>
 </html>

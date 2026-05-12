@@ -12,6 +12,7 @@
         function initDashboard() {
             userData.name  = sessionStorage.getItem('user_name')  || 'Guest';
             userData.email = sessionStorage.getItem('user_email') || '';
+            userData.photo = localStorage.getItem('user_photo')   || '';
             updateUI();
             loadOrderTracking();
             loadBookings();
@@ -50,11 +51,27 @@
         };
 
 
-        let userData = { name:'', email:'' };
+        let userData = { name:'', email:'', photo:'' };
 
         function updateUI() {
             const initial = userData.name.trim().charAt(0).toUpperCase() || '?';
-            document.getElementById('avatarInitial').textContent = initial;
+            const initialEl = document.getElementById('avatarInitial');
+            const imgEl = document.getElementById('avatarImg');
+
+            if (userData.photo) {
+                if (initialEl) initialEl.style.display = 'none';
+                if (imgEl) {
+                    imgEl.src = userData.photo;
+                    imgEl.style.display = 'block';
+                }
+            } else {
+                if (initialEl) {
+                    initialEl.textContent = initial;
+                    initialEl.style.display = 'block';
+                }
+                if (imgEl) imgEl.style.display = 'none';
+            }
+
             document.getElementById('displayName').textContent   = userData.name;
             document.getElementById('displayEmail').textContent  = userData.email;
             document.getElementById('detailName').textContent    = userData.name;
@@ -66,26 +83,82 @@
         }
 
         // ── Edit Profile ──
-        function openEdit() { document.getElementById('inputName').value = userData.name; document.getElementById('inputEmail').value = userData.email; document.getElementById('editModal').classList.add('open'); }
-        function closeEdit() { document.getElementById('editModal').classList.remove('open'); }
-        function saveProfile() {
+        window.openEdit = function() { 
+            document.getElementById('inputName').value = userData.name; 
+            document.getElementById('inputEmail').value = userData.email; 
+            
+            // Set edit preview
+            const initial = userData.name.trim().charAt(0).toUpperCase() || '?';
+            const initialEl = document.getElementById('editAvatarInitial');
+            const imgEl = document.getElementById('editAvatarImg');
+            
+            if (userData.photo) {
+                if (initialEl) initialEl.style.display = 'none';
+                if (imgEl) {
+                    imgEl.src = userData.photo;
+                    imgEl.style.display = 'block';
+                }
+            } else {
+                if (initialEl) {
+                    initialEl.textContent = initial;
+                    initialEl.style.display = 'block';
+                }
+                if (imgEl) imgEl.style.display = 'none';
+            }
+            
+            document.getElementById('editModal').classList.add('open'); 
+        }
+        
+        window.closeEdit = function() { document.getElementById('editModal').classList.remove('open'); }
+        
+        window.previewProfilePhoto = function(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgEl = document.getElementById('editAvatarImg');
+                const initialEl = document.getElementById('editAvatarInitial');
+                if (imgEl) {
+                    imgEl.src = e.target.result;
+                    imgEl.style.display = 'block';
+                    imgEl.dataset.newPhoto = e.target.result; // Store temporarily
+                }
+                if (initialEl) initialEl.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.saveProfile = function() {
             const n = document.getElementById('inputName').value.trim();
             const e = document.getElementById('inputEmail').value.trim();
+            const newPhoto = document.getElementById('editAvatarImg').dataset.newPhoto;
+            
             if (!n || !e) { showToast('Please fill in all fields.', true); return; }
-            userData.name = n; userData.email = e;
-            sessionStorage.setItem('user_name', n); sessionStorage.setItem('user_email', e);
-            updateUI(); closeEdit(); showToast('Profile updated successfully!');
+            
+            userData.name = n; 
+            userData.email = e;
+            if (newPhoto) {
+                userData.photo = newPhoto;
+                localStorage.setItem('user_photo', newPhoto);
+            }
+            
+            sessionStorage.setItem('user_name', n); 
+            sessionStorage.setItem('user_email', e);
+            
+            updateUI(); 
+            window.closeEdit(); 
+            showToast('Profile updated');
         }
 
         // ── Change Password ──
-        function openChangePw() {
+        window.openChangePw = function() {
             ['currentPw','newPw','confirmPw'].forEach(id => { document.getElementById(id).value = ''; document.getElementById(id).type = 'password'; });
             document.querySelectorAll('#changePwModal .pw-toggle i').forEach(i => i.className = 'fas fa-eye');
             document.getElementById('pwStrengthWrap').style.display = 'none';
             const btn = document.getElementById('changePwSaveBtn'); btn.disabled = false; btn.textContent = 'Update Password';
             document.getElementById('changePwModal').classList.add('open');
         }
-        function closeChangePw() { document.getElementById('changePwModal').classList.remove('open'); }
+        window.closeChangePw = function() { document.getElementById('changePwModal').classList.remove('open'); }
 
         function togglePwField(inputId, btn) {
             const input = document.getElementById(inputId);
@@ -182,15 +255,21 @@
         }
 
         // ── Logout ──
-        function openLogout()  { document.getElementById('logoutModal').classList.add('open'); }
-        function closeLogout() { document.getElementById('logoutModal').classList.remove('open'); }
-        async function doLogout() {
-            closeLogout(); showToast('Signing out…');
-            try { await fetch('auth.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({action:'logout'}) }); }
-            catch (e) { console.warn('Logout failed:', e.message); }
-            sessionStorage.clear(); localStorage.clear();
-            window.location.href = 'account.php';
-        }
+        window.openLogout = function() {
+            const modal = document.getElementById('logoutModal');
+            if (modal) modal.classList.add('active');
+        };
+
+        window.closeLogout = function() {
+            const modal = document.getElementById('logoutModal');
+            if (modal) modal.classList.remove('active');
+        };
+
+        window.doLogout = function() {
+            // Redirect to logout script
+            window.location.href = 'Auth.php?action=logout';
+        };
+
 
         // ── Toast ──
         function showToast(msg, isError = false) {
@@ -273,13 +352,16 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     }
 
                     renderOrderCard(section, order);
+                    loadChatThreads();
                     return;
                 }
             } catch (e) { console.warn('Tracking poll error:', e); }
 
             if (hasPending) {
+                document.getElementById('trackingBlock').style.display = 'block';
                 renderGenericPending(section);
             } else {
+                document.getElementById('trackingBlock').style.display = 'none';
                 renderNoOrder(section);
             }
         }
@@ -306,6 +388,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         }
 
         function renderOrderCard(section, order) {
+            document.getElementById('trackingBlock').style.display = 'block';
             const step = statusToStep(order.status);
             const isOnTheWay = (step === 2);
             const statusLabel = getStatusLabel(order.status);
@@ -561,11 +644,22 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 });
 
                 trackingSocket.on('new-message', (data) => {
-                    if (_currentOrder && data.orderId == _currentOrder.id) {
-                        appendCustomerMessage(data);
-                        const chatModal = document.getElementById('chatModal');
-                        if (chatModal && !chatModal.classList.contains('open')) {
-                            showToast('💬 New message from rider!');
+                    const supportRoom = 'support_' + (userData.email.replace(/[^a-zA-Z0-9]/g, '_'));
+                    if (data.orderId === supportRoom) {
+                        if (data.sender !== 'customer') {
+                            appendAdminMessage(data);
+                            const adminModal = document.getElementById('adminChatModal');
+                            if (adminModal && !adminModal.classList.contains('open')) {
+                                showToast('💬 New message from Admin!');
+                            }
+                        }
+                    } else if (_currentOrder && data.orderId == _currentOrder.id) {
+                        if (data.sender !== 'customer') {
+                            appendCustomerMessage(data);
+                            const chatModal = document.getElementById('chatModal');
+                            if (chatModal && !chatModal.classList.contains('open')) {
+                                showToast('💬 New message from rider!');
+                            }
                         }
                     }
                 });
@@ -669,7 +763,206 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             if (chatBtn) {
                 chatBtn.onclick = window.openChatModal;
             }
+
+            // Admin Chat listeners
+            const adminSendBtn = document.getElementById('admin-send-btn');
+            const adminInput = document.getElementById('admin-chat-input');
+            if (adminSendBtn) adminSendBtn.onclick = sendAdminMessage;
+            if (adminInput) {
+                adminInput.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = (this.scrollHeight) + 'px';
+                });
+                adminInput.onkeydown = (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendAdminMessage();
+                    }
+                };
+            }
         });
+
+        // ── Admin Chat Functions ──
+        window.openAdminChatFullscreen = function() {
+            const overlay = document.getElementById('adminChatFullscreen');
+            if (!overlay) return;
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => document.getElementById('admin-chat-input').focus(), 300);
+            
+            if (trackingSocket && trackingSocket.connected) {
+                const supportRoom = 'support_' + (userData.email.replace(/[^a-zA-Z0-9]/g, '_'));
+                trackingSocket.emit('join-chat', supportRoom);
+            }
+        };
+
+        window.closeAdminChatFullscreen = function() {
+            document.getElementById('adminChatFullscreen')?.classList.remove('open');
+            document.body.style.overflow = '';
+        };
+
+        // ── UNIFIED CHAT LOGIC ──
+        let currentChatTarget = null;
+        let currentChatOrderId = null;
+
+        window.openAdminChat = function() {
+            openChat('admin', 1, null); // Assuming 1 is the primary admin ID or just null for system admin
+        };
+
+        window.openRiderChat = function(riderId, orderId) {
+            openChat('rider', riderId, orderId);
+        };
+
+        window.openChat = async function(targetType, targetId, orderId) {
+            currentChatTarget = { type: targetType, id: targetId };
+            currentChatOrderId = orderId;
+
+            const overlay = document.getElementById('chatOverlay');
+            const nameEl = document.getElementById('chatTargetName');
+            const avatarEl = document.getElementById('chatAvatar');
+            const messagesContainer = document.getElementById('chatMessages');
+
+            nameEl.textContent = targetType === 'admin' ? "Admin Support" : "Delivery Rider";
+            avatarEl.textContent = targetType === 'admin' ? "A" : "R";
+            avatarEl.className = `chat-avatar ${targetType}`;
+            
+            messagesContainer.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+            overlay.classList.add('active');
+            
+            try {
+                const url = `chat-api.php?action=get_history&order_id=${orderId || ''}&other_id=${targetId || ''}&other_type=${targetType}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                messagesContainer.innerHTML = '';
+                if (data.success && data.messages.length > 0) {
+                    data.messages.forEach(msg => appendToChat(msg));
+                } else {
+                    messagesContainer.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted); font-size:0.8rem;">No messages yet. Say hello!</div>`;
+                }
+                scrollToChatBottom();
+            } catch (e) {
+                console.error("Chat error:", e);
+                messagesContainer.innerHTML = '<div class="empty-state">Error loading history.</div>';
+            }
+        };
+
+        window.closeChat = function() {
+            document.getElementById('chatOverlay').classList.remove('active');
+            currentChatTarget = null;
+            currentChatOrderId = null;
+        };
+
+        function appendToChat(msg) {
+            const container = document.getElementById('chatMessages');
+            const isMe = msg.sender_type === 'customer';
+            
+            const div = document.createElement('div');
+            div.className = `message ${isMe ? 'customer' : msg.sender_type}`;
+            div.innerHTML = `
+                ${msg.message}
+                <span class="message-time">${msg.timestamp}</span>
+            `;
+            container.appendChild(div);
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message || !currentChatTarget) return;
+
+            const formData = new FormData();
+            formData.append('action', 'send_message');
+            formData.append('message', message);
+            if (currentChatOrderId) formData.append('order_id', currentChatOrderId);
+            formData.append('receiver_id', currentChatTarget.id);
+            formData.append('receiver_type', currentChatTarget.type);
+
+            input.value = '';
+            input.style.height = 'auto';
+
+            try {
+                const res = await fetch('chat-api.php', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!data.success) showToast(data.message, true);
+                // The socket listener will append the message for us if we want real-time feedback
+                // OR we append immediately for responsiveness
+                appendToChat({
+                    sender_type: 'customer',
+                    message: message,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+                scrollToChatBottom();
+            } catch (e) {
+                showToast("Failed to send message", true);
+            }
+        }
+
+        function scrollToChatBottom() {
+            const container = document.getElementById('chatMessages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        document.getElementById('chatSendBtn')?.addEventListener('click', sendChatMessage);
+        document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+
+        function setupChatSocket() {
+            if (!window.io) return;
+            const socket = io('http://localhost:3000');
+            
+            socket.on('new-message', (data) => {
+                // If it's for current chat
+                if (currentChatTarget && 
+                   ((data.orderId && data.orderId == currentChatOrderId) || 
+                    (!data.orderId && data.sender == currentChatTarget.type && data.senderId == currentChatTarget.id))) {
+                    appendToChat(data);
+                    scrollToChatBottom();
+                } else {
+                    // Show notification or dot
+                    showChatNotification(data);
+                }
+            });
+        }
+
+        function showChatNotification(data) {
+            // Update the thread preview in the messages list
+            if (data.sender === 'admin') {
+                document.getElementById('admin-last-msg').textContent = data.message;
+                document.getElementById('admin-last-time').textContent = data.timestamp;
+            }
+            // For rider, we might need to refresh the list
+            loadChatThreads();
+        }
+
+        async function loadChatThreads() {
+             // Logic to show active rider thread if shipping
+             const riderContainer = document.getElementById('riderChatThread');
+             if (_currentOrder && _currentOrder.status === 'shipped' && _currentOrder.rider_id) {
+                 riderContainer.innerHTML = `
+                    <div class="message-thread-item" onclick="openRiderChat(${_currentOrder.rider_id}, ${_currentOrder.id})">
+                        <div class="thread-avatar"><i class="fas fa-motorcycle"></i></div>
+                        <div class="thread-info">
+                            <div class="thread-header">
+                                <span class="thread-name">${_currentOrder.rider_name || 'Your Rider'}</span>
+                                <span class="thread-time">Active</span>
+                            </div>
+                            <div class="thread-preview">Rider is on the way with your order!</div>
+                        </div>
+                    </div>
+                 `;
+             } else {
+                 riderContainer.innerHTML = '';
+             }
+        }
+
+        // Call this inside loadOrderTracking
+        // And inside init
+        setupChatSocket();
 
         function updateCustomerRoute(startLatLng, endLatLng) {
             if (customerRoutingControl) {
@@ -1419,3 +1712,227 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         function debounce(func, wait) {
             let t; return (...args) => { clearTimeout(t); t = setTimeout(() => func(...args), wait); };
         }
+
+        // ── HISTORY PORTAL ──
+        window.openHistory = function() {
+            const overlay = document.getElementById('historyFullscreen');
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden'; // Lock main scroll
+            loadPastOrders(); // Load default tab
+        };
+
+        window.closeHistory = function() {
+            const overlay = document.getElementById('historyFullscreen');
+            overlay.classList.remove('open');
+            document.body.style.overflow = ''; // Unlock
+        };
+
+        window.switchHistoryTab = function(tabId) {
+            // Update Tab Buttons
+            document.querySelectorAll('.history-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabId);
+            });
+            // Update Tab Content
+            document.querySelectorAll('.history-tab-content').forEach(content => {
+                content.classList.toggle('active', content.id === tabId);
+            });
+
+            if (tabId === 'past-orders') loadPastOrders();
+            if (tabId === 'past-bookings') loadPastBookings();
+        };
+
+        async function loadPastOrders() {
+            const list = document.getElementById('pastOrdersList');
+            try {
+                const res = await fetch('get-order-history.php');
+                const data = await res.json();
+                if (!data.success) {
+                    list.innerHTML = `<div class="empty-state">${data.message}</div>`;
+                    return;
+                }
+
+                if (data.history.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fa-solid fa-receipt" style="font-size:2rem; opacity:0.2; display:block; margin-bottom:15px;"></i>
+                            No past orders found.
+                        </div>`;
+                    return;
+                }
+
+                list.innerHTML = data.history.map(order => {
+                    const date = new Date(order.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+                    const statusClass = order.status.toLowerCase();
+                    return `
+                        <div class="history-item">
+                            <div class="hi-left">
+                                <div class="hi-icon"><i class="fa-solid fa-box"></i></div>
+                                <div class="hi-info">
+                                    <h4>Order #ORD-${String(order.id).padStart(4, '0')}</h4>
+                                    <div class="hi-meta">
+                                        <span><i class="fa-regular fa-calendar"></i> ${date}</span>
+                                        <span><i class="fa-solid fa-tag"></i> ${order.items_summary}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="hi-right">
+                                <div class="hi-price">₱${order.total_amount.toLocaleString()}</div>
+                                <span class="hi-status ${statusClass}">${order.status}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (e) {
+                list.innerHTML = '<div class="empty-state">Error loading orders.</div>';
+            }
+        }
+
+        async function loadPastBookings() {
+            const list = document.getElementById('pastBookingsList');
+            try {
+                const res = await fetch('get-booking-history.php');
+                const data = await res.json();
+                if (!data.success) {
+                    list.innerHTML = `<div class="empty-state">${data.message}</div>`;
+                    return;
+                }
+
+                if (data.history.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fa-solid fa-calendar-xmark" style="font-size:2rem; opacity:0.2; display:block; margin-bottom:15px;"></i>
+                            No past event bookings found.
+                        </div>`;
+                    return;
+                }
+
+                list.innerHTML = data.history.map(booking => {
+                    const date = new Date(booking.event_date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+                    const statusClass = booking.status.toLowerCase();
+                    return `
+                        <div class="history-item">
+                            <div class="hi-left">
+                                <div class="hi-icon"><i class="fa-solid fa-champagne-glasses"></i></div>
+                                <div class="hi-info">
+                                    <h4>${booking.event_type}</h4>
+                                    <div class="hi-meta">
+                                        <span><i class="fa-regular fa-calendar"></i> ${date}</span>
+                                        <span><i class="fa-solid fa-users"></i> ${booking.guests} Guests</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="hi-right">
+                                <div class="hi-price">₱${booking.total_amount.toLocaleString()}</div>
+                                <span class="hi-status ${statusClass}">${booking.status}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (e) {
+                list.innerHTML = '<div class="empty-state">Error loading bookings.</div>';
+            }
+        }
+
+        // ── PROMO PORTAL ──
+        window.openPromos = function() {
+            const overlay = document.getElementById('promoFullscreen');
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            handlePromoSearch(); // Initial load
+        };
+
+        window.closePromos = function() {
+            const overlay = document.getElementById('promoFullscreen');
+            overlay.classList.remove('open');
+            document.body.style.overflow = '';
+        };
+
+        window.handlePromoSearch = async function() {
+            const input = document.getElementById('promoSearchInput');
+            const list = document.getElementById('promoResultsList');
+            const query = input.value.trim().toUpperCase();
+
+            try {
+                const res = await fetch('promo-ajax.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'search_promos', query: query })
+                });
+                const data = await res.json();
+                
+                if (!data.success || data.promos.length === 0) {
+                    list.innerHTML = `<div class="empty-state">No promo codes found matching "${query}"</div>`;
+                    return;
+                }
+
+                list.innerHTML = data.promos.map(promo => `
+                    <div class="promo-ticket-item" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; display: flex; overflow: hidden; position: relative; min-height: 110px; margin-bottom: 15px; padding: 0;">
+                        <div class="ticket-stub" style="width: 100px; background: var(--red); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; border-right: 2px dashed rgba(255,255,255,0.3); padding: 15px;">
+                            <i class="fa-solid fa-ticket" style="font-size: 1.6rem; margin-bottom: 6px;"></i>
+                            <span style="font-weight: 800; font-size: 0.95rem;">${promo.discount_percent}%</span>
+                        </div>
+                        <div class="ticket-main" style="flex: 1; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4 style="font-family: 'Aclonica', sans-serif; color: #fff; margin-bottom: 6px; letter-spacing: 1px; font-size: 1.1rem;">${promo.code}</h4>
+                                <div style="color: var(--muted); font-size: 0.78rem; margin-bottom: 4px;">
+                                    <i class="fa-solid fa-tag" style="margin-right: 6px; color: var(--red);"></i>Applies to: ${promo.applicable_category}
+                                </div>
+                                <div style="color: var(--muted); font-size: 0.75rem;">
+                                    <i class="fa-solid fa-clock" style="margin-right: 6px;"></i>
+                                    ${promo.duration_days ? promo.duration_days + ' Days Validity' : 'No Expiration'}
+                                </div>
+                            </div>
+                            ${promo.is_claimed ? 
+                                '<span style="color: #22c55e; font-weight: 800; font-size: 0.8rem; letter-spacing: 1px; padding: 8px 12px; background: rgba(34,197,94,0.1); border-radius: 8px; margin-left: 15px; white-space: nowrap;">CLAIMED</span>' : 
+                                `<button class="btn-save" onclick="claimPromo(${promo.id}, '${promo.code}')" style="padding: 12px 24px; font-size: 0.85rem; border-radius: 10px; box-shadow: 0 4px 12px rgba(194,38,38,0.25); margin-left: 15px; white-space: nowrap;">CLAIM</button>`
+                            }
+                        </div>
+                        <!-- Ticket Notches -->
+                        <div style="position: absolute; left: 88px; top: -12px; width: 24px; height: 24px; background: #0a0a0a; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08);"></div>
+                        <div style="position: absolute; left: 88px; bottom: -12px; width: 24px; height: 24px; background: #0a0a0a; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08);"></div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="empty-state">Error searching promos.</div>';
+            }
+        };
+
+        window.claimPromo = async function(id, code) {
+            try {
+                const res = await fetch('promo-ajax.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'claim_promo', promo_id: id })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Promo ${code} claimed!`);
+                    localStorage.setItem('active_promo', code);
+                    localStorage.setItem('promo_discount', data.discount);
+                    localStorage.setItem('promo_category', data.applicable_category);
+                    handlePromoSearch();
+                } else {
+                    showToast(data.message, true);
+                }
+            } catch (e) {
+                showToast('Error claiming promo.', true);
+            }
+        };
+
+        window.claimNewUserPromo = function() {
+            closeModal('newUserPromoModal');
+            openPromos();
+            document.getElementById('promoSearchInput').value = 'N3WUS3R';
+            handlePromoSearch();
+        };
+
+        // Check for new user on init
+        setTimeout(() => {
+            const hasSeen = localStorage.getItem('new_user_promo_seen');
+            if (!hasSeen) {
+                openModal('newUserPromoModal');
+                localStorage.setItem('new_user_promo_seen', 'true');
+            }
+        }, 3000);

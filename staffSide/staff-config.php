@@ -55,7 +55,7 @@ function requireStaff(): void {
     // Block customers from accessing staff panel
     $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
     if (!in_array($role, ['staff', 'admin'], true) && empty($_SESSION['is_admin'])) {
-        header('Location: ../account.php');
+        header('Location: login.php');
         exit;
     }
 }

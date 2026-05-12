@@ -66,6 +66,7 @@ $stats = getActivityStats();
       <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-promos.php" class="nav-item"><i class="fa-solid fa-ticket"></i> Promo Management</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item active"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
       <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
@@ -85,76 +86,7 @@ $stats = getActivityStats();
         </div>
       </div>
       <div class="topbar-right">
-        <div class="notification-dropdown">
-          <div class="topbar-badge" onclick="toggleNotifications()">
-            <i class="fa-regular fa-bell"></i>
-            <span class="badge-dot"></span>
-          </div>
-          <div class="notification-menu" id="notificationMenu">
-            <div class="notification-header">
-              <h4>Notifications</h4>
-              <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
-            </div>
-            <div class="notification-list">
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-shopping-cart"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Order Received</div>
-                  <div class="notification-message">Order #ORD-0001 has been placed</div>
-                  <div class="notification-time">2 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-calendar-check"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Booking Confirmed</div>
-                  <div class="notification-message">Event booking for May 15, 2025</div>
-                  <div class="notification-time">15 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-user-plus"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New User Registered</div>
-                  <div class="notification-message">John Doe joined the platform</div>
-                  <div class="notification-time">1 hour ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-truck"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">Order Shipped</div>
-                  <div class="notification-message">Order #ORD-0002 has been shipped</div>
-                  <div class="notification-time">2 hours ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-            </div>
-            <div class="notification-footer">
-              <a href="admin-logs.php" class="view-all-link">View all notifications</a>
-            </div>
-          </div>
-        </div>
-        <a href="admin-account.php" class="admin-avatar">A</a>
+        <a href="admin-account.php" class="admin-avatar"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></a>
       </div>
     </header>
 
@@ -186,14 +118,6 @@ $stats = getActivityStats();
           <div class="stat-card-value">Online</div>
           <div class="stat-card-label">System Status</div>
         </div>
-      </div>
-
-      <!-- FILTER TABS -->
-      <div class="filter-tabs">
-        <button class="filter-tab active" onclick="filterLogs('all')">All Logs</button>
-        <button class="filter-tab" onclick="filterLogs('security')">Security</button>
-        <button class="filter-tab" onclick="filterLogs('user')">User Activity</button>
-        <button class="filter-tab" onclick="filterLogs('system')">System</button>
       </div>
 
       <!-- LOGS LIST -->
@@ -243,12 +167,6 @@ $stats = getActivityStats();
                     <span class="log-meta-label">User:</span>
                     <?= htmlspecialchars($log['user_name'] ?: 'System') ?>
                   </div>
-                  <?php if ($log['ip_address']): ?>
-                    <div class="log-meta-item">
-                      <span class="log-meta-label">IP:</span>
-                      <?= htmlspecialchars($log['ip_address']) ?>
-                    </div>
-                  <?php endif; ?>
                 </div>
               </div>
             <?php endforeach; ?>
@@ -264,11 +182,6 @@ $stats = getActivityStats();
     </div>
   </div>
 </div>
-
-
-
-
-
 
 <script src="admin-logs.js?v=<?= time() ?>"></script>
 </body>

@@ -116,7 +116,7 @@ foreach ($allItems as $item) {
                         
                         $jsonAttr = htmlspecialchars(json_encode($data, JSON_UNESCAPED_UNICODE), ENT_QUOTES);
                     ?>
-                        <div class="menu-item" data-item='<?= $jsonAttr ?>'>
+                        <div class="menu-item" data-item='<?= $jsonAttr ?>' data-category="<?= htmlspecialchars($cat['name']) ?>">
                             <img src="<?= htmlspecialchars($item['image_path']) ?>" 
                                  alt="<?= htmlspecialchars($item['name']) ?>" 
                                  class="item-image-placeholder">
@@ -220,6 +220,45 @@ foreach ($allItems as $item) {
     <script src="carT.js?v=<?= time() ?>"></script>
 
     <script src="menu.js?v=<?= time() ?>"></script>
+
+    <script>
+    // Apply Promo Discount Badge dynamically
+    document.addEventListener('DOMContentLoaded', () => {
+        const promoDiscount = localStorage.getItem('promo_discount');
+        const promoCategory = localStorage.getItem('promo_category') || 'All Items';
+        
+        if (promoDiscount) {
+            const items = document.querySelectorAll('.menu-item');
+            items.forEach(item => {
+                const itemCategory = (item.getAttribute('data-category') || '').toLowerCase();
+                const targetCategory = promoCategory.toLowerCase();
+                
+                // Only apply if 'All Items' or category matches
+                if (targetCategory === 'all items' || itemCategory.includes(targetCategory)) {
+                    // Add the badge
+                    const badge = document.createElement('div');
+                    badge.className = 'discount-badge';
+                    badge.innerText = `-${promoDiscount}%`;
+                    item.appendChild(badge);
+
+                    // Update the price display
+                    const priceEl = item.querySelector('.item-price');
+                    if (priceEl) {
+                        const originalPriceText = priceEl.innerText.replace('₱', '').replace(',', '');
+                        const originalPrice = parseFloat(originalPriceText);
+                        if (!isNaN(originalPrice)) {
+                            const newPrice = originalPrice * (1 - (parseInt(promoDiscount) / 100));
+                            priceEl.innerHTML = `
+                                <span style="text-decoration: line-through; font-size: 0.8rem; color: var(--muted); margin-right: 5px;">₱${originalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                ₱${newPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            `;
+                        }
+                    }
+                }
+            });
+        }
+    });
+    </script>
 
 </body>
 </html>

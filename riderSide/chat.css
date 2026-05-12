@@ -3,7 +3,29 @@
   --chat-bg: #0d0204;
   --msg-rider: #C22626;
   --msg-customer: rgba(255, 255, 255, 0.08);
+  --msg-admin: #8B0A1E;
 }
+
+.thread-avatar.admin {
+  background: #2a2a2a;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--red);
+}
+
+.message.admin {
+  align-self: flex-start;
+  background: var(--msg-admin);
+  color: #fff;
+  border-bottom-left-radius: 2px;
+}
+
+.empty-chat-hint, .loading-messages {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 
 .chat-search {
   padding: 15px 20px;

@@ -3,20 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Rider Login — Luke's Seafood</title>
+<title>Admin Login — Luke's Seafood</title>
 <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- Using root account.css for the base theme -->
 <link rel="stylesheet" href="../account.css">
 <link rel="stylesheet" href="login.css">
 </head>
-<body class="rider-login-page">
+<body class="admin-login-page">
 
     <div class="grain-overlay"></div>
-
-
-
-
 
     <!-- PAGE BG -->
     <div class="page-bg">
@@ -28,9 +23,9 @@
     <div class="auth-wrapper">
         <div class="auth-container" id="loginModal">
             <div class="modal-header">
-                <div class="modal-fish-icon"><i class="fas fa-fish"></i></div>
-                <h2 style="font-family: 'Aclonica', sans-serif;">WELCOME BACK!</h2>
-                <p class="modal-sub">Sign in to your account</p>
+                <div class="modal-fish-icon"><i class="fas fa-shield-halved"></i></div>
+                <h2 style="font-family: 'Aclonica', sans-serif;">ADMIN PORTAL</h2>
+                <p class="modal-sub">Restricted Administrative Access</p>
             </div>
 
             <form class="modal-form" id="loginForm" onsubmit="return false;">
@@ -41,10 +36,10 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="emailInput">Email</label>
+                    <label for="emailInput">Admin Email</label>
                     <div class="input-wrap">
-                        <i class="fas fa-envelope input-icon"></i>
-                        <input type="email" id="emailInput" placeholder="you@example.com" required>
+                        <i class="fas fa-user-shield input-icon"></i>
+                        <input type="email" id="emailInput" placeholder="admin@example.com" required>
                     </div>
                 </div>
                 <div class="form-group">
@@ -67,19 +62,18 @@
                 </div>
 
                 <button type="submit" class="btn-primary" id="loginBtn" onclick="doLogin()">
-                    <span>Sign In</span>
-                    <i class="fas fa-arrow-right"></i>
+                    <span>Authorize Login</span>
+                    <i class="fas fa-shield-check"></i>
                 </button>
+
+                <div class="security-strip" style="margin-top: 30px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 30px; padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-lock" style="font-size: 0.7rem; color: #22c55e;"></i>
+                    <div class="rider-strip-text" style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">Secure Admin Channel</div>
+                </div>
             </form>
         </div>
     </div>
 
-<script src="login.js?v=<?= time() ?>"></script>
-<script>
-    // Mobile menu toggle
-    document.getElementById('mobile-menu').addEventListener('click', () => {
-        document.getElementById('navMenu').classList.toggle('active');
-    });
-</script>
+    <script src="login.js"></script>
 </body>
 </html>

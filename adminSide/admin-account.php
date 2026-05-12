@@ -41,6 +41,7 @@ $adminEmail = htmlspecialchars($_SESSION['user_email'] ?? 'admin@gmail.com');
             <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
             <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
             <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+            <a href="admin-promos.php" class="nav-item"><i class="fa-solid fa-ticket"></i> Promo Management</a>
             <div class="nav-section-label">System</div>
             <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
             <a href="admin-account.php" class="nav-item active"><i class="fa-solid fa-user-gear"></i> Account Settings</a>

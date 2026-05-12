@@ -1,8 +1,6 @@
 <?php
 require_once 'admin-config.php';
 require_once '../activity-logger.php';
-
-header('Content-Type: application/json');
 $data = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -22,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
     if (empty($rawInput) && empty($data)) {
         error_log("No input data received");
         echo json_encode(['success' => false, 'message' => 'No data received']);
@@ -327,8 +326,6 @@ function generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOf
 }
 $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOfWeek, $today, $bookingsByDate);
 ?>
-$calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDayOfWeek, $today, $bookingsByDate);
-?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -357,6 +354,7 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
       <a href="admin-bookings.php" class="nav-item active"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
       <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
       <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
+      <a href="admin-promos.php" class="nav-item"><i class="fa-solid fa-ticket"></i> Promo Management</a>
       <div class="nav-section-label">System</div>
       <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
       <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
