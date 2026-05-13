@@ -3,10 +3,21 @@ require_once 'admin-config.php';
 requireAdmin();
 
 // Handle promo operations
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
     $data = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($data)) {
+        $data = $_POST;
+    }
     
-    if ($data['action'] === 'create_promo') {
+    if (($data['action'] ?? '') === 'create_promo') {
+        // Check if promos table exists
+        $tableCheck = $pdo->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos'");
+        if ((int)$tableCheck->fetchColumn() === 0) {
+            echo json_encode(['success' => false, 'message' => 'Promos table not found. Please run migration.']);
+            exit;
+        }
+        
         $code = strtoupper(trim($data['code'] ?? ''));
         $discount = intval($data['discount_percent'] ?? 0);
         $duration = !empty($data['duration_days']) ? intval($data['duration_days']) : null;
@@ -28,7 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         }
     }
     
-    if ($data['action'] === 'delete_promo') {
+    if (($data['action'] ?? '') === 'delete_promo') {
+        // Check if promos table exists
+        $tableCheck = $pdo->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos'");
+        if ((int)$tableCheck->fetchColumn() === 0) {
+            echo json_encode(['success' => false, 'message' => 'Promos table not found.']);
+            exit;
+        }
+        
         $id = intval($data['id'] ?? 0);
         $stmt = $pdo->prepare("DELETE FROM promos WHERE id = ?");
         try {
@@ -40,15 +58,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             exit;
         }
     }
+
+    echo json_encode(['success' => false, 'message' => 'Unknown action.']);
+    exit;
 }
 
-// Fetch promos
-$stmt = $pdo->query("SELECT * FROM promos ORDER BY created_at DESC");
-$promos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Check if promos table exists
+$tableCheck = $pdo->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos'");
+$promosTableExists = (int)$tableCheck->fetchColumn() > 0;
 
-// Fetch categories for the dropdown
-$catStmt = $pdo->query("SELECT name FROM categories");
-$categories = $catStmt->fetchAll(PDO::FETCH_COLUMN);
+$promos = [];
+$categories = [];
+
+if ($promosTableExists) {
+    // Fetch promos
+    $stmt = $pdo->query("SELECT * FROM promos ORDER BY created_at DESC");
+    $promos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Fetch categories for the dropdown
+    try {
+        $catStmt = $pdo->query("SELECT name FROM categories");
+        $categories = $catStmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {
+        $categories = [];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -163,25 +197,7 @@ $categories = $catStmt->fetchAll(PDO::FETCH_COLUMN);
 <div class="bg-dots"></div>
 <div class="admin-layout">
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-name">Luke's Seafood Trading<span>Admin Panel</span></div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <a href="admin-dashboard.php" class="nav-item"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-      <div class="nav-section-label">Management</div>
-      <a href="admin-users.php" class="nav-item"><i class="fa-solid fa-users"></i> User Management</a>
-      <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
-      <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
-      <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
-      <a href="admin-promos.php" class="nav-item active"><i class="fa-solid fa-ticket"></i> Promo Management</a>
-      <div class="nav-section-label">System</div>
-      <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
-      <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="../index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
-    </div>
+<?php $adminNavActive = 'promos'; require __DIR__ . '/admin-sidebar-nav.php'; ?>
   </aside>
 
   <div class="main-content">

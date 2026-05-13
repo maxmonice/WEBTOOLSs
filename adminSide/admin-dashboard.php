@@ -1,11 +1,16 @@
 <?php
 require_once 'admin-config.php';
+require_once __DIR__ . '/../Notifications.php';
 requireAdmin();  // 🔒 redirects to account.php if not admin
 
 $stats    = getAdminStats($pdo);
 $activity = getRecentActivity($pdo, 6);
 $orders   = getRecentOrders($pdo, 5);
 $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
+
+$notifications     = new Notifications($pdo);
+$userNotifications = $notifications->getForUser('admin', $_SESSION['user_id'], 8);
+$unreadCount         = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -24,26 +29,7 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-name">Luke's Seafood Trading<span>Admin Panel</span></div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <a href="admin-dashboard.php" class="nav-item active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-      <div class="nav-section-label">Management</div>
-      <a href="admin-users.php" class="nav-item"><i class="fa-solid fa-users"></i> User Management</a>
-      <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
-      <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
-      <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
-      <a href="admin-promos.php" class="nav-item"><i class="fa-solid fa-ticket"></i> Promo Management</a>
-      <a href="admin-chat.php" class="nav-item"><i class="fa-solid fa-comment-dots"></i> Support Chat</a>
-      <div class="nav-section-label">System</div>
-      <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
-      <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="../index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
-    </div>
+<?php $adminNavActive = 'dashboard'; require __DIR__ . '/admin-sidebar-nav.php'; ?>
   </aside>
 
   <!-- MAIN -->
@@ -57,79 +43,46 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
         </div>
       </div>
       <div class="topbar-right">
-        <div class="notification-dropdown">
-          <div class="topbar-badge" onclick="toggleNotifications()">
+        <div class="live-notif-wrap">
+          <div class="topbar-badge live-notif-trigger" onclick="toggleLiveNotifications(event)">
             <i class="fa-regular fa-bell"></i>
-            <?php if ($stats['pending_orders'] > 0): ?>
-            <span class="badge-dot"></span>
+            <?php if ($unreadCount > 0): ?>
+            <span class="badge-dot live-notif-dot"></span>
+            <span class="live-notif-count"><?= (int) $unreadCount ?></span>
             <?php endif; ?>
           </div>
-          <div class="notification-menu" id="notificationMenu">
-            <div class="notification-header">
+          <div class="live-notif-menu" id="liveNotifMenu" role="menu">
+            <div class="live-notif-header">
               <h4>Notifications</h4>
-              <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
+              <button type="button" class="live-notif-mark-all" onclick="markAllLiveNotificationsRead()">Mark all read</button>
             </div>
-            <div class="notification-list">
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-shopping-cart"></i>
+            <div class="live-notif-list" id="liveNotifList">
+              <?php if (empty($userNotifications)): ?>
+                <div class="live-notif-empty">No notifications</div>
+              <?php else: ?>
+                <?php foreach ($userNotifications as $notif): ?>
+                <div class="live-notif-item<?= !$notif['is_read'] ? ' unread' : '' ?>" data-id="<?= (int) $notif['id'] ?>" onclick="markLiveNotificationRead(<?= (int) $notif['id'] ?>, this)">
+                  <div class="live-notif-row">
+                    <div class="live-notif-icon" style="background: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>20; color: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>;">
+                      <i class="fa-solid <?= htmlspecialchars(getNotificationIcon($notif['type'])) ?>"></i>
+                    </div>
+                    <div class="live-notif-body">
+                      <div class="live-notif-title"><?= htmlspecialchars($notif['title']) ?></div>
+                      <div class="live-notif-msg"><?= htmlspecialchars($notif['message']) ?></div>
+                      <div class="live-notif-time"><?= htmlspecialchars(timeAgo($notif['created_at'])) ?></div>
+                    </div>
+                  </div>
                 </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Order Received</div>
-                  <div class="notification-message">Order #ORD-0001 has been placed</div>
-                  <div class="notification-time">2 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-calendar-check"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Booking Confirmed</div>
-                  <div class="notification-message">Event booking for May 15, 2025</div>
-                  <div class="notification-time">15 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-user-plus"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New User Registered</div>
-                  <div class="notification-message">John Doe joined the platform</div>
-                  <div class="notification-time">1 hour ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-truck"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">Order Shipped</div>
-                  <div class="notification-message">Order #ORD-0002 has been shipped</div>
-                  <div class="notification-time">2 hours ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-            </div>
-            <div class="notification-footer">
-              <a href="admin-logs.php" class="view-all-link">View all notifications</a>
+                <?php endforeach; ?>
+              <?php endif; ?>
             </div>
           </div>
         </div>
         <a href="admin-account.php" class="admin-avatar" title="<?= $adminName ?>">
           <?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?>
+        </a>
+        <a href="../account-dashboard.php?user_view=true" class="btn-user-view-dash" title="Open customer account page">
+          <i class="fa-solid fa-user"></i> User view
         </a>
       </div>
     </header>
@@ -221,6 +174,7 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
               <a href="admin-bookings.php" class="quick-action"><i class="fa-solid fa-calendar-plus"></i>New Booking</a>
               <a href="admin-orders.php" class="quick-action"><i class="fa-solid fa-clipboard-list"></i>View Orders</a>
               <a href="admin-content.php" class="quick-action"><i class="fa-solid fa-plus"></i>Add Product</a>
+              <a href="../admin-archive.php" class="quick-action"><i class="fa-solid fa-box-archive"></i>Archive</a>
               <a href="admin-orders.php" class="quick-action"><i class="fa-solid fa-chart-line"></i>Sales Report</a>
               <a href="admin-logs.php" class="quick-action"><i class="fa-solid fa-shield-halved"></i>Audit Logs</a>
             </div>

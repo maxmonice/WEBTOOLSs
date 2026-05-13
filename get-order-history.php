@@ -17,14 +17,20 @@ try {
          PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
 
-    $stmt = $pdo->prepare("
-        SELECT id, status, total_amount, total, payment_method, notes, created_at 
-        FROM orders 
-        WHERE user_id = ? 
-        AND status IN ('delivered', 'cancelled')
-        ORDER BY created_at DESC
-    ");
-    $stmt->execute([$userId]);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = ?");
+    $stmt->execute(['user_id']);
+    $hasUserIdColumn = (int)$stmt->fetchColumn() > 0;
+
+    if ($hasUserIdColumn) {
+        $query = "SELECT id, status, total_amount, total, payment_method, notes, created_at FROM orders WHERE user_id = ? AND status IN ('delivered', 'cancelled') ORDER BY created_at DESC";
+        $params = [$userId];
+    } else {
+        $query = "SELECT id, status, total_amount, total, payment_method, notes, created_at FROM orders WHERE user_email = ? AND status IN ('delivered', 'cancelled') ORDER BY created_at DESC";
+        $params = [$_SESSION['user_email'] ?? ''];
+    }
+
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
     $rows = $stmt->fetchAll();
 
     $history = [];

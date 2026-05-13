@@ -1,6 +1,13 @@
 <?php
-require_once 'admin-config.php';
-require_once 'Notifications.php';
+require_once __DIR__ . '/adminSide/admin-config.php';
+require_once __DIR__ . '/Notifications.php';
+
+if (empty($_SESSION['is_admin'])) {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Forbidden']);
+    exit;
+}
 
 header('Content-Type: application/json');
 

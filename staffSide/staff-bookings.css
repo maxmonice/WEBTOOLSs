@@ -30,6 +30,35 @@
     background: rgba(243,156,18,0.07); border: 1px solid rgba(243,156,18,0.15);
     border-radius: 6px; padding: 3px 8px;
 }
+.calendar-toolbar { width: 100%; gap: 12px; flex-wrap: wrap; }
+#viewToggle,
+#yearSelect {
+    color: #fff;
+    background: var(--dark);
+    border: 1px solid var(--line-w);
+    padding: 5px 9px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+#viewToggle option,
+#yearSelect option { color: #fff; background: var(--card); }
+.calendar-nav-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.booking-card {
+    background: var(--card2);
+    border: 1px solid var(--line-w);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s, transform 0.2s;
+}
+.booking-card:hover { border-color: rgba(194,38,38,0.3); transform: translateY(-2px); }
+.booking-id { font-size: 0.7rem; color: var(--red); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 4px; }
+.booking-name { font-size: 0.9rem; color: #fff; font-weight: 600; margin-bottom: 6px; }
+.booking-detail { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.booking-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.booking-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+.detail-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+.detail-value { font-weight: 600; color: rgba(255,255,255,0.9); overflow-wrap: anywhere; }
 
 /* Calendar styles */
 .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:10px; }
@@ -71,6 +100,12 @@
     .filter-form select { width: 100% !important; }
     .filter-bar .btn,
     .filter-form .btn { width: 100%; justify-content: center; }
+    .calendar-nav-group,
+    .calendar-toolbar > .flex-gap { width: 100%; }
+    .calendar-nav-group .btn,
+    #viewToggle,
+    #yearSelect { flex: 1; }
+    .booking-detail-grid { grid-template-columns: 1fr; }
 
     /* Alert messages */
     .alert { font-size: 0.82rem; }

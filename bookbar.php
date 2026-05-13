@@ -10,16 +10,22 @@ if (session_status() === PHP_SESSION_NONE) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Luke's Seafood Trading - Book Bar</title>
 
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
 
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <link rel="stylesheet" href="css/booking-rating.css">
+
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <link rel="stylesheet" href="bookbar.css">
 
     <script>
@@ -29,16 +35,23 @@ if (session_status() === PHP_SESSION_NONE) {
             echo getenv("LOCATIONIQ_TOKEN") ?: "";
         ?>';
     </script>
+    <!-- LocationIQ Geocoder -->
     <link rel="stylesheet" href="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.css">
     <script src="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.js"></script>
+    <!-- Leaflet Routing Machine -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+
+
 </head>
 
 <body>
 
+    <!-- Grain overlay -->
     <div class="grain-overlay"></div>
 
+    <!-- Header -->
     <header>
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
@@ -62,14 +75,17 @@ if (session_status() === PHP_SESSION_NONE) {
         </div>
     </header>
 
+    <!-- Main Content -->
     <main>
         <section class="hero-section">
 
+            <!-- Banner -->
             <div class="banner-container">
                 <img src="https://github.com/maxmonice/WEBTOOLS/blob/2d17035d2195524857c2d553525d08579e0f6373/images/sushibar.webp?raw=true" class="banner-top-image" alt="Sushi bar" />
                 <img src="https://github.com/maxmonice/WEBTOOLS/blob/2d17035d2195524857c2d553525d08579e0f6373/images/bylukes2.webp?raw=true" class="banner-bottom-image" alt="By Lukes" />
             </div>
 
+            <!-- Event Booking Form -->
             <div class="form-container">
                 <div style="text-align: center; margin: 40px 0;">
                     <h1 style="font-family: 'Aclonica', sans-serif; font-size: 2.5rem; font-weight: bold;">
@@ -79,13 +95,16 @@ if (session_status() === PHP_SESSION_NONE) {
                 </div>
 
                 <div class="form-box">
+                    <!-- Auth status banner (dynamically shown) -->
                     <div id="authStatusBar" class="auth-status-bar" style="display:none;"></div>
 
+                    <!-- Help Icon -->
                     <div class="form-help-icon" id="formHelpIcon" title="Booking Info">
                         <i class="fa-solid fa-circle-question"></i>
                     </div>
 
                     <form id="bookingForm">
+                        <!-- Event Details -->
                         <h2 class="form-title">Event Details</h2>
 
                         <div class="form-group">
@@ -105,6 +124,8 @@ if (session_status() === PHP_SESSION_NONE) {
                                 </div>
                                 <span class="error-message" id="addressError">Please provide or select an address</span>
                             </label>
+
+
 
                             <label class="form-label" style="margin-bottom:4px;">Event Date:</label>
                             <div id="bookingCalendarContainer" class="booking-calendar" style="margin-bottom:16px;"></div>
@@ -130,6 +151,9 @@ if (session_status() === PHP_SESSION_NONE) {
                                     <span class="error-message" id="eventTimeError">Please select a time</span>
                                 </label>
                             </div>
+
+
+
 
                             <label class="form-label">
                                 Event Type:
@@ -167,8 +191,13 @@ if (session_status() === PHP_SESSION_NONE) {
                                 </select>
                                 <span class="error-message" id="numGuestsError">Please select the number of guests</span>
                             </label>
+
+
+
+
                         </div>
 
+                        <!-- Contact Details -->
                         <h2 class="form-title" style="margin-top: 40px;">Contact Details</h2>
 
                         <div class="form-group">
@@ -197,6 +226,7 @@ if (session_status() === PHP_SESSION_NONE) {
                             </label>
                         </div>
 
+                        <!-- Submit Button -->
                         <div style="text-align: center;">
                             <button type="submit" class="submit-btn" id="submitBtn">Submit</button>
                         </div>
@@ -207,6 +237,7 @@ if (session_status() === PHP_SESSION_NONE) {
         </section>
     </main>
 
+    <!-- Footer -->
     <footer>
         <div class="container">
             <div class="footer-grid desktop-view">
@@ -263,6 +294,7 @@ if (session_status() === PHP_SESSION_NONE) {
         </div>
     </footer>
 
+    <!-- ══ AUTH GUARD MODAL ══ -->
     <div class="auth-modal-overlay" id="authModal">
         <div class="auth-modal">
             <div class="auth-modal-icon">
@@ -282,6 +314,7 @@ if (session_status() === PHP_SESSION_NONE) {
         </div>
     </div>
 
+    <!-- ══ INFO MODAL ══ -->
     <div class="info-modal-overlay" id="infoModal">
         <div class="info-modal">
             <div class="info-modal-header">
@@ -297,12 +330,17 @@ if (session_status() === PHP_SESSION_NONE) {
         </div>
     </div>
 
+    <!-- Flatpickr & Leaflet JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/booking-calendar.js"></script>
-    <script src="bookbar-auth.js?v=<?= time() ?>"></script>
-    <script src="bookBar.js?v=<?= time() ?>"></script>
 
+
+    <!-- ══ AUTH GUARD SCRIPT — must load BEFORE bookbar.js ══ -->
+    <script src="bookbar-auth.js?v=<?= time() ?>"></script>
+
+    <!-- bookbar.js loads AFTER the capture listener is registered -->
+    <script src="bookBar.js?v=<?= time() ?>"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof BookingCalendar !== 'undefined' && document.getElementById('bookingCalendarContainer')) {
@@ -320,7 +358,7 @@ if (session_status() === PHP_SESSION_NONE) {
                     var infoEl = document.getElementById('selectedDateInfo');
                     var textEl = document.getElementById('selectedDateText');
                     if (infoEl && textEl) {
-                        textEl.textContent = formattedDate + ' — ' + (2 - bookingCount) + ' slot(s) left';
+                        textEl.textContent = formattedDate + ' - ' + (2 - bookingCount) + ' slot(s) left';
                         infoEl.style.display = 'inline-flex';
                     }
                 }
@@ -328,7 +366,7 @@ if (session_status() === PHP_SESSION_NONE) {
         }
     });
     </script>
-
+<!-- DUPLICATE BOOKING WARNING MODAL -->
 <div class="modal-overlay" id="duplicateBookingModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:20000; backdrop-filter:blur(10px); align-items:center; justify-content:center;">
     <div class="modal-content" style="background:#111; border:1px solid rgba(255,255,255,0.08); border-radius:24px; padding:40px; max-width:450px; text-align:center; box-shadow:0 25px 50px rgba(0,0,0,0.5);">
         <div style="width:80px; height:80px; background:rgba(245,158,11,0.1); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#f59e0b; margin:0 auto 25px; font-size:2.5rem;">

@@ -1,4 +1,5 @@
-// ── Session guard ──
+(function () {
+// â”€â”€ Session guard â”€â”€
 (async function guardSession() {
             try {
                 const res  = await fetch('auth.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({action:'check_session'}) });
@@ -82,7 +83,7 @@
                 now.toLocaleString('default', { month:'long', year:'numeric' });
         }
 
-        // ── Edit Profile ──
+        // â”€â”€ Edit Profile â”€â”€
         window.openEdit = function() { 
             document.getElementById('inputName').value = userData.name; 
             document.getElementById('inputEmail').value = userData.email; 
@@ -150,7 +151,7 @@
             showToast('Profile updated');
         }
 
-        // ── Change Password ──
+        // â”€â”€ Change Password â”€â”€
         window.openChangePw = function() {
             ['currentPw','newPw','confirmPw'].forEach(id => { document.getElementById(id).value = ''; document.getElementById(id).type = 'password'; });
             document.querySelectorAll('#changePwModal .pw-toggle i').forEach(i => i.className = 'fas fa-eye');
@@ -244,7 +245,7 @@
             if (newPw !== confirm)               { showToast('New passwords do not match.', true); return; }
 
             const btn = document.getElementById('changePwSaveBtn');
-            btn.disabled = true; btn.textContent = 'Updating…';
+            btn.disabled = true; btn.textContent = 'Updatingâ€¦';
             try {
                 const res  = await fetch('auth.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({ action:'change_password', current_password:current, new_password:newPw, confirm_password:confirm }) });
                 const data = await res.json();
@@ -254,26 +255,49 @@
             finally { btn.disabled = false; btn.textContent = 'Update Password'; }
         }
 
-        // ── Logout ──
+        // â”€â”€ Logout â”€â”€
         window.openLogout = function() {
             const modal = document.getElementById('logoutModal');
-            if (modal) modal.classList.add('active');
+            if (modal) {
+                modal.classList.add('open');
+                modal.classList.add('active');
+            }
         };
 
         window.closeLogout = function() {
             const modal = document.getElementById('logoutModal');
-            if (modal) modal.classList.remove('active');
+            if (modal) {
+                modal.classList.remove('open');
+                modal.classList.remove('active');
+            }
         };
 
-        window.doLogout = function() {
-            // Redirect to logout script
-            window.location.href = 'Auth.php?action=logout';
+        window.doLogout = async function() {
+            try {
+                await fetch('auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'logout' })
+                });
+            } catch (e) {}
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = 'account.php';
+        };
+
+        window.openModal = function(id) {
+            document.getElementById(id)?.classList.add('open');
+        };
+
+        window.closeModal = function(id) {
+            document.getElementById(id)?.classList.remove('open');
         };
 
 
-        // ── Toast ──
+        // â”€â”€ Toast â”€â”€
         function showToast(msg, isError = false) {
-            console.log('🔔 Showing Toast:', msg);
+            console.log('ðŸ”” Showing Toast:', msg);
             const t = document.getElementById('toast');
             document.getElementById('toastMsg').textContent = msg;
             t.querySelector('i').className = isError ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check';
@@ -291,7 +315,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             document.getElementById('navMenu').classList.toggle('active');
         });
 
-        // ── Order Tracking ──
+        // â”€â”€ Order Tracking â”€â”€
         let _currentOrder = null;
         let _userBookings = [];
 
@@ -305,19 +329,19 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 const url = (orderId ? `get-order.php?order_id=${orderId}` : 'get-order.php') + `&t=${Date.now()}`;
                 const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
                 const data = await res.json();
-                console.log('🔄 Polling Order Status:', data);
+                console.log('ðŸ”„ Polling Order Status:', data);
                 if (data.success && data.order) {
                     const order = data.order;
-                    console.log('📦 Current Status:', order.status, 'Updated At:', order.updated_at);
+                    console.log('ðŸ“¦ Current Status:', order.status, 'Updated At:', order.updated_at);
 
-                    // ── Auto-clear if delivered for > 30 mins ──
+                    // â”€â”€ Auto-clear if delivered for > 30 mins â”€â”€
                     if (order.status === 'delivered' && order.updated_at) {
                         const deliveredTime = new Date(order.updated_at.replace(' ', 'T')).getTime();
                         const now = new Date().getTime();
                         const diffMins = (now - deliveredTime) / (1000 * 60);
-                        console.log('🕒 Minutes since delivery:', diffMins.toFixed(1));
+                        console.log('ðŸ•’ Minutes since delivery:', diffMins.toFixed(1));
                         if (diffMins >= 30) {
-                            console.log('🕒 Auto-clearing (30 min limit reached)');
+                            console.log('ðŸ•’ Auto-clearing (30 min limit reached)');
                             clearOrderTracking(true);
                             return;
                         }
@@ -392,7 +416,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             const step = statusToStep(order.status);
             const isOnTheWay = (step === 2);
             const statusLabel = getStatusLabel(order.status);
-            const fmt  = n => '₱' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+            const fmt  = n => 'â‚±' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
             
             if (isOnTheWay && Number.isFinite(Number(order.delivery_latitude)) && Number.isFinite(Number(order.delivery_longitude))) {
                 DEST_LAT = Number(order.delivery_latitude);
@@ -460,8 +484,8 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                         <i class="fas fa-times-circle"></i> Cancel Order
                     </button>
                     ` : order.status === 'shipped' ? `
-                    <button class="btn-cancel-order" disabled title="Cannot cancel — rider is already on the way" style="width:100%; padding:12px; opacity:0.3; cursor:not-allowed;">
-                        <i class="fas fa-times-circle"></i> Cannot Cancel — Rider On Route
+                    <button class="btn-cancel-order" disabled title="Cannot cancel â€” rider is already on the way" style="width:100%; padding:12px; opacity:0.3; cursor:not-allowed;">
+                        <i class="fas fa-times-circle"></i> Cannot Cancel â€” Rider On Route
                     </button>
                     ` : ''}
                 </div>
@@ -483,7 +507,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     <span class="order-track-badge"><span class="dot"></span>Pending</span>
                     ${orderIdText}
                 </div>
-                <div class="order-track-address"><i class="fas fa-clock"></i><span>Your order is being processed…</span></div>
+                <div class="order-track-address"><i class="fas fa-clock"></i><span>Your order is being processedâ€¦</span></div>
                 
                 <div class="pending-status-info" style="background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.1); border-radius:12px; padding:20px; text-align:center; margin-bottom:15px; margin-top:15px;">
                     <i class="fas fa-utensils" style="font-size:1.5rem; color:var(--red); margin-bottom:10px; display:block;"></i>
@@ -515,7 +539,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             </div>`;
         }
 
-        // ── Leaflet & Socket.io for Customer ──
+        // â”€â”€ Leaflet & Socket.io for Customer â”€â”€
         let customerMap;
         let customerRiderMarker;
         let customerDestMarker;
@@ -608,13 +632,13 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     reconnectionDelay: 3000
                 });
                 trackingSocket.on('connect', () => {
-                    console.log('✅ Socket connected! ID: ' + trackingSocket.id);
+                    console.log('âœ… Socket connected! ID: ' + trackingSocket.id);
                     // Use _currentOrder if set, else fall back to localStorage
                     const orderId = (_currentOrder && _currentOrder.id) || localStorage.getItem('order_id');
                     if (orderId) {
                         trackingSocket.emit('join-order', orderId);
                         trackingSocket.emit('join-chat', orderId);
-                        console.log('📡 Joined rooms for order:', orderId);
+                        console.log('ðŸ“¡ Joined rooms for order:', orderId);
                     }
                 });
 
@@ -628,7 +652,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 });
 
                 trackingSocket.on('connect_error', (e) => {
-                    console.warn('⚠️ Socket error (HTTP fallback active):', e.message);
+                    console.warn('âš ï¸ Socket error (HTTP fallback active):', e.message);
                 });
 
                 trackingSocket.on('receive-location', (data) => {
@@ -650,7 +674,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                             appendAdminMessage(data);
                             const adminModal = document.getElementById('adminChatModal');
                             if (adminModal && !adminModal.classList.contains('open')) {
-                                showToast('💬 New message from Admin!');
+                                showToast('ðŸ’¬ New message from Admin!');
                             }
                         }
                     } else if (_currentOrder && data.orderId == _currentOrder.id) {
@@ -658,7 +682,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                             appendCustomerMessage(data);
                             const chatModal = document.getElementById('chatModal');
                             if (chatModal && !chatModal.classList.contains('open')) {
-                                showToast('💬 New message from rider!');
+                                showToast('ðŸ’¬ New message from rider!');
                             }
                         }
                     }
@@ -668,7 +692,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 trackingSocket.on('order-status-update', (data) => {
                     const myId = (_currentOrder && _currentOrder.id) || localStorage.getItem('order_id');
                     if (myId && data.orderId == myId) {
-                        console.log('📦 Real-time status:', data.status);
+                        console.log('ðŸ“¦ Real-time status:', data.status);
                         loadOrderTracking();
                     }
                 });
@@ -678,7 +702,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             }
         }
 
-        // ── Customer Chat Functions ──
+        // â”€â”€ Customer Chat Functions â”€â”€
         window.openChatModal = function() {
             if (!_currentOrder) {
                 showToast('No active order to chat about.', true);
@@ -782,7 +806,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             }
         });
 
-        // ── Admin Chat Functions ──
+        // â”€â”€ Admin Chat Functions â”€â”€
         window.openAdminChatFullscreen = function() {
             const overlay = document.getElementById('adminChatFullscreen');
             if (!overlay) return;
@@ -801,7 +825,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             document.body.style.overflow = '';
         };
 
-        // ── UNIFIED CHAT LOGIC ──
+        // â”€â”€ UNIFIED CHAT LOGIC â”€â”€
         let currentChatTarget = null;
         let currentChatOrderId = null;
 
@@ -1119,7 +1143,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     const items = _currentOrder.items;
                     if (Array.isArray(items) && items.length > 0) {
                         itemsEl.innerHTML = '<div style="font-weight:700; margin-bottom:5px; color:rgba(255,255,255,0.5)">Items ordered:</div>' + 
-                            items.map(it => `<div style="padding-left:10px;">• ${it.name} x ${it.quantity}</div>`).join('');
+                            items.map(it => `<div style="padding-left:10px;">â€¢ ${it.name} x ${it.quantity}</div>`).join('');
                     } else {
                         itemsEl.innerHTML = '';
                     }
@@ -1151,7 +1175,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     const items = _currentOrder.items;
                     if (Array.isArray(items) && items.length > 0) {
                         itemsEl.innerHTML = '<div style="font-weight:700; margin-bottom:5px; color:rgba(255,255,255,0.5)">Items ordered:</div>' + 
-                            items.map(it => `<div style="padding-left:10px;">• ${it.name} x ${it.quantity}</div>`).join('');
+                            items.map(it => `<div style="padding-left:10px;">â€¢ ${it.name} x ${it.quantity}</div>`).join('');
                     } else {
                         itemsEl.innerHTML = '';
                     }
@@ -1546,11 +1570,11 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             switch(status.toLowerCase()) {
                 case 'confirmed': return 'linear-gradient(135deg, #16a34a, #22c55e)';
                 case 'cancelled': return 'linear-gradient(135deg, #991b1b, #ef4444)';
-                default: return 'linear-gradient(135deg, #9B0A1E, #C22626)'; // pending — matches site red
+                default: return 'linear-gradient(135deg, #9B0A1E, #C22626)'; // pending â€” matches site red
             }
         }
         
-        // ── MAP SELECTION FOR EDITING ──
+        // â”€â”€ MAP SELECTION FOR EDITING â”€â”€
         const STORE_LOC = { lat: 14.5244, lng: 121.0559 };
         const MAX_RADIUS_KM = 5.5;
 
@@ -1562,7 +1586,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             <div id="mapModalOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:20000;backdrop-filter:blur(8px);">
               <div id="mapModalContent" style="background:#111;border-radius:20px;width:95%;max-width:900px;position:relative;box-shadow:0 0 50px rgba(0,0,0,1);display:flex;flex-direction:column;max-height:85vh;overflow:hidden;border: 1px solid #333;">
                 <div style="padding:18px 25px;background:linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%);display:flex;justify-content:space-between;align-items:center;">
-                    <h3 style="margin:0;font-family:'Aclonica',sans-serif;color:#fff;font-size:1.1rem;">📍 Select Event Location</h3>
+                    <h3 style="margin:0;font-family:'Aclonica',sans-serif;color:#fff;font-size:1.1rem;">ðŸ“ Select Event Location</h3>
                     <button id="closeMapBtn" style="background:rgba(0,0,0,0.3);border:none;border-radius:50%;width:32px;height:32px;color:#fff;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 
@@ -1713,7 +1737,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             let t; return (...args) => { clearTimeout(t); t = setTimeout(() => func(...args), wait); };
         }
 
-        // ── HISTORY PORTAL ──
+        // â”€â”€ HISTORY PORTAL â”€â”€
         window.openHistory = function() {
             const overlay = document.getElementById('historyFullscreen');
             overlay.classList.add('open');
@@ -1776,7 +1800,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                                 </div>
                             </div>
                             <div class="hi-right">
-                                <div class="hi-price">₱${order.total_amount.toLocaleString()}</div>
+                                <div class="hi-price">â‚±${order.total_amount.toLocaleString()}</div>
                                 <span class="hi-status ${statusClass}">${order.status}</span>
                             </div>
                         </div>
@@ -1823,7 +1847,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                                 </div>
                             </div>
                             <div class="hi-right">
-                                <div class="hi-price">₱${booking.total_amount.toLocaleString()}</div>
+                                <div class="hi-price">â‚±${booking.total_amount.toLocaleString()}</div>
                                 <span class="hi-status ${statusClass}">${booking.status}</span>
                             </div>
                         </div>
@@ -1835,7 +1859,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             }
         }
 
-        // ── PROMO PORTAL ──
+        // â”€â”€ PROMO PORTAL â”€â”€
         window.openPromos = function() {
             const overlay = document.getElementById('promoFullscreen');
             overlay.classList.add('open');
@@ -1936,3 +1960,4 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 localStorage.setItem('new_user_promo_seen', 'true');
             }
         }, 3000);
+})();

@@ -6,6 +6,7 @@
 
 const AUTH_URL       = 'Auth.php';
 const GOOGLE_CLIENT_ID = window.APP_CONFIG?.googleClientId || '694050007372-2crn9q3ek8jav88iduut5ddf50ecgj0a.apps.googleusercontent.com';
+const RECAPTCHA_SITE_KEY = window.APP_CONFIG?.recaptchaSiteKey || '6LcpWt4sAAAAAMAw0Tq8RDUwcW-qAqZkyyRBJIGd';
 
 // =====================================================
 //  GOOGLE SDK
@@ -175,7 +176,7 @@ function onLoginSuccess(result) {
     // result.redirect is set by the server for special accounts (admin)
     const redirect = result.redirect
         || sessionStorage.getItem('redirect_after_login')
-        || '/FINAL/WEBTOOLSs/account-dashboard.php';
+        || 'account-dashboard.php';
     sessionStorage.removeItem('redirect_after_login');
     window.location.href = redirect;
 }
@@ -350,7 +351,7 @@ async function submitOtp() {
             sessionStorage.setItem('user_email', result.email || '');
             const redirect = result.redirect
                 || sessionStorage.getItem('redirect_after_login')
-                || '/FINAL/WEBTOOLSs/account-dashboard.php';
+                || 'account-dashboard.php';
             sessionStorage.removeItem('redirect_after_login');
             setTimeout(() => { window.location.href = redirect; }, 700);
         } else {
@@ -507,7 +508,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- RECAPTCHA v3 HELPER ---
     async function getRecaptchaToken(action = 'submit') {
         try {
-            const token = await grecaptcha.execute('6LcpWt4sAAAAAMAw0Tq8RDUwcW-qAqZkyyRBJIGd', { action });
+            if (typeof grecaptcha === 'undefined') return null;
+            const token = await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
             return token;
         } catch (e) {
             console.error('reCAPTCHA error:', e);
@@ -651,7 +653,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sessionStorage.setItem('user_email', session.email || '');
                 const redirect = session.redirect
                     || sessionStorage.getItem('redirect_after_login')
-                    || '/FINAL/WEBTOOLSs/account-dashboard.php';
+                    || 'account-dashboard.php';
                 sessionStorage.removeItem('redirect_after_login');
                 window.location.href = redirect;
             } else {

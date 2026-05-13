@@ -92,20 +92,22 @@ function getActivityStats() {
         $pdo = getDB();
         
         // Total activities
-        $stmt = $pdo->query("SELECT COUNT(*) as total FROM audit_logs");
-        $total = $stmt->fetch()['total'];
+        $total = (int) $pdo->query("SELECT COUNT(*) FROM audit_logs")->fetchColumn();
         
         // Activities today
-        $stmt = $pdo->prepare("SELECT COUNT(*) as today FROM audit_logs WHERE DATE(created_at) = CURDATE()");
-        $today = $stmt->fetch()['today'];
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM audit_logs WHERE DATE(created_at) = CURDATE()");
+        $stmt->execute();
+        $today = (int) $stmt->fetchColumn();
         
         // Unique users today
-        $stmt = $pdo->prepare("SELECT COUNT(DISTINCT user_email) as users_today FROM audit_logs WHERE DATE(created_at) = CURDATE() AND user_email != ''");
-        $usersToday = $stmt->fetch()['users_today'];
+        $stmt = $pdo->prepare("SELECT COUNT(DISTINCT user_email) FROM audit_logs WHERE DATE(created_at) = CURDATE() AND user_email != ''");
+        $stmt->execute();
+        $usersToday = (int) $stmt->fetchColumn();
         
         // Security events
-        $stmt = $pdo->prepare("SELECT COUNT(*) as security FROM audit_logs WHERE action LIKE '%login%' OR action LIKE '%security%'");
-        $security = $stmt->fetch()['security'];
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM audit_logs WHERE action LIKE '%login%' OR action LIKE '%security%'");
+        $stmt->execute();
+        $security = (int) $stmt->fetchColumn();
         
         return [
             'total' => $total,

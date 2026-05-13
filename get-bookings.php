@@ -9,21 +9,26 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$userId = $_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
 $email = $_SESSION['user_email'] ?? '';
 
 try {
     $pdo = getDB();
 
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = ?");
+    $stmt->execute(['user_id']);
+    $hasUserIdColumn = (int)$stmt->fetchColumn() > 0;
 
-    // Query for bookings by user_id OR by email in notes (for legacy or guest bookings matched after login)
-    $stmt = $pdo->prepare("
-        SELECT * FROM bookings 
-        WHERE user_id = ? 
-        OR (user_id IS NULL AND (email_address = ? OR notes LIKE ?))
-        ORDER BY created_at DESC
-    ");
-    $stmt->execute([$userId, $email, '%"user_email":"' . $email . '"%']);
+    if ($hasUserIdColumn) {
+        $query = "SELECT * FROM bookings WHERE user_id = ? ORDER BY created_at DESC";
+        $params = [$userId];
+    } else {
+        $query = "SELECT * FROM bookings WHERE email_address = ? ORDER BY created_at DESC";
+        $params = [$email];
+    }
+
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $formattedBookings = [];

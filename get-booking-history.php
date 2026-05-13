@@ -17,16 +17,20 @@ try {
          PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
 
-    // Fetch past bookings: completed or cancelled, or date is in the past
-    $stmt = $pdo->prepare("
-        SELECT id, event_type, status, event_date, guests, total_amount, created_at 
-        FROM bookings 
-        WHERE user_id = ? 
-        AND (status IN ('completed', 'cancelled') OR event_date < CURDATE())
-        ORDER BY event_date DESC
-    ");
-    $stmt->execute([$userId]);
-    $rows = $stmt->fetchAll();
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = ?");
+    $stmt->execute(['user_id']);
+    $hasUserIdColumn = (int)$stmt->fetchColumn() > 0;
+
+    if ($hasUserIdColumn) {
+        $query = "SELECT id, event_type, status, event_date, guests, total_amount, created_at FROM bookings WHERE user_id = ? AND (status IN ('completed', 'cancelled') OR event_date < CURDATE()) ORDER BY event_date DESC";
+        $params = [$userId];
+    } else {
+        $query = "SELECT id, event_type, status, event_date, guests, total_amount, created_at FROM bookings WHERE email_address = ? AND (status IN ('completed', 'cancelled') OR event_date < CURDATE()) ORDER BY event_date DESC";
+        $params = [$_SESSION['user_email'] ?? ''];
+    }
+
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
 
     $history = [];
     foreach ($rows as $row) {

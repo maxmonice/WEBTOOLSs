@@ -164,25 +164,7 @@ try {
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-name">Luke's Seafood Trading<span>Admin Panel</span></div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <a href="admin-dashboard.php" class="nav-item"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-      <div class="nav-section-label">Management</div>
-      <a href="admin-users.php" class="nav-item active"><i class="fa-solid fa-users"></i> User Management</a>
-      <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
-      <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
-      <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
-      <a href="admin-promos.php" class="nav-item"><i class="fa-solid fa-ticket"></i> Promo Management</a>
-      <div class="nav-section-label">System</div>
-      <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
-      <a href="admin-account.php" class="nav-item"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="../index.php" class="logout-btn" style="background: #22c55e; color: #fff;"><i class="fa-solid fa-home"></i> Home</a>
-    </div>
+<?php $adminNavActive = 'users'; require __DIR__ . '/admin-sidebar-nav.php'; ?>
   </aside>
 
   <div class="main-content">

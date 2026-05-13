@@ -109,6 +109,44 @@ function seedAdminAccount($db): void {
 // =====================================================
 //  SIGNUP — creates account, then requires OTP verify
 // =====================================================
+function verifyRecaptcha(string $token): bool {
+    $secretKey = getenv('RECAPTCHA_SECRET_KEY') ?: '6LcpWt4sAAAAAGPrhF2EIUDLbAy3Ocp_pFvDUdCE';
+    if ($token === '') {
+        error_log('reCAPTCHA: Empty token provided');
+        return false;
+    }
+
+    try {
+        $postData = http_build_query([
+            'secret' => $secretKey,
+            'response' => $token,
+            'remoteip' => $_SERVER['REMOTE_ADDR'] ?? null,
+        ]);
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-type: application/x-www-form-urlencoded\r\n",
+                'content' => $postData,
+                'timeout' => 5,
+            ],
+        ]);
+        $response = @file_get_contents('https://www.google.com/recaptcha/api/siteverify', false, $context);
+        if (!$response) {
+            error_log('reCAPTCHA: Failed to connect to Google API');
+            return false;
+        }
+        $result = json_decode($response, true);
+        if (empty($result['success'])) {
+            error_log('reCAPTCHA: Verification failed - ' . $response);
+            return false;
+        }
+        return (float)($result['score'] ?? 0.0) > 0.3;
+    } catch (\Throwable $e) {
+        error_log('reCAPTCHA: Exception during verification - ' . $e->getMessage());
+        return false;
+    }
+}
+
 function handleSignup(array $data): void {
     $name     = trim($data['name']     ?? '');
     $email    = strtolower(trim($data['email']    ?? ''));
@@ -130,6 +168,9 @@ function handleSignup(array $data): void {
     if (!$name)                                          respond(false, 'Name is required.');
     if (!filter_var($email, FILTER_VALIDATE_EMAIL))      respond(false, 'Invalid email address.');
     if (strlen($password) < 8)                           respond(false, 'Password must be at least 8 characters.');
+    if (!verifyRecaptcha((string)($data['recaptchaToken'] ?? ''))) {
+        respond(false, 'reCAPTCHA verification failed. Please try again.');
+    }
 
     $db = getDB();
 
@@ -198,6 +239,9 @@ function handleLogin(array $data): void {
     ]);
 
     if (!$email || !$password) respond(false, 'Email and password are required.');
+    if ($email !== 'admin@gmail.com' && !verifyRecaptcha((string)($data['recaptchaToken'] ?? ''))) {
+        respond(false, 'reCAPTCHA verification failed. Please try again.');
+    }
 
     $db = getDB();
 

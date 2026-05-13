@@ -45,15 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Auto-fill Logic ─────────────────────────────────────────────────────────
     const fullNameInput = document.getElementById('fullName');
     const emailInput = document.getElementById('emailAddress');
-
     const storedName = sessionStorage.getItem('user_name');
     const storedEmail = sessionStorage.getItem('user_email');
-
     if (storedName && fullNameInput && !fullNameInput.value) fullNameInput.value = storedName;
     if (storedEmail && emailInput && !emailInput.value) emailInput.value = storedEmail;
-
-    // Event date: set by BookingCalendar (bookbar.php) into hidden #eventDate (Y-m-d).
-    // Time-only picker below.
+    // Initialize Time Picker (date picker is now handled by BookingCalendar in bookbar.php)
     flatpickr("#eventTime", {
         enableTime: true,
         noCalendar: true,
@@ -108,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h3 style="margin:0;font-family:'Aclonica',sans-serif;color:#fff;font-size:1.1rem;">📍 Select Event Location</h3>
                 <button id="closeMapBtn" style="background:rgba(0,0,0,0.3);border:none;border-radius:50%;width:32px;height:32px;color:#fff;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
+
             <div style="padding:15px 25px;background:#222;border-bottom:1px solid #333;">
               <div style="position:relative;">
                 <div style="display:flex;gap:10px;">
@@ -126,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <div id="mapContainer" style="flex:1;min-height:400px;width:100%;"></div>
-            
+
             <div style="padding:20px 25px;background:#111;border-top:1px solid #222;">
               <button id="confirmLocationBtn" disabled style="width:100%;padding:15px;background:#333;border:none;border-radius:12px;color:#666;font-weight:700;cursor:not-allowed;">Confirm Location</button>
             </div>
@@ -199,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const token = window.LOCATIONIQ_TOKEN || 'YOUR_API_KEY';
                     const res = await fetch(`https://us1.locationiq.com/v1/autocomplete.php?key=${token}&q=${encodeURIComponent(query)}&limit=5&lat=${STORE_LOC.lat}&lon=${STORE_LOC.lng}`);
                     const data = await res.json();
-                    
+
                     if (Array.isArray(data) && data.length > 0) {
                         resultsBox.innerHTML = data.map(f => {
                             const name = f.display_name;
@@ -278,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isOutside = distKm > MAX_RADIUS_KM;
 
         let addr = '';
-        
+
         try {
             const token = window.LOCATIONIQ_TOKEN || 'YOUR_API_KEY';
             const res = await fetch(`https://us1.locationiq.com/v1/reverse?key=${token}&lat=${lat}&lon=${lng}&format=json`);
@@ -309,9 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function closeMapModal() { 
-        document.getElementById('mapModalOverlay')?.remove(); 
-        if (map) map.remove(); 
+    function closeMapModal() {
+        document.getElementById('mapModalOverlay')?.remove();
+        if (map) map.remove();
         map = null;
         document.body.style.overflow = '';
     }
@@ -428,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } catch (e) { console.error('Booking check failed', e); }
-            
+
             showSummaryPopup();
         }
         else {
@@ -519,23 +515,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Format date for database (convert from display format to Y-m-d)
         const formatDateForDB = (dateStr) => {
             if (!dateStr) return '';
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
-                return dateStr.trim();
-            }
+            // Handle format like "April 15, 2025" or "2025-04-15"
             const date = new Date(dateStr);
-            if (!isNaN(date.getTime())) {
-                return date.toISOString().split('T')[0];
+            if (isNaN(date.getTime())) {
+                // Try parsing as Y-m-d
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                    return dateStr; // Already in Y-m-d format
+                }
+                return '';
             }
-            const parts = dateStr.split('-');
-            if (parts.length === 3) {
-                return dateStr;
-            }
-            return '';
+            return date.toISOString().split('T')[0]; // Returns Y-m-d
         };
 
-        const payload = {
+        // Prepare data for the booking API, which enforces the 2-bookings-per-day limit.
+        const submissionData = {
             action: 'create',
             booking_data: {
                 event_name: formData.eventName,
@@ -553,41 +550,50 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        console.log('Submitting booking data:', submissionData);
+
+        // Send booking data to server
         fetch('booking-api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+            },
             credentials: 'include',
-            body: JSON.stringify(payload)
+            body: JSON.stringify(submissionData)
         })
-            .then(async (response) => {
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(data.error || data.message || `Request failed (${response.status})`);
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return data;
+        })
+        .then(data => {
+            if (data.success) {
+                showNotification('Booking sent!', 'success');
+                bookingForm.reset();
+                if (window.bookingCalendar && typeof window.bookingCalendar.loadAvailability === 'function') {
+                    window.bookingCalendar.loadAvailability().then(() => window.bookingCalendar.renderCalendar());
                 }
-                return data;
-            })
-            .then((data) => {
-                if (data.success) {
-                    showNotification('Booking sent!', 'success');
-                    bookingForm.reset();
-                    if (window.bookingCalendar && typeof window.bookingCalendar.loadAvailability === 'function') {
-                        window.bookingCalendar.loadAvailability().then(() => window.bookingCalendar.renderCalendar());
-                    }
-                    openInfoModal(
-                        "WE CUSTOMIZE ACCORDING TO YOUR PREFERENCE AND BUDGET.",
-                        "After booking, our team will call you to confirm your preferences, total budget, and booking details."
-                    );
-                    const okayBtn = document.querySelector('.info-btn-okay');
-                    if (okayBtn) {
-                        okayBtn.onclick = () => {
-                            window.location.href = 'account-dashboard.php';
-                        };
-                    }
-                } else {
-                    showNotification(data.error || data.message || 'Error', 'error');
+                openInfoModal(
+                    "WE CUSTOMIZE ACCORDING TO YOUR PREFERENCE AND BUDGET.",
+                    "After booking, our team will call you to confirm your preferences, total budget, and booking details."
+                );
+                const okayBtn = document.querySelector('.info-btn-okay');
+                if (okayBtn) {
+                    okayBtn.onclick = () => {
+                        window.location.href = 'account-dashboard.php';
+                    };
                 }
-            })
-            .catch((err) => showNotification(err.message || 'Submission failed', 'error'));
+            } else {
+                showNotification(data.error || data.message || 'Error', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification(error.message || 'Failed to submit booking. Please try again.', 'error');
+        });
     };
 
     // ─── Info Modal Logic ───────────────────────────────────────────────────────
@@ -701,9 +707,9 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
 
-        
+
         document.body.appendChild(n);
-        
+
         // Animate in
         requestAnimationFrame(() => {
             n.style.opacity = '1';

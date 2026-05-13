@@ -1,11 +1,16 @@
 <?php
 require_once 'staff-config.php';
+require_once __DIR__ . '/../Notifications.php';
 requireStaff();
 
 $stats    = getStaffStats($pdo);
 $bookings = getRecentBookings($pdo, 5);
 $orders   = getRecentOrders($pdo, 5);
 $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
+
+$notifications       = new Notifications($pdo);
+$userNotifications   = $notifications->getForUser('staff', $_SESSION['user_id'], 8);
+$unreadCount         = $notifications->getUnreadCount('staff', $_SESSION['user_id']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -23,26 +28,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-name">Luke's Seafood Trading<span>Staff Panel</span></div>
-      <div class="role-pill"><i class="fa-solid fa-id-badge"></i> Staff Access</div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <a href="staff-dashboard.php" class="nav-item active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-      <div class="nav-section-label">My Work</div>
-      <a href="staff-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
-      <a href="staff-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Orders</a>
-      <div class="nav-section-label">View Only</div>
-      <a href="staff-customers.php" class="nav-item"><i class="fa-solid fa-users"></i> Customers</a>
-      <div class="nav-section-label">Restricted</div>
-      <span class="nav-item locked"><i class="fa-solid fa-layer-group"></i> Content Management</span>
-      <span class="nav-item locked"><i class="fa-solid fa-shield-halved"></i> Security & Logs</span>
-      <span class="nav-item locked"><i class="fa-solid fa-sliders"></i> System Config</span>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="staff-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-    </div>
+<?php $staffNavActive = 'dashboard'; require __DIR__ . '/staff-sidebar-nav.php'; ?>
   </aside>
 
   <!-- MAIN -->
@@ -56,14 +42,47 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i>
-          <?php if ($stats['pending_bookings'] > 0 || $stats['pending_orders'] > 0): ?>
-          <span class="badge-dot"></span>
-          <?php endif; ?>
+        <div class="live-notif-wrap">
+          <div class="topbar-badge live-notif-trigger" onclick="toggleLiveNotifications(event)">
+            <i class="fa-regular fa-bell"></i>
+            <?php if ($unreadCount > 0): ?>
+            <span class="badge-dot live-notif-dot"></span>
+            <span class="live-notif-count"><?= (int) $unreadCount ?></span>
+            <?php endif; ?>
+          </div>
+          <div class="live-notif-menu" id="liveNotifMenu" role="menu">
+            <div class="live-notif-header">
+              <h4>Notifications</h4>
+              <button type="button" class="live-notif-mark-all" onclick="markAllLiveNotificationsRead()">Mark all read</button>
+            </div>
+            <div class="live-notif-list" id="liveNotifList">
+              <?php if (empty($userNotifications)): ?>
+                <div class="live-notif-empty">No notifications</div>
+              <?php else: ?>
+                <?php foreach ($userNotifications as $notif): ?>
+                <div class="live-notif-item<?= !$notif['is_read'] ? ' unread' : '' ?>" data-id="<?= (int) $notif['id'] ?>" onclick="markLiveNotificationRead(<?= (int) $notif['id'] ?>, this)">
+                  <div class="live-notif-row">
+                    <div class="live-notif-icon" style="background: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>20; color: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>;">
+                      <i class="fa-solid <?= htmlspecialchars(getNotificationIcon($notif['type'])) ?>"></i>
+                    </div>
+                    <div class="live-notif-body">
+                      <div class="live-notif-title"><?= htmlspecialchars($notif['title']) ?></div>
+                      <div class="live-notif-msg"><?= htmlspecialchars($notif['message']) ?></div>
+                      <div class="live-notif-time"><?= htmlspecialchars(timeAgo($notif['created_at'])) ?></div>
+                    </div>
+                  </div>
+                </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </div>
+          </div>
         </div>
         <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);" title="<?= $staffName ?>">
           <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>
         </div>
+        <a href="../account-dashboard.php?user_view=true" class="btn-user-view-dash staff-user-view" title="Open customer account page">
+          <i class="fa-solid fa-user"></i> User view
+        </a>
       </div>
     </header>
 

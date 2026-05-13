@@ -1,6 +1,6 @@
 <?php
-require_once 'admin-config.php';
-require_once 'Notifications.php';
+require_once __DIR__ . '/adminSide/admin-config.php';
+require_once __DIR__ . '/Notifications.php';
 requireAdmin();
 
 // Initialize notifications
@@ -502,26 +502,11 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 <div class="admin-layout">
 
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-name">Luke's Seafood Trading<span>Admin Panel</span></div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <a href="admin-dashboard.php" class="nav-item"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-      <div class="nav-section-label">Management</div>
-      <a href="admin-users.php" class="nav-item"><i class="fa-solid fa-users"></i> User Management</a>
-      <a href="admin-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Booking Management</a>
-      <a href="admin-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Order Management</a>
-      <a href="admin-content.php" class="nav-item"><i class="fa-solid fa-layer-group"></i> Content Management</a>
-      <a href="admin-archive.php" class="nav-item"><i class="fa-solid fa-box-archive"></i> Archive</a>
-      <a href="admin-messages.php" class="nav-item"><i class="fa-solid fa-message"></i> Messages</a>
-      <div class="nav-section-label">System</div>
-      <a href="admin-logs.php" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Logs</a>
-      <a href="admin-settings.php" class="nav-item active"><i class="fa-solid fa-cog"></i> Account Settings</a>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="admin-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-    </div>
+<?php
+$adminNavActive = 'settings';
+$adminNavFromRoot = true;
+require __DIR__ . '/adminSide/admin-sidebar-nav.php';
+?>
   </aside>
 
   <div class="main-content">

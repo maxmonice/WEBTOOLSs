@@ -5,7 +5,8 @@ CREATE TABLE promos (
     id INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
     discount_percent INT NOT NULL DEFAULT 0,
-    duration_days INT NULL, -- NULL means no expiration
+    duration_days INT NULL,
+    applicable_category VARCHAR(100) DEFAULT 'All Items',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

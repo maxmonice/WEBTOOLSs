@@ -63,6 +63,14 @@ function requireAdmin(): void {
     }
 }
 
+/** Admin or staff (e.g. promo list read-only for staff). */
+function requireAdminOrStaff(): void {
+    if (empty($_SESSION['user_id']) || (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff']))) {
+        header('Location: ../account.php');
+        exit;
+    }
+}
+
 // =====================================================
 //  REAL-TIME DASHBOARD STATS
 //  Returns an array of live counts from the DB.

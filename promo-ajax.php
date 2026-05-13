@@ -15,6 +15,15 @@ if (!$userId) {
 $action = $data['action'] ?? '';
 
 if ($action === 'search_promos') {
+    // Check if promos table exists
+    $tableCheck = $pdo->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos'");
+    $promosTableExists = (int)$tableCheck->fetchColumn() > 0;
+    
+    if (!$promosTableExists) {
+        echo json_encode(['success' => false, 'message' => 'Promos table not found. Please run migration.', 'promos' => []]);
+        exit;
+    }
+    
     $query = $data['query'] ?? '';
     
     // Fetch all promos or search specifically
@@ -36,6 +45,13 @@ if ($action === 'search_promos') {
 }
 
 if ($action === 'claim_promo') {
+    // Check if promos table exists
+    $tableCheck = $pdo->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos'");
+    if ((int)$tableCheck->fetchColumn() === 0) {
+        echo json_encode(['success' => false, 'message' => 'Promos table not found. Please run migration.']);
+        exit;
+    }
+    
     $promoId = $data['promo_id'] ?? 0;
     
     // Check if already claimed

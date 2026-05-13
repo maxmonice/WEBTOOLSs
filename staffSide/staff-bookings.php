@@ -5,6 +5,47 @@ requireStaff();
 $successMsg = '';
 $errorMsg   = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
+    header('Content-Type: application/json');
+    $data = json_decode(file_get_contents('php://input'), true) ?: [];
+    $action = $data['action'] ?? '';
+
+    if ($action === 'update_status') {
+        $bookingId = (int)($data['booking_id'] ?? 0);
+        $status = $data['status'] ?? '';
+        if ($bookingId <= 0 || !in_array($status, ['confirmed', 'cancelled'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid booking update.']);
+            exit;
+        }
+        try {
+            $pdo->prepare('UPDATE bookings SET status = ? WHERE id = ?')->execute([$status, $bookingId]);
+            echo json_encode(['success' => true, 'message' => "Booking updated to {$status}."]);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($action === 'get_booking') {
+        $id = (int)($data['id'] ?? 0);
+        $stmt = $pdo->prepare('SELECT * FROM bookings WHERE id = ?');
+        $stmt->execute([$id]);
+        echo json_encode(['success' => true, 'booking' => $stmt->fetch()]);
+        exit;
+    }
+
+    if ($action === 'get_day_bookings') {
+        $date = $data['date'] ?? '';
+        $stmt = $pdo->prepare('SELECT * FROM bookings WHERE event_date = ? ORDER BY event_time ASC, created_at ASC');
+        $stmt->execute([$date]);
+        echo json_encode(['success' => true, 'bookings' => $stmt->fetchAll()]);
+        exit;
+    }
+
+    echo json_encode(['success' => false, 'message' => 'Unknown action.']);
+    exit;
+}
+
 // Staff can confirm or cancel bookings — but NOT delete them
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -32,7 +73,7 @@ $status = trim($_GET['status'] ?? '');
 $whereClause = 'WHERE 1=1';
 $params      = [];
 if ($search !== '') {
-    $whereClause .= ' AND u.name LIKE :s';
+    $whereClause .= ' AND (u.name LIKE :s OR b.full_name LIKE :s OR b.event_name LIKE :s)';
     $params[':s'] = "%$search%";
 }
 if ($status !== '') {
@@ -42,9 +83,9 @@ if ($status !== '') {
 
 try {
     $stmt = $pdo->prepare(
-        "SELECT b.id, b.status, b.event_date, b.created_at, b.notes,
-                COALESCE(u.name, 'Unknown') AS customer_name,
-                COALESCE(u.email, '—') AS customer_email
+        "SELECT b.*,
+                COALESCE(NULLIF(b.full_name, ''), u.name, 'Unknown') AS customer_name,
+                COALESCE(NULLIF(b.email_address, ''), u.email, 'N/A') AS customer_email
          FROM bookings b
          LEFT JOIN users u ON u.id = b.user_id
          $whereClause
@@ -58,6 +99,47 @@ try {
 
 $stats    = getStaffStats($pdo);
 $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
+
+$viewMode = $_GET['view'] ?? 'calendar';
+if (!in_array($viewMode, ['calendar', 'table'], true)) $viewMode = 'calendar';
+$currentMonth = (int)($_GET['month'] ?? date('n'));
+$currentYear = (int)($_GET['year'] ?? date('Y'));
+if ($currentMonth < 1 || $currentMonth > 12) $currentMonth = (int)date('n');
+if ($currentYear < 2020 || $currentYear > 2030) $currentYear = (int)date('Y');
+$daysInMonth = cal_days_in_month(CAL_GREGORIAN, $currentMonth, $currentYear);
+$firstDayOfWeek = (int)date('w', strtotime(sprintf('%04d-%02d-01', $currentYear, $currentMonth)));
+$today = ($currentYear === (int)date('Y') && $currentMonth === (int)date('n')) ? (int)date('j') : null;
+
+$bookingsByDate = [];
+foreach ($bookings as $booking) {
+    if (empty($booking['event_date'])) continue;
+    $date = new DateTime($booking['event_date']);
+    if ((int)$date->format('n') === $currentMonth && (int)$date->format('Y') === $currentYear) {
+        $bookingsByDate[(int)$date->format('j')][] = $booking;
+    }
+}
+
+function staffCalendarHtml(int $daysInMonth, int $firstDayOfWeek, ?int $today, array $bookingsByDate): string {
+    $calendar = '';
+    for ($i = 0; $i < $firstDayOfWeek; $i++) $calendar .= '<div class="cal-day empty"></div>';
+    for ($day = 1; $day <= $daysInMonth; $day++) {
+        $cls = ($day === $today) ? 'cal-day today' : 'cal-day';
+        $calendar .= '<div class="' . $cls . '" onclick="showDayBookings(' . $day . ')">';
+        $calendar .= '<div class="cal-day-num">' . $day . '</div>';
+        foreach (($bookingsByDate[$day] ?? []) as $booking) {
+            $name = htmlspecialchars(substr($booking['customer_name'] ?? $booking['full_name'] ?? 'Guest', 0, 8));
+            $statusClass = htmlspecialchars($booking['status'] ?? 'pending');
+            $id = (int)$booking['id'];
+            $bookingId = '#BK-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT);
+            $calendar .= '<div class="cal-event ' . $statusClass . '" onclick="event.stopPropagation(); showBookingDetails(' . $id . ')">' . $bookingId . ' ' . $name . '</div>';
+        }
+        $calendar .= '</div>';
+    }
+    $totalCells = $firstDayOfWeek + $daysInMonth;
+    for ($i = 0; $i < (42 - $totalCells); $i++) $calendar .= '<div class="cal-day empty"></div>';
+    return $calendar;
+}
+$calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsByDate);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -74,26 +156,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 <div class="admin-layout">
 
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-name">Luke's Seafood Trading<span>Staff Panel</span></div>
-      <div class="role-pill"><i class="fa-solid fa-id-badge"></i> Staff Access</div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <a href="staff-dashboard.php" class="nav-item"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-      <div class="nav-section-label">My Work</div>
-      <a href="staff-bookings.php" class="nav-item active"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
-      <a href="staff-orders.php" class="nav-item"><i class="fa-solid fa-bag-shopping"></i> Orders</a>
-      <div class="nav-section-label">View Only</div>
-      <a href="staff-customers.php" class="nav-item"><i class="fa-solid fa-users"></i> Customers</a>
-      <div class="nav-section-label">Restricted</div>
-      <span class="nav-item locked"><i class="fa-solid fa-layer-group"></i> Content Management</span>
-      <span class="nav-item locked"><i class="fa-solid fa-shield-halved"></i> Security & Logs</span>
-      <span class="nav-item locked"><i class="fa-solid fa-sliders"></i> System Config</span>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="staff-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-    </div>
+<?php $staffNavActive = 'bookings'; require __DIR__ . '/staff-sidebar-nav.php'; ?>
   </aside>
 
   <div class="main-content">
@@ -164,50 +227,65 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
       <!-- CALENDAR -->
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title"><i class="fa-solid fa-calendar" style="color:var(--red);margin-right:8px;"></i><?= date('F Y') ?> — Calendar View</span>
-          <div class="flex-gap">
-            <span class="badge badge-green">● Confirmed</span>
-            <span class="badge badge-yellow">● Pending</span>
-            <span class="badge badge-red">● Cancelled</span>
+          <div class="flex-between calendar-toolbar">
+            <div class="flex-gap" style="align-items:center;flex-wrap:wrap;">
+              <span class="panel-title"><i class="fa-solid fa-calendar" style="color:var(--red);margin-right:8px;"></i><?= date('F Y', mktime(0, 0, 0, $currentMonth, 1, $currentYear)) ?></span>
+              <select id="viewToggle" onchange="toggleView()">
+                <option value="calendar" <?= $viewMode === 'calendar' ? 'selected' : '' ?>>Calendar View</option>
+                <option value="table" <?= $viewMode === 'table' ? 'selected' : '' ?>>Table View</option>
+              </select>
+              <select id="yearSelect" onchange="changeYear()">
+                <?php for ($year = 2020; $year <= 2030; $year++): ?>
+                  <option value="<?= $year ?>" <?= $year === $currentYear ? 'selected' : '' ?>><?= $year ?></option>
+                <?php endfor; ?>
+              </select>
+            </div>
+            <div class="calendar-nav-group">
+              <button class="btn btn-outline btn-sm" onclick="navigateMonth('prev')" title="Previous Month"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+              <button class="btn btn-outline btn-sm" onclick="navigateMonth('next')" title="Next Month">Next <i class="fa-solid fa-chevron-right"></i></button>
+              <span class="badge badge-green">Confirmed</span>
+              <span class="badge badge-yellow">Pending</span>
+              <span class="badge badge-red">Cancelled</span>
+            </div>
           </div>
         </div>
         <div class="panel-body">
-          <?php
-          $today   = (int)date('j');
-          $month   = (int)date('n');
-          $year    = (int)date('Y');
-          $start   = (int)date('w', mktime(0,0,0,$month,1,$year)); // day of week for 1st
-          $daysInMonth = (int)date('t');
-
-          // Build booking map by day
-          $bookingMap = [];
-          foreach ($bookings as $b) {
-              if (!$b['event_date']) continue;
-              $d = (int)date('j', strtotime($b['event_date']));
-              $bookingMap[$d][] = $b;
-          }
-          ?>
-          <div class="calendar-grid">
-            <?php foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $h): ?>
-              <div class="cal-header"><?= $h ?></div>
-            <?php endforeach; ?>
-            <?php for($i = 0; $i < $start; $i++): ?>
-              <div class="cal-day empty"></div>
-            <?php endfor; ?>
-            <?php for($d = 1; $d <= $daysInMonth; $d++): ?>
-              <div class="cal-day <?= $d === $today ? 'today' : '' ?>">
-                <div class="cal-day-num"><?= $d ?></div>
-                <?php foreach(($bookingMap[$d] ?? []) as $ev): ?>
-                  <div class="cal-event <?= htmlspecialchars($ev['status']) ?>">
-                    <?= htmlspecialchars(substr($ev['customer_name'], 0, 8)) ?>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-            <?php endfor; ?>
-          </div>
+          <?php if ($viewMode === 'calendar'): ?>
+            <div class="calendar-grid">
+              <div class="cal-header">Sun</div><div class="cal-header">Mon</div><div class="cal-header">Tue</div>
+              <div class="cal-header">Wed</div><div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div>
+              <?= $calendar ?>
+            </div>
+          <?php else: ?>
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead><tr>
+                  <th>ID</th><th>Customer</th><th>Event</th><th>Date</th><th>Time</th><th>Type</th><th>Guests</th><th>Status</th><th>Actions</th>
+                </tr></thead>
+                <tbody>
+                  <?php if (empty($bookings)): ?>
+                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No bookings found.</td></tr>
+                  <?php else: ?>
+                  <?php foreach ($bookings as $booking): ?>
+                  <tr>
+                    <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
+                    <td><?= htmlspecialchars($booking['customer_name']) ?></td>
+                    <td><?= htmlspecialchars($booking['event_name'] ?? 'N/A') ?></td>
+                    <td><?= $booking['event_date'] ? date('M d, Y', strtotime($booking['event_date'])) : 'N/A' ?></td>
+                    <td><?= !empty($booking['event_time']) ? date('g:i A', strtotime($booking['event_time'])) : 'N/A' ?></td>
+                    <td><?= htmlspecialchars($booking['event_type'] ?? 'N/A') ?></td>
+                    <td><?= htmlspecialchars($booking['num_guests'] ?? 'N/A') ?></td>
+                    <td><?= statusBadge($booking['status']) ?></td>
+                    <td><button class="action-btn" title="View Details" onclick="showBookingDetails(<?= (int)$booking['id'] ?>)"><i class="fa-solid fa-eye"></i></button></td>
+                  </tr>
+                  <?php endforeach; ?>
+                  <?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
-
       <!-- BOOKINGS TABLE -->
       <div class="panel">
         <div class="panel-header">
@@ -279,7 +357,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
                     </form>
                     <?php else: ?>
                     <!-- View only for non-pending -->
-                    <button class="action-btn" title="No actions available for this status" style="opacity:0.35;cursor:default;">
+                    <button class="action-btn" title="View Details" onclick="showBookingDetails(<?= (int)$b['id'] ?>)">
                       <i class="fa-solid fa-eye"></i>
                     </button>
                     <?php endif; ?>
@@ -297,6 +375,54 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
   </div>
 </div>
 
+<div class="modal-overlay" id="bookingDetailModal">
+  <div class="modal">
+    <div class="modal-title"><i class="fa-solid fa-info-circle" style="color:var(--red);margin-right:8px;"></i>Booking Details</div>
+    <div class="modal-body">
+      <div style="margin-bottom:20px;">
+        <div class="booking-id" id="bookingDetailId">#BK-001</div>
+        <h3 style="color:#fff;margin-bottom:15px;" id="bookingDetailName">Customer Name</h3>
+      </div>
+      <div class="booking-detail-grid">
+        <div><div class="detail-label">Event</div><div class="detail-value" id="bookingDetailEvent">Event Name</div></div>
+        <div><div class="detail-label">Date</div><div class="detail-value" id="bookingDetailDate">Date</div></div>
+        <div><div class="detail-label">Time</div><div class="detail-value" id="bookingDetailTime">Time</div></div>
+        <div><div class="detail-label">Type</div><div class="detail-value" id="bookingDetailType">Event Type</div></div>
+        <div><div class="detail-label">Guests</div><div class="detail-value" id="bookingDetailGuests">Number</div></div>
+        <div><div class="detail-label">Status</div><span class="badge badge-yellow" id="bookingDetailStatus">Status</span></div>
+      </div>
+      <div style="margin-bottom:15px;"><div class="detail-label">Address</div><div class="detail-value" id="bookingDetailAddress">Event Address</div></div>
+      <div class="booking-detail-grid">
+        <div><div class="detail-label">Contact Number</div><div class="detail-value" id="bookingDetailContact">Phone</div></div>
+        <div><div class="detail-label">Email</div><div class="detail-value" id="bookingDetailEmail">Email</div></div>
+      </div>
+      <div><div class="detail-label">Notes</div><div class="detail-value" id="bookingDetailNotes">Notes</div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('bookingDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="dayBookingsModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-title"><i class="fa-solid fa-calendar-day" style="color:var(--red);margin-right:8px;"></i>Bookings for Date</div>
+    <div class="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('dayBookingsModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+window.STAFF_BOOKINGS_CONTEXT = {
+  month: <?= (int)$currentMonth ?>,
+  year: <?= (int)$currentYear ?>,
+  view: <?= json_encode($viewMode) ?>
+};
+</script>
 <script src="staff-bookings.js?v=<?= time() ?>"></script>
 </body>
 </html>

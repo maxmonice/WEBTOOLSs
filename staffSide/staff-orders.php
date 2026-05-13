@@ -118,26 +118,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
 <div class="admin-layout">
 
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-name">Luke's Seafood Trading<span>Staff Panel</span></div>
-      <div class="role-pill"><i class="fa-solid fa-id-badge"></i> Staff Access</div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <a href="staff-dashboard.php" class="nav-item"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-      <div class="nav-section-label">My Work</div>
-      <a href="staff-bookings.php" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
-      <a href="staff-orders.php" class="nav-item active"><i class="fa-solid fa-bag-shopping"></i> Orders</a>
-      <div class="nav-section-label">View Only</div>
-      <a href="staff-customers.php" class="nav-item"><i class="fa-solid fa-users"></i> Customers</a>
-      <div class="nav-section-label">Restricted</div>
-      <span class="nav-item locked"><i class="fa-solid fa-layer-group"></i> Content Management</span>
-      <span class="nav-item locked"><i class="fa-solid fa-shield-halved"></i> Security &amp; Logs</span>
-      <span class="nav-item locked"><i class="fa-solid fa-sliders"></i> System Config</span>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="staff-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-    </div>
+<?php $staffNavActive = 'orders'; require __DIR__ . '/staff-sidebar-nav.php'; ?>
   </aside>
 
   <div class="main-content">

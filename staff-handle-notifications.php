@@ -1,6 +1,13 @@
 <?php
-require_once 'staff-config.php';
-require_once 'Notifications.php';
+require_once __DIR__ . '/staffSide/staff-config.php';
+require_once __DIR__ . '/Notifications.php';
+
+if (empty($_SESSION['is_staff']) && empty($_SESSION['is_admin'])) {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Forbidden']);
+    exit;
+}
 
 header('Content-Type: application/json');
 
@@ -17,6 +24,7 @@ $action = $input['action'] ?? '';
 
 $notifications = new Notifications($pdo);
 $userId = $_SESSION['user_id'] ?? null;
+$notifRole = !empty($_SESSION['is_staff']) ? 'staff' : 'admin';
 
 switch ($action) {
     case 'mark_read':
@@ -30,7 +38,7 @@ switch ($action) {
         break;
         
     case 'mark_all_read':
-        $success = $notifications->markAllAsRead('staff', $userId);
+        $success = $notifications->markAllAsRead($notifRole, $userId);
         echo json_encode(['success' => $success]);
         break;
         

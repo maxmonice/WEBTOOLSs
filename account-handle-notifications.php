@@ -4,6 +4,10 @@ require_once 'Notifications.php';
 
 header('Content-Type: application/json');
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

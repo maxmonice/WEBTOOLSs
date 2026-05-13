@@ -1,5 +1,9 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
+if (!empty($_SESSION['is_staff']) && empty($_SESSION['is_admin'])) {
+    header('Location: ../staffSide/staff-chat.php');
+    exit;
+}
 if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
     header('Location: login.php');
     exit;
@@ -12,12 +16,13 @@ $pdo = getDB();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Support — Luke's Seafood</title>
+    <title>Admin Support - Luke's Seafood</title>
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admin.css">
     <style>
-        .chat-layout { display: grid; grid-template-columns: 350px 1fr; height: calc(100vh - 100px); margin: 20px; background: #1a1a1a; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
+        .support-chat-page { height: calc(100vh - 64px); padding: 24px; overflow: hidden; }
+        .chat-layout { display: grid; grid-template-columns: minmax(280px, 350px) 1fr; height: 100%; background: #1a1a1a; border-radius: 14px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,0.25); }
         .thread-list { background: #161616; border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
         .thread-header { padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .thread-header h2 { font-family: 'Aclonica', sans-serif; font-size: 1.2rem; color: #fff; }
@@ -47,54 +52,81 @@ $pdo = getDB();
         
         .empty-chat { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #444; }
         .empty-chat i { font-size: 4rem; margin-bottom: 20px; }
+        @media (max-width: 900px) {
+            .support-chat-page { height: auto; min-height: calc(100vh - 58px); padding: 16px; overflow: visible; }
+            .chat-layout { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 90px); }
+            .thread-list { min-height: 260px; max-height: 38vh; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
+            .chat-main { min-height: 55vh; }
+            .message { max-width: 82%; }
+        }
     </style>
 </head>
-<body class="dark-theme">
-    <div class="admin-wrapper">
-        <header class="admin-header">
-            <div class="header-left">
-                <a href="admin-dashboard.php" class="logo">Luke's Seafood</a>
-                <span class="page-title">Support Messages</span>
-            </div>
-        </header>
+<body>
+    <div class="bg-dots"></div>
+    <div class="admin-layout">
+        <aside class="sidebar" id="sidebar">
+            <?php $adminNavActive = 'chat'; require __DIR__ . '/admin-sidebar-nav.php'; ?>
+        </aside>
 
-        <div class="chat-layout">
-            <div class="thread-list">
-                <div class="thread-header">
-                    <h2>Active Conversations</h2>
+        <div class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+                    <div>
+                        <div class="topbar-title">Support Chat</div>
+                        <div class="topbar-breadcrumb">Admin <span>/</span> Support Messages</div>
+                    </div>
                 </div>
-                <div class="threads-container" id="threadsContainer">
-                    <!-- Threads here -->
+                <div class="topbar-right">
+                    <a href="admin-account.php" class="admin-avatar" title="Account"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></a>
                 </div>
-            </div>
+            </header>
 
-            <div class="chat-main" id="chatMain">
-                <div class="empty-chat" id="emptyChat">
-                    <i class="fas fa-comments"></i>
-                    <p>Select a conversation to start chatting</p>
-                </div>
-                
-                <div id="chatContent" style="display: none; flex-direction: column; height: 100%;">
-                    <div class="chat-main-header">
-                        <div class="thread-info">
-                            <span class="thread-name" id="activeName">Customer Name</span>
-                            <span class="thread-type" id="activeType">Customer</span>
+            <main class="support-chat-page">
+                <div class="chat-layout">
+                    <div class="thread-list">
+                        <div class="thread-header">
+                            <h2>Active Conversations</h2>
+                        </div>
+                        <div class="threads-container" id="threadsContainer">
+                            <!-- Threads here -->
                         </div>
                     </div>
-                    <div class="chat-messages" id="chatMessages">
-                        <!-- Messages -->
-                    </div>
-                    <div class="chat-input-area">
-                        <input type="text" id="chatInput" class="chat-input" placeholder="Type a message...">
-                        <button id="sendBtn" class="send-btn">Send</button>
+
+                    <div class="chat-main" id="chatMain">
+                        <div class="empty-chat" id="emptyChat">
+                            <i class="fas fa-comments"></i>
+                            <p>Select a conversation to start chatting</p>
+                        </div>
+                        
+                        <div id="chatContent" style="display: none; flex-direction: column; height: 100%;">
+                            <div class="chat-main-header">
+                                <div class="thread-info">
+                                    <span class="thread-name" id="activeName">Customer Name</span>
+                                    <span class="thread-type" id="activeType">Customer</span>
+                                </div>
+                            </div>
+                            <div class="chat-messages" id="chatMessages">
+                                <!-- Messages -->
+                            </div>
+                            <div class="chat-input-area">
+                                <input type="text" id="chatInput" class="chat-input" placeholder="Type a message...">
+                                <button id="sendBtn" class="send-btn">Send</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.toggle('open');
+        }
+
         let currentPeer = null;
 
         async function loadThreads() {
