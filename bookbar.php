@@ -16,6 +16,7 @@
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <link rel="stylesheet" href="css/booking-rating.css">
     <link rel="stylesheet" href="bookbar.css">
     
     <?php // Check session for logged-in users ?>
@@ -225,12 +226,26 @@
                                 <input type="text" class="form-input" id="address" required>
                             </label>
 
+                            <!-- Color-coded Booking Calendar -->
+                            <label class="form-label" style="margin-bottom:4px;">Event Date:</label>
+                            <div id="bookingCalendarContainer" class="booking-calendar" style="margin-bottom:16px;"></div>
+                            <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap;">
+                                <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:rgba(255,255,255,0.5);">
+                                    <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:linear-gradient(135deg,rgba(34,197,94,0.4),rgba(22,163,74,0.4));border:1px solid rgba(34,197,94,0.5);"></span> Available
+                                </div>
+                                <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:rgba(255,255,255,0.5);">
+                                    <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:linear-gradient(135deg,rgba(239,68,68,0.4),rgba(220,38,38,0.4));border:1px solid rgba(239,68,68,0.5);"></span> Fully Booked
+                                </div>
+                                <div id="selectedDateInfo" style="margin-left:auto;font-size:0.82rem;font-weight:600;color:#22c55e;display:none;">
+                                    <i class="fa-solid fa-calendar-check" style="margin-right:4px;"></i>
+                                    <span id="selectedDateText"></span>
+                                </div>
+                            </div>
+                            <!-- Hidden input for the selected date value -->
+                            <input type="hidden" id="eventDate" name="eventDate" required>
+
                             <div class="form-row">
-                                <label class="form-label">
-                                    Event Date:
-                                    <input type="text" id="eventDate" class="form-input" placeholder="Select date" readonly required>
-                                </label>
-                                <label class="form-label">
+                                <label class="form-label" style="flex:1;">
                                     Event Time:
                                     <input type="text" id="eventTime" class="form-input" placeholder="Select time" readonly required>
                                 </label>
@@ -388,8 +403,11 @@
         </div>
     </div>
 
-    <!-- Flatpickr JavaScript -->
+    <!-- Flatpickr JavaScript (still used for time picker) -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <!-- Booking Calendar Component -->
+    <script src="js/booking-calendar.js"></script>
 
     <!-- ══ AUTH GUARD SCRIPT — must load BEFORE bookbar.js ══ -->
     <script>
@@ -478,5 +496,34 @@
 
     <!-- bookbar.js loads AFTER the capture listener is registered -->
     <script src="bookbar.js"></script>
+
+    <!-- Initialize Booking Calendar after everything loads -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the color-coded booking calendar
+        if (typeof BookingCalendar !== 'undefined' && document.getElementById('bookingCalendarContainer')) {
+            window.bookingCalendar = new BookingCalendar('bookingCalendarContainer', {
+                apiUrl: 'booking-api.php',
+                onDateSelect: function(dateStr, bookingCount) {
+                    // Set the hidden input value for form submission
+                    document.getElementById('eventDate').value = dateStr;
+
+                    // Format the date nicely for display
+                    const dateObj = new Date(dateStr + 'T00:00:00');
+                    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                    const formattedDate = dateObj.toLocaleDateString('en-US', options);
+
+                    // Show selected date info
+                    const infoEl = document.getElementById('selectedDateInfo');
+                    const textEl = document.getElementById('selectedDateText');
+                    if (infoEl && textEl) {
+                        textEl.textContent = formattedDate + ' — ' + (2 - bookingCount) + ' slot(s) left';
+                        infoEl.style.display = 'inline-flex';
+                    }
+                }
+            });
+        }
+    });
+    </script>
 </body>
 </html>

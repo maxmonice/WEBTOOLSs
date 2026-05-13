@@ -56,6 +56,7 @@ function timeAgoPhp(string $datetime): string {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/booking-rating.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -280,6 +281,71 @@ function timeAgoPhp(string $datetime): string {
             padding: 24px; text-align: center; color: rgba(255,255,255,0.5);
             font-size: 0.85rem;
         }
+
+        /* ── MY ORDERS ── */
+        .orders-list { padding: 12px 22px 22px; }
+        .order-card {
+            background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 12px; padding: 18px; margin-bottom: 14px;
+            transition: border-color 0.2s;
+        }
+        .order-card:hover { border-color: var(--border-red); }
+        .order-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+        }
+        .order-card-id { font-weight: 800; font-size: 0.92rem; color: #fff; }
+        .order-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 6px; font-size: 0.7rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .order-badge.pending { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .order-badge.accepted, .order-badge.preparing { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        .order-badge.ready_for_pickup { background: rgba(168,85,247,0.15); color: #a855f7; }
+        .order-badge.on_route { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .order-badge.delivered { background: rgba(34,197,94,0.15); color: #4ade80; }
+        .order-badge.cancelled { background: rgba(239,68,68,0.15); color: #f87171; }
+        .order-card-items {
+            font-size: 0.82rem; color: rgba(255,255,255,0.55);
+            margin-bottom: 10px; line-height: 1.6;
+        }
+        .order-card-items .item-line { display: flex; justify-content: space-between; }
+        .order-card-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;
+            flex-wrap: wrap; gap: 8px;
+        }
+        .order-card-total { font-weight: 800; color: var(--red); font-size: 0.95rem; }
+        .order-card-date { font-size: 0.75rem; color: var(--muted); }
+        .order-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-deliver {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer;
+            font-family: 'Be Vietnam Pro', sans-serif; font-size: 0.78rem; font-weight: 700;
+            background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff;
+            transition: all 0.2s; letter-spacing: 0.02em;
+        }
+        .btn-deliver:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(34,197,94,0.3); }
+        .btn-rate {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer;
+            font-family: 'Be Vietnam Pro', sans-serif; font-size: 0.78rem; font-weight: 700;
+            background: linear-gradient(135deg, #C22626, #8B0A1E); color: #fff;
+            transition: all 0.2s; letter-spacing: 0.02em;
+        }
+        .btn-rate:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(194,38,38,0.3); }
+        .order-rated {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.78rem; color: #FFD700; font-weight: 600;
+        }
+        .orders-empty {
+            text-align: center; padding: 32px 20px; color: var(--muted); font-size: 0.88rem;
+        }
+        .orders-empty i { font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.4; }
+        .orders-loading {
+            text-align: center; padding: 28px; color: var(--muted); font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -387,6 +453,16 @@ function timeAgoPhp(string $datetime): string {
                         </div>
                         <i class="fa-solid fa-chevron-right mr-arrow"></i>
                     </a>
+                </div>
+            </div>
+
+            <!-- My Orders -->
+            <div class="section-block">
+                <div class="section-label"><i class="fa-solid fa-bag-shopping"></i> My Orders</div>
+                <div class="orders-list" id="ordersContainer">
+                    <div class="orders-loading" id="ordersLoading">
+                        <i class="fa-solid fa-spinner fa-spin" style="margin-right:6px;"></i> Loading your orders…
+                    </div>
                 </div>
             </div>
 
@@ -852,6 +928,185 @@ function timeAgoPhp(string $datetime): string {
         document.getElementById('mobile-menu').addEventListener('click', () => {
             document.getElementById('navMenu').classList.toggle('active');
         });
+
+        // ═══════════════════════════════════════════════
+        //  MY ORDERS — Fetch, render, mark delivered, rate
+        // ═══════════════════════════════════════════════
+        function loadMyOrders() {
+            fetch('customer-orders-api.php?action=my-orders&limit=20', { credentials: 'include' })
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('ordersContainer');
+                    const loading = document.getElementById('ordersLoading');
+                    if (loading) loading.remove();
+
+                    if (!data.success || !data.orders || data.orders.length === 0) {
+                        container.innerHTML = `
+                            <div class="orders-empty">
+                                <i class="fa-solid fa-bag-shopping"></i>
+                                <p>No orders yet</p>
+                                <small style="color:rgba(255,255,255,0.35);">Your order history will appear here</small>
+                            </div>`;
+                        return;
+                    }
+
+                    container.innerHTML = '';
+                    data.orders.forEach(order => {
+                        const card = document.createElement('div');
+                        card.className = 'order-card';
+                        card.id = `order-card-${order.id}`;
+
+                        // Status badge
+                        const statusLabels = {
+                            'pending': 'Pending', 'accepted': 'Accepted', 'preparing': 'Preparing',
+                            'ready_for_pickup': 'Ready for Pickup', 'on_route': 'On the Way',
+                            'processing': 'Processing', 'confirmed': 'Ready for Rider', 'shipped': 'On the Way',
+                            'delivered': 'Delivered', 'cancelled': 'Cancelled'
+                        };
+                        const statusLabel = statusLabels[order.status] || order.status;
+                        const statusClass = order.status.replace(/_/g, '_');
+
+                        // Items summary
+                        let itemsHTML = '';
+                        if (order.items && order.items.length > 0) {
+                            const maxShow = 3;
+                            order.items.slice(0, maxShow).forEach(item => {
+                                const qty = item.quantity || 1;
+                                const name = item.name || 'Item';
+                                itemsHTML += `<div class="item-line"><span>${qty}× ${name}</span></div>`;
+                            });
+                            if (order.items.length > maxShow) {
+                                itemsHTML += `<div style="color:rgba(255,255,255,0.35);font-style:italic;">+${order.items.length - maxShow} more item(s)</div>`;
+                            }
+                        }
+
+                        // Actions
+                        let actionsHTML = '';
+                        if (order.can_mark_delivered) {
+                            actionsHTML += `<button class="btn-deliver" onclick="handleMarkDelivered(${order.id})"><i class="fa-solid fa-check-circle"></i> Mark as Delivered</button>`;
+                        }
+                        if (order.can_rate) {
+                            actionsHTML += `<button class="btn-rate" onclick="handleRateOrder(${order.id}, ${order.rider_id}, '${(order.rider_name || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-star"></i> Rate Order</button>`;
+                        }
+                        if (order.rider_rated) {
+                            actionsHTML += `<span class="order-rated"><i class="fa-solid fa-star"></i> Rated</span>`;
+                        }
+
+                        // Date
+                        const dateObj = new Date(order.created_at);
+                        const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                        // Total
+                        const total = order.total ? '₱' + Number(order.total).toLocaleString('en-PH', {minimumFractionDigits:2}) : '';
+
+                        // Rider info
+                        let riderHTML = '';
+                        if (order.rider_name && ['on_route','shipped','delivered'].includes(order.status)) {
+                            riderHTML = `<div style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:8px;"><i class="fa-solid fa-motorcycle" style="margin-right:4px;color:var(--red);"></i> Rider: <strong style="color:rgba(255,255,255,0.7);">${order.rider_name}</strong></div>`;
+                        }
+
+                        card.innerHTML = `
+                            <div class="order-card-header">
+                                <span class="order-card-id">Order #${order.id}</span>
+                                <span class="order-badge ${statusClass}">${statusLabel}</span>
+                            </div>
+                            ${riderHTML}
+                            <div class="order-card-items">${itemsHTML || '<span style="font-style:italic;">No items</span>'}</div>
+                            <div class="order-card-footer">
+                                <div>
+                                    <span class="order-card-total">${total}</span>
+                                    <span class="order-card-date" style="margin-left:10px;">${dateStr}</span>
+                                </div>
+                                <div class="order-card-actions">${actionsHTML}</div>
+                            </div>`;
+
+                        container.appendChild(card);
+                    });
+                })
+                .catch(err => {
+                    console.error('Failed to load orders:', err);
+                    const container = document.getElementById('ordersContainer');
+                    const loading = document.getElementById('ordersLoading');
+                    if (loading) loading.remove();
+                    container.innerHTML = '<div class="orders-empty"><p>Could not load orders</p></div>';
+                });
+        }
+
+        // Mark order as delivered
+        window.handleMarkDelivered = function(orderId) {
+            if (!confirm('Confirm that you have received this order?')) return;
+
+            fetch('ratings-api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'complete-delivery', order_id: orderId })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Order marked as delivered!');
+                    if (data.requires_rating && data.rider_id) {
+                        // Fetch order details to get items for food rating
+                        fetch(`customer-orders-api.php?action=my-orders&limit=50`, { credentials: 'include' })
+                            .then(r => r.json())
+                            .then(ordersData => {
+                                const order = ordersData.orders?.find(o => o.id === orderId);
+                                const items = (order?.items || []).map(item => ({
+                                    id: item.menu_item_id || item.id,
+                                    name: item.name || 'Item'
+                                })).filter(item => item.id);
+                                showRatingModal(orderId, data.rider_id, '', items);
+                            })
+                            .catch(() => {
+                                // Show rating modal even without item details
+                                showRatingModal(orderId, data.rider_id, '', []);
+                            });
+                    } else {
+                        loadMyOrders();
+                    }
+                } else {
+                    showToast(data.error || 'Failed to mark as delivered', true);
+                }
+            })
+            .catch(() => showToast('Network error', true));
+        };
+
+        // Rate an order (for already-delivered orders)
+        window.handleRateOrder = function(orderId, riderId, riderName) {
+            fetch(`customer-orders-api.php?action=my-orders&limit=50`, { credentials: 'include' })
+                .then(r => r.json())
+                .then(ordersData => {
+                    const order = ordersData.orders?.find(o => o.id === orderId);
+                    const items = (order?.items || []).map(item => ({
+                        id: item.menu_item_id || item.id,
+                        name: item.name || 'Item'
+                    })).filter(item => item.id);
+                    showRatingModal(orderId, riderId, riderName, items);
+                })
+                .catch(() => {
+                    showRatingModal(orderId, riderId, riderName, []);
+                });
+        };
+
+        // Show the rating modal
+        function showRatingModal(orderId, riderId, riderName, items) {
+            if (typeof DeliveryRatingModal === 'undefined') {
+                showToast('Rating module not loaded', true);
+                return;
+            }
+            const modal = new DeliveryRatingModal(orderId, riderId, riderName, () => {
+                showToast('Thank you! Your ratings have been submitted.');
+                loadMyOrders();
+            });
+            modal.show(items);
+        }
+
+        // Load orders on page init
+        loadMyOrders();
     </script>
+
+    <!-- Booking Calendar & Rating JS (provides DeliveryRatingModal, StarRating classes) -->
+    <script src="js/booking-calendar.js"></script>
 </body>
 </html>

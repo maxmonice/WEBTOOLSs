@@ -36,15 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initialize Date Picker
-    flatpickr("#eventDate", {
-        dateFormat: "F j, Y",
-        minDate: "today",
-        theme: "dark",
-        disableMobile: true,
-    });
-
-    // Initialize Time Picker
+    // Initialize Time Picker (date picker is now handled by BookingCalendar in bookbar.php)
     flatpickr("#eventTime", {
         enableTime: true,
         noCalendar: true,
@@ -357,42 +349,46 @@ document.addEventListener('DOMContentLoaded', () => {
             return date.toISOString().split('T')[0]; // Returns Y-m-d
         };
         
-        // Prepare data for submission
+        // Prepare data for the booking API, which enforces the 2-bookings-per-day limit.
         const submissionData = {
-            action: 'create_booking',
-            eventName: formData.eventName,
-            fullName: formData.fullName,
-            contactNumber: formData.contactNumber,
-            emailAddress: formData.emailAddress,
-            eventDate: formatDateForDB(formData.eventDate),
-            eventTime: formData.eventTime,
-            eventType: formData.eventType,
-            numGuests: formData.numGuests,
-            address: formData.address,
-            notes: formData.notes,
-            userEmail: formData.userEmail,
-            userName: formData.userName
+            action: 'create',
+            booking_data: {
+                event_name: formData.eventName,
+                full_name: formData.fullName,
+                contact_number: formData.contactNumber,
+                email_address: formData.emailAddress,
+                event_date: formatDateForDB(formData.eventDate),
+                event_time: formData.eventTime,
+                event_type: formData.eventType,
+                num_guests: formData.numGuests,
+                address: formData.address,
+                notes: formData.notes,
+                user_email: formData.userEmail,
+                user_name: formData.userName
+            }
         };
         
         console.log('Submitting booking data:', submissionData);
         
         // Send booking data to server
-        fetch('admin-bookings.php', {
+        fetch('booking-api.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify(submissionData)
         })
-        .then(response => {
+        .then(async response => {
             console.log('Response status:', response.status);
             console.log('Response headers:', response.headers);
-            
+
+            const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
             }
-            
-            return response.json();
+
+            return data;
         })
         .then(data => {
             console.log('Response data:', data);
@@ -411,12 +407,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.reload();
                 }, 2000);
             } else {
-                showNotification(data.message || 'Failed to submit booking', 'error');
+                showNotification(data.error || data.message || 'Failed to submit booking', 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showNotification('Failed to submit booking. Please try again.', 'error');
+            showNotification(error.message || 'Failed to submit booking. Please try again.', 'error');
         });
     };
 

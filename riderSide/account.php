@@ -1,7 +1,48 @@
 <?php
 require_once __DIR__ . '/rider-session.php';
+require_once __DIR__ . '/../Db.php';
 startRiderSession();
 if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
+
+// Fetch rider profile + rating from database
+$riderId = (int)$_SESSION['rider_id'];
+$riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
+$riderPhone = '';
+$riderPlate = '';
+$riderEarnings = 0;
+$riderMonthEarnings = 0;
+$riderDeliveries = 0;
+$riderAvgRating = 0;
+$riderRatingCount = 0;
+$riderIdDisplay = 'LKS-R-' . str_pad($riderId, 4, '0', STR_PAD_LEFT);
+
+try {
+    $db = getDB();
+    // Get rider info
+    $stmt = $db->prepare("SELECT name, phone, vehicle_plate, average_rating, rating_count FROM riders WHERE id = ?");
+    $stmt->execute([$riderId]);
+    $riderData = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($riderData) {
+        $riderName = htmlspecialchars($riderData['name'] ?: $riderName);
+        $riderPhone = htmlspecialchars($riderData['phone'] ?? '');
+        $riderPlate = htmlspecialchars($riderData['vehicle_plate'] ?? '');
+        $riderAvgRating = $riderData['average_rating'] ? round(floatval($riderData['average_rating']), 1) : 0;
+        $riderRatingCount = (int)($riderData['rating_count'] ?? 0);
+    }
+
+    // Count completed deliveries
+    $delStmt = $db->prepare("SELECT COUNT(*) FROM orders WHERE assigned_rider_id = ? AND status = 'delivered'");
+    $delStmt->execute([$riderId]);
+    $riderDeliveries = (int)$delStmt->fetchColumn();
+
+} catch (Exception $e) {
+    // Silently continue with defaults
+}
+
+// Generate star display
+$filledStars = $riderAvgRating > 0 ? round($riderAvgRating) : 0;
+$starsDisplay = str_repeat('★', $filledStars) . str_repeat('☆', 5 - $filledStars);
+$ratingDisplay = $riderAvgRating > 0 ? number_format($riderAvgRating, 1) : 'N/A';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -32,11 +73,14 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
         🏍️
         <div class="avatar-online"></div>
       </div>
-      <div class="account-name">Marco Rivera</div>
-      <div class="account-id">Rider ID: LKS-R-0042</div>
+      <div class="account-name"><?= $riderName ?></div>
+      <div class="account-id">Rider ID: <?= $riderIdDisplay ?></div>
       <div class="rating-row">
-        <div class="rating-stars">★★★★★</div>
-        <div class="rating-val">4.9</div>
+        <div class="rating-stars" id="riderStars"><?= $starsDisplay ?></div>
+        <div class="rating-val" id="riderRatingVal"><?= $ratingDisplay ?></div>
+        <?php if ($riderRatingCount > 0): ?>
+        <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin-left:4px;">(<?= $riderRatingCount ?> ratings)</div>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -68,7 +112,7 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
           <div class="account-row-icon"><i class="fas fa-user"></i></div>
           <div class="account-row-text">
             <div class="account-row-label">Full Name</div>
-            <div class="account-row-sub">Marco Rivera</div>
+            <div class="account-row-sub"><?= $riderName ?></div>
           </div>
           <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
         </div>
@@ -76,7 +120,7 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
           <div class="account-row-icon"><i class="fas fa-phone"></i></div>
           <div class="account-row-text">
             <div class="account-row-label">Mobile Number</div>
-            <div class="account-row-sub">0917 123 4567</div>
+            <div class="account-row-sub"><?= $riderPhone ?: 'Not set' ?></div>
           </div>
           <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
         </div>
@@ -84,7 +128,7 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
           <div class="account-row-icon"><i class="fas fa-motorcycle"></i></div>
           <div class="account-row-text">
             <div class="account-row-label">Vehicle Plate</div>
-            <div class="account-row-sub">ABC 1234</div>
+            <div class="account-row-sub"><?= $riderPlate ?: 'Not set' ?></div>
           </div>
           <div class="account-row-right"><i class="fas fa-chevron-right"></i></div>
         </div>
@@ -114,7 +158,7 @@ if (empty($_SESSION['rider_id'])) { header('Location: login.php'); exit; }
             <div class="account-row-label">Total Deliveries</div>
             <div class="account-row-sub">Completed orders</div>
           </div>
-          <div class="account-row-right" style="font-weight:800">284</div>
+          <div class="account-row-right" style="font-weight:800"><?= $riderDeliveries ?></div>
         </div>
       </div>
 

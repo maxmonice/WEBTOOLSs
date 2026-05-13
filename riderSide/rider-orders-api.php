@@ -28,6 +28,18 @@ try {
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
+function orderColumnExists(PDO $pdo, string $column): bool {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'orders'
+          AND COLUMN_NAME = ?
+    ");
+    $stmt->execute([$column]);
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 // ── Fetch rider queue (processing + confirmed) ──
 if ($action === 'get_rider_orders' || $action === 'get_confirmed_orders') {
     $stmt = $pdo->prepare("
@@ -82,9 +94,23 @@ if ($action === 'accept_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     try {
-        // Store rider_id as VARCHAR-compatible string
-        $stmt = $pdo->prepare("UPDATE orders SET status = 'shipped', rider_id = ?, updated_at = NOW() WHERE id = ? AND status = 'confirmed'");
-        $stmt->execute([(string)$riderId, $orderId]);
+        $setParts = ["status = 'shipped'"];
+        $values = [];
+        if (orderColumnExists($pdo, 'rider_id')) {
+            $setParts[] = 'rider_id = ?';
+            $values[] = (string)$riderId;
+        }
+        if (orderColumnExists($pdo, 'assigned_rider_id')) {
+            $setParts[] = 'assigned_rider_id = ?';
+            $values[] = (int)$riderId;
+        }
+        if (orderColumnExists($pdo, 'updated_at')) {
+            $setParts[] = 'updated_at = NOW()';
+        }
+        $values[] = $orderId;
+
+        $stmt = $pdo->prepare("UPDATE orders SET " . implode(', ', $setParts) . " WHERE id = ? AND status = 'confirmed'");
+        $stmt->execute($values);
         if ($stmt->rowCount() === 0) {
             echo json_encode(['success' => false, 'message' => 'Order is not sent to rider yet.']);
             exit;
@@ -104,7 +130,14 @@ if ($action === 'deliver_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     try {
-        $pdo->prepare("UPDATE orders SET status = 'delivered', updated_at = NOW() WHERE id = ?")
+        $setParts = ["status = 'delivered'"];
+        if (orderColumnExists($pdo, 'delivered_at')) {
+            $setParts[] = 'delivered_at = NOW()';
+        }
+        if (orderColumnExists($pdo, 'updated_at')) {
+            $setParts[] = 'updated_at = NOW()';
+        }
+        $pdo->prepare("UPDATE orders SET " . implode(', ', $setParts) . " WHERE id = ?")
             ->execute([$orderId]);
         echo json_encode(['success' => true]);
     } catch (PDOException $e) {
