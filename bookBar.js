@@ -52,16 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (storedName && fullNameInput && !fullNameInput.value) fullNameInput.value = storedName;
     if (storedEmail && emailInput && !emailInput.value) emailInput.value = storedEmail;
 
-    // ─── Date & Time Pickers ────────────────────────────────────────────────────
-    flatpickr("#eventDate", {
-        dateFormat: "F j, Y",
-        minDate: new Date().fp_incr(2), // 2 days lead time
-        theme: "dark",
-        disableMobile: true,
-        onChange: () => clearError('eventDate')
-    });
-
-
+    // Event date: set by BookingCalendar (bookbar.php) into hidden #eventDate (Y-m-d).
+    // Time-only picker below.
     flatpickr("#eventTime", {
         enableTime: true,
         noCalendar: true,
@@ -447,10 +439,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function showSummaryPopup() {
+        const rawDate = document.getElementById('eventDate').value;
+        let eventDateLabel = rawDate;
+        if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+            const d = new Date(rawDate.trim() + 'T12:00:00');
+            if (!isNaN(d.getTime())) {
+                eventDateLabel = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            }
+        }
         const data = {
             eventName: document.getElementById('eventName').value,
             address: document.getElementById('address').value,
-            eventDate: document.getElementById('eventDate').value,
+            eventDate: eventDateLabel,
             eventTime: document.getElementById('eventTime').value,
             eventType: document.getElementById('eventType').value,
             numGuests: document.getElementById('numGuests').value,
@@ -499,8 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSummaryPopup();
         if (!window.__isLoggedIn) { showNotification('Please log in first', 'error'); return; }
 
-        const submissionData = {
-            action: 'create_booking',
+        const formData = {
             eventName: document.getElementById('eventName').value,
             fullName: document.getElementById('fullName').value,
             contactNumber: document.getElementById('contactNumber').value,
@@ -515,36 +514,80 @@ document.addEventListener('DOMContentLoaded', () => {
             userName: sessionStorage.getItem('user_name')
         };
 
-        fetch('adminSide/admin-bookings.php', {
+        if (!formData.eventName || !formData.fullName || !formData.contactNumber || !formData.emailAddress || !formData.eventDate || !formData.eventTime || !formData.eventType || !formData.numGuests || !formData.address) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+
+        const formatDateForDB = (dateStr) => {
+            if (!dateStr) return '';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+                return dateStr.trim();
+            }
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+                return date.toISOString().split('T')[0];
+            }
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                return dateStr;
+            }
+            return '';
+        };
+
+        const payload = {
+            action: 'create',
+            booking_data: {
+                event_name: formData.eventName,
+                full_name: formData.fullName,
+                contact_number: formData.contactNumber,
+                email_address: formData.emailAddress,
+                event_date: formatDateForDB(formData.eventDate),
+                event_time: formData.eventTime,
+                event_type: formData.eventType,
+                num_guests: formData.numGuests,
+                address: formData.address,
+                notes: formData.notes,
+                user_email: formData.userEmail,
+                user_name: formData.userName
+            }
+        };
+
+        fetch('booking-api.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(submissionData)
+            credentials: 'include',
+            body: JSON.stringify(payload)
         })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
+            .then(async (response) => {
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || `Request failed (${response.status})`);
+                }
+                return data;
+            })
+            .then((data) => {
+                if (data.success) {
                     showNotification('Booking sent!', 'success');
                     bookingForm.reset();
-
-                    // Show custom post-booking info modal
+                    if (window.bookingCalendar && typeof window.bookingCalendar.loadAvailability === 'function') {
+                        window.bookingCalendar.loadAvailability().then(() => window.bookingCalendar.renderCalendar());
+                    }
                     openInfoModal(
                         "WE CUSTOMIZE ACCORDING TO YOUR PREFERENCE AND BUDGET.",
                         "After booking, our team will call you to confirm your preferences, total budget, and booking details."
                     );
-
-                    // Change the Okay button to redirect instead of just closing
                     const okayBtn = document.querySelector('.info-btn-okay');
                     if (okayBtn) {
                         okayBtn.onclick = () => {
                             window.location.href = 'account-dashboard.php';
                         };
                     }
-
                 } else {
-                    showNotification(d.message || 'Error', 'error');
+                    showNotification(data.error || data.message || 'Error', 'error');
                 }
             })
-            .catch(() => showNotification('Submission failed', 'error'));
+            .catch((err) => showNotification(err.message || 'Submission failed', 'error'));
     };
 
     // ─── Info Modal Logic ───────────────────────────────────────────────────────

@@ -1,3 +1,18 @@
+<?php
+session_start();
+require_once 'Db.php';
+
+$pdo = getDB();
+$galleryItems = [];
+
+try {
+    $stmt = $pdo->prepare("SELECT id, name, description, image FROM content_items WHERE category = 'gallery' ORDER BY created_at DESC");
+    $stmt->execute();
+    $galleryItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Silently fail - will show placeholder
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,9 +39,15 @@
                 <a href="bookbar.php">Book Bar</a>
                 <a href="gallery.php" class="active">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
-                    <a href="account.php" class="nav-account-icon" title="Account">
-                        <i class="fas fa-user-circle"></i>
-                    </a>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                <a href="account-dashboard.php" class="nav-account-icon" title="My Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
+                <?php else: ?>
+                <a href="account.php" class="nav-account-icon" title="Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>
@@ -50,21 +71,36 @@
     <section class="gallery-section" id="gallery">
         <div class="container">
             <div class="gallery-grid">
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%2042.png?raw=true" alt="Catering Setup 1"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20128.png?raw=true" alt="Catering Setup 2"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20129.png?raw=true" alt="Catering Setup 3"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20131.png?raw=true" alt="Food Display"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20132.png?raw=true" alt="Sushi Tray"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20133.png?raw=true" alt="Event Setup"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20134.png?raw=true" alt="Catering"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20135.png?raw=true" alt="Party Setup"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20136.png?raw=true" alt="Sushi Boat"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20136.png?raw=true" alt="Table Setup"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20138.png?raw=true" alt="Buffet"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20139.png?raw=true" alt="Table"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20140.png?raw=true" alt="Staff"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20141.png?raw=true" alt="Decoration"></div>
-                <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20143.png?raw=true" alt="Service"></div>
+                <?php if (!empty($galleryItems)): ?>
+                    <?php foreach ($galleryItems as $item): ?>
+                        <div class="gallery-item">
+                            <?php if ($item['image']): ?>
+                                <img class="gallery-img" src="<?= htmlspecialchars($item['image']) ?>" alt="<?= htmlspecialchars($item['name'] ?? 'Gallery Image') ?>">
+                            <?php else: ?>
+                                <div style="display: flex; align-items: center; justify-content: center; height: 250px; background: #f0f0f0;">
+                                    <i class="fa-solid fa-image" style="font-size: 3rem; color: #ccc;"></i>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <!-- Fallback gallery items if database is empty -->
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%2042.png?raw=true" alt="Catering Setup 1"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20128.png?raw=true" alt="Catering Setup 2"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20129.png?raw=true" alt="Catering Setup 3"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20131.png?raw=true" alt="Food Display"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20132.png?raw=true" alt="Sushi Tray"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20133.png?raw=true" alt="Event Setup"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20134.png?raw=true" alt="Catering"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20135.png?raw=true" alt="Party Setup"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20136.png?raw=true" alt="Sushi Boat"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20136.png?raw=true" alt="Table Setup"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20138.png?raw=true" alt="Buffet"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20139.png?raw=true" alt="Table"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20140.png?raw=true" alt="Staff"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20141.png?raw=true" alt="Decoration"></div>
+                    <div class="gallery-item"><img class="gallery-img" src="https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20143.png?raw=true" alt="Service"></div>
+                <?php endif; ?>
             </div>
         </div>
     </section>

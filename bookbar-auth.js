@@ -44,7 +44,7 @@ function renderAuthUI() {
         btn.classList.remove('locked');
     } else {
         bar.className  = 'auth-status-bar signed-out';
-        bar.innerHTML  = `<i class="fa-solid fa-triangle-exclamation"></i> You're not signed in — you must <a href="account.html">log in</a> to submit a booking.`;
+        bar.innerHTML  = `<i class="fa-solid fa-triangle-exclamation"></i> You're not signed in — you must <a href="account.php">log in</a> to submit a booking.`;
         bar.style.display = 'flex';
         btn.classList.add('locked');
     }

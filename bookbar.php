@@ -1,3 +1,8 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,47 +10,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Luke's Seafood Trading - Book Bar</title>
 
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome -->
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Flatpickr CSS -->
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-    
-    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="css/booking-rating.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <link rel="stylesheet" href="bookbar.css">
 
     <script>
-        window.LOCATIONIQ_TOKEN = '<?php 
+        window.LOCATIONIQ_TOKEN = '<?php
             require_once __DIR__ . "/env-bootstrap.php";
             webtools_load_env(__DIR__);
-            echo getenv("LOCATIONIQ_TOKEN") ?: ""; 
+            echo getenv("LOCATIONIQ_TOKEN") ?: "";
         ?>';
     </script>
-    <!-- LocationIQ Geocoder -->
     <link rel="stylesheet" href="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.css">
     <script src="https://tiles.locationiq.com/v3/libs/leaflet-geocoder/1.9.6/leaflet-geocoder-locationiq.min.js"></script>
-    <!-- Leaflet Routing Machine -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-
-
-
 </head>
 
 <body>
 
-    <!-- Grain overlay -->
     <div class="grain-overlay"></div>
 
-    <!-- Header -->
     <header>
         <div class="container header-container">
             <div class="logo">Luke's Seafood Trading</div>
@@ -53,27 +46,30 @@
             <nav class="nav-menu" id="navMenu">
                 <a href="index.php">Home</a>
                 <a href="menu.php">Menu</a>
-                <a href="bookBar.php" class="active">Book Bar</a>
+                <a href="bookbar.php" class="active">Book Bar</a>
                 <a href="gallery.php">Gallery</a>
                 <a href="aboutUs.php">About Us</a>
+                <?php if (!empty($_SESSION['user_id'])): ?>
+                <a href="account-dashboard.php" class="nav-account-icon" title="My Account">
+                    <i class="fas fa-user-circle"></i>
+                </a>
+                <?php else: ?>
                 <a href="account.php" class="nav-account-icon" title="Account">
                     <i class="fas fa-user-circle"></i>
                 </a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>
 
-    <!-- Main Content -->
     <main>
         <section class="hero-section">
 
-            <!-- Banner -->
             <div class="banner-container">
                 <img src="https://github.com/maxmonice/WEBTOOLS/blob/2d17035d2195524857c2d553525d08579e0f6373/images/sushibar.webp?raw=true" class="banner-top-image" alt="Sushi bar" />
                 <img src="https://github.com/maxmonice/WEBTOOLS/blob/2d17035d2195524857c2d553525d08579e0f6373/images/bylukes2.webp?raw=true" class="banner-bottom-image" alt="By Lukes" />
             </div>
 
-            <!-- Event Booking Form -->
             <div class="form-container">
                 <div style="text-align: center; margin: 40px 0;">
                     <h1 style="font-family: 'Aclonica', sans-serif; font-size: 2.5rem; font-weight: bold;">
@@ -83,16 +79,13 @@
                 </div>
 
                 <div class="form-box">
-                    <!-- Auth status banner (dynamically shown) -->
                     <div id="authStatusBar" class="auth-status-bar" style="display:none;"></div>
 
-                    <!-- Help Icon -->
                     <div class="form-help-icon" id="formHelpIcon" title="Booking Info">
                         <i class="fa-solid fa-circle-question"></i>
                     </div>
 
                     <form id="bookingForm">
-                        <!-- Event Details -->
                         <h2 class="form-title">Event Details</h2>
 
                         <div class="form-group">
@@ -113,23 +106,30 @@
                                 <span class="error-message" id="addressError">Please provide or select an address</span>
                             </label>
 
-
+                            <label class="form-label" style="margin-bottom:4px;">Event Date:</label>
+                            <div id="bookingCalendarContainer" class="booking-calendar" style="margin-bottom:16px;"></div>
+                            <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap;">
+                                <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:rgba(255,255,255,0.5);">
+                                    <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:linear-gradient(135deg,rgba(34,197,94,0.4),rgba(22,163,74,0.4));border:1px solid rgba(34,197,94,0.5);"></span> Available
+                                </div>
+                                <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:rgba(255,255,255,0.5);">
+                                    <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:linear-gradient(135deg,rgba(239,68,68,0.4),rgba(220,38,38,0.4));border:1px solid rgba(239,68,68,0.5);"></span> Fully Booked
+                                </div>
+                                <div id="selectedDateInfo" style="margin-left:auto;font-size:0.82rem;font-weight:600;color:#22c55e;display:none;">
+                                    <i class="fa-solid fa-calendar-check" style="margin-right:4px;"></i>
+                                    <span id="selectedDateText"></span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="eventDate" name="eventDate" value="" required>
+                            <span class="error-message" id="eventDateError">Please select a date</span>
 
                             <div class="form-row">
-                                <label class="form-label">
-                                    Event Date:
-                                    <input type="text" id="eventDate" class="form-input" placeholder="Select date" readonly required>
-                                    <span class="error-message" id="eventDateError">Please select a date</span>
-                                </label>
                                 <label class="form-label">
                                     Event Time:
                                     <input type="text" id="eventTime" class="form-input" placeholder="Select time" readonly required>
                                     <span class="error-message" id="eventTimeError">Please select a time</span>
                                 </label>
                             </div>
-
-
-
 
                             <label class="form-label">
                                 Event Type:
@@ -167,13 +167,8 @@
                                 </select>
                                 <span class="error-message" id="numGuestsError">Please select the number of guests</span>
                             </label>
-
-
-
-
                         </div>
 
-                        <!-- Contact Details -->
                         <h2 class="form-title" style="margin-top: 40px;">Contact Details</h2>
 
                         <div class="form-group">
@@ -202,7 +197,6 @@
                             </label>
                         </div>
 
-                        <!-- Submit Button -->
                         <div style="text-align: center;">
                             <button type="submit" class="submit-btn" id="submitBtn">Submit</button>
                         </div>
@@ -213,7 +207,6 @@
         </section>
     </main>
 
-    <!-- Footer -->
     <footer>
         <div class="container">
             <div class="footer-grid desktop-view">
@@ -270,7 +263,6 @@
         </div>
     </footer>
 
-    <!-- ══ AUTH GUARD MODAL ══ -->
     <div class="auth-modal-overlay" id="authModal">
         <div class="auth-modal">
             <div class="auth-modal-icon">
@@ -290,7 +282,6 @@
         </div>
     </div>
 
-    <!-- ══ INFO MODAL ══ -->
     <div class="info-modal-overlay" id="infoModal">
         <div class="info-modal">
             <div class="info-modal-header">
@@ -306,17 +297,38 @@
         </div>
     </div>
 
-    <!-- Flatpickr & Leaflet JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-
-    <!-- ══ AUTH GUARD SCRIPT — must load BEFORE bookbar.js ══ -->
+    <script src="js/booking-calendar.js"></script>
     <script src="bookbar-auth.js?v=<?= time() ?>"></script>
+    <script src="bookBar.js?v=<?= time() ?>"></script>
 
-    <!-- bookbar.js loads AFTER the capture listener is registered -->
-    <script src="bookbar.js"></script>
-<!-- DUPLICATE BOOKING WARNING MODAL -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof BookingCalendar !== 'undefined' && document.getElementById('bookingCalendarContainer')) {
+            window.bookingCalendar = new BookingCalendar('bookingCalendarContainer', {
+                apiUrl: 'booking-api.php',
+                onDateSelect: function(dateStr, bookingCount) {
+                    var el = document.getElementById('eventDate');
+                    if (el) {
+                        el.value = dateStr;
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    var dateObj = new Date(dateStr + 'T00:00:00');
+                    var formattedDate = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                    var infoEl = document.getElementById('selectedDateInfo');
+                    var textEl = document.getElementById('selectedDateText');
+                    if (infoEl && textEl) {
+                        textEl.textContent = formattedDate + ' — ' + (2 - bookingCount) + ' slot(s) left';
+                        infoEl.style.display = 'inline-flex';
+                    }
+                }
+            });
+        }
+    });
+    </script>
+
 <div class="modal-overlay" id="duplicateBookingModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:20000; backdrop-filter:blur(10px); align-items:center; justify-content:center;">
     <div class="modal-content" style="background:#111; border:1px solid rgba(255,255,255,0.08); border-radius:24px; padding:40px; max-width:450px; text-align:center; box-shadow:0 25px 50px rgba(0,0,0,0.5);">
         <div style="width:80px; height:80px; background:rgba(245,158,11,0.1); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#f59e0b; margin:0 auto 25px; font-size:2.5rem;">
@@ -329,4 +341,6 @@
             <button onclick="closeDuplicateModal()" style="background:rgba(255,255,255,0.03); color:#fff; border:1px solid rgba(255,255,255,0.08); padding:16px; border-radius:12px; font-weight:700; cursor:pointer; font-size:1rem;">Cancel</button>
         </div>
     </div>
-</div>
+</div>
+</body>
+</html>
