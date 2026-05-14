@@ -121,6 +121,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.getModalPrice = function() {
+        const price = getModalBasePrice();
+        if (window.applyPromoPrice) {
+            return window.applyPromoPrice(window.currentItem, price).price;
+        }
+        return price;
+    }
+
+    function getModalBasePrice() {
         const basePrice     = parseRawPrice(window.currentItem.price);
         const baseVariation = window.currentItem.variations ? window.currentItem.variations[0] : null;
         if (selectedVariation && baseVariation) {
@@ -341,7 +349,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function refreshModalPrice() {
         const price = window.getModalPrice();
-        document.getElementById('modalPrice').textContent = fmt(price);
+        const basePrice = parseRawPrice(window.currentItem.price);
+        const baseVariation = window.currentItem.variations ? window.currentItem.variations[0] : null;
+        const originalPrice = selectedVariation && baseVariation
+            ? getVariationPrice(basePrice, baseVariation, selectedVariation)
+            : basePrice;
+        const promo = window.applyPromoPrice ? window.applyPromoPrice(window.currentItem, originalPrice) : null;
+        document.getElementById('modalPrice').innerHTML = promo && promo.discountPercent
+            ? `<span style="text-decoration:line-through;font-size:0.85rem;color:rgba(255,255,255,0.45);margin-right:8px;">${fmt(originalPrice)}</span>${fmt(price)}`
+            : fmt(price);
     }
 
     function closeModal() {
@@ -378,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.innerHTML = '<i class="fas fa-check" style="color: #7ed181;"></i>';
 
         if (window.addItemToCart) {
-            window.addItemToCart(window.currentItem, quantity, selectedVariation);
+            window.addItemToCart({ ...window.currentItem, rawPrice: getModalBasePrice() }, quantity, selectedVariation);
         }
         
         if (window.updateCartCount) window.updateCartCount();
@@ -395,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.currentItem) return;
 
         if (window.addItemToCart) {
-            window.addItemToCart(window.currentItem, quantity, selectedVariation);
+            window.addItemToCart({ ...window.currentItem, rawPrice: getModalBasePrice() }, quantity, selectedVariation);
         }
         
         if (window.updateCartCount) window.updateCartCount();

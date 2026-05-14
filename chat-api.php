@@ -34,6 +34,13 @@ function ensureChatTable(PDO $pdo): void {
     }
 }
 
+function firstUserIdByRole(PDO $pdo, string $role): ?int {
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1");
+    $stmt->execute([$role]);
+    $id = $stmt->fetchColumn();
+    return $id ? (int)$id : null;
+}
+
 ensureChatTable($pdo);
 
 // Determine requester identity
@@ -74,6 +81,15 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Empty message']);
             exit;
         }
+        if ($senderType === 'customer' && ($receiverType === 'admin' || $receiverType === 'support') && !$receiverId) {
+            $receiverType = 'admin';
+            $receiverId = firstUserIdByRole($pdo, 'admin') ?? firstUserIdByRole($pdo, 'staff');
+            if (!$receiverId) {
+                echo json_encode(['success' => false, 'message' => 'No support agents are available']);
+                exit;
+            }
+        }
+
         if (!$receiverId || !$receiverType) {
             echo json_encode(['success' => false, 'message' => 'Receiver is required']);
             exit;
@@ -121,6 +137,22 @@ switch ($action) {
                     ORDER BY created_at ASC
                 ");
                 $stmt->execute([$orderId]);
+            } elseif ($senderType === 'customer' && $otherType === 'admin') {
+                $stmt = $pdo->prepare("
+                    SELECT * FROM chat_messages
+                    WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff'))
+                       OR (receiver_id = ? AND receiver_type = 'customer' AND sender_type IN ('admin','staff')))
+                    ORDER BY created_at ASC
+                ");
+                $stmt->execute([$senderId, $senderId]);
+            } elseif (($senderType === 'admin' || $senderType === 'staff') && $otherType === 'customer') {
+                $stmt = $pdo->prepare("
+                    SELECT * FROM chat_messages
+                    WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff'))
+                       OR (receiver_id = ? AND receiver_type = 'customer' AND sender_type IN ('admin','staff')))
+                    ORDER BY created_at ASC
+                ");
+                $stmt->execute([$otherId, $otherId]);
             } else {
                 // Fetch by peer (Admin <-> X)
                 $stmt = $pdo->prepare("
@@ -153,21 +185,44 @@ switch ($action) {
         }
 
         try {
-            if ($senderType === 'admin') {
-                $stmt = $pdo->query("SELECT DISTINCT
+            if ($senderType === 'admin' || $senderType === 'staff') {
+                $threadRows = [];
+                $supportStmt = $pdo->query("SELECT DISTINCT
+                    CASE WHEN sender_type = 'customer' THEN sender_id ELSE receiver_id END AS peer_id,
+                    'customer' AS peer_type
+                FROM chat_messages
+                WHERE (sender_type = 'customer' AND receiver_type IN ('admin','staff'))
+                   OR (receiver_type = 'customer' AND sender_type IN ('admin','staff'))");
+                $threadRows = array_merge($threadRows, $supportStmt->fetchAll(PDO::FETCH_ASSOC));
+
+                if ($senderType === 'admin') {
+                    $stmt = $pdo->query("SELECT DISTINCT
                     CASE WHEN sender_type = 'staff' THEN sender_id ELSE receiver_id END AS peer_id,
                     CASE WHEN sender_type = 'staff' THEN sender_type ELSE receiver_type END AS peer_type
                 FROM chat_messages
                 WHERE (sender_type = 'staff' AND receiver_type = 'admin')
                    OR (sender_type = 'admin' AND receiver_type = 'staff')");
-            } elseif ($senderType === 'staff') {
-                $stmt = $pdo->prepare("SELECT DISTINCT
+                    $threadRows = array_merge($threadRows, $stmt->fetchAll(PDO::FETCH_ASSOC));
+                } else {
+                    $stmt = $pdo->prepare("SELECT DISTINCT
                     CASE WHEN sender_type = 'admin' THEN sender_id ELSE receiver_id END AS peer_id,
                     CASE WHEN sender_type = 'admin' THEN sender_type ELSE receiver_type END AS peer_type
                 FROM chat_messages
                 WHERE (sender_type = 'staff' AND receiver_type = 'admin' AND sender_id = ?)
                    OR (sender_type = 'admin' AND receiver_type = 'staff' AND receiver_id = ?)");
-                $stmt->execute([$senderId, $senderId]);
+                    $stmt->execute([$senderId, $senderId]);
+                    $threadRows = array_merge($threadRows, $stmt->fetchAll(PDO::FETCH_ASSOC));
+                }
+
+                $seen = [];
+                $peers = [];
+                foreach ($threadRows as $row) {
+                    $key = $row['peer_type'] . ':' . $row['peer_id'];
+                    if (!isset($seen[$key]) && $row['peer_id']) {
+                        $seen[$key] = true;
+                        $peers[] = $row;
+                    }
+                }
             } else {
                 $stmt = $pdo->prepare("SELECT DISTINCT
                     CASE WHEN sender_type != ? THEN sender_id ELSE receiver_id END as peer_id,
@@ -175,9 +230,8 @@ switch ($action) {
                 FROM chat_messages
                 WHERE sender_type = ? OR receiver_type = ?");
                 $stmt->execute([$senderType, $senderType, $senderType, $senderType]);
+                $peers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
-
-            $peers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($peers as &$peer) {
                 if ($peer['peer_type'] === 'customer') {
                     $u = $pdo->prepare("SELECT name FROM users WHERE id = ?");

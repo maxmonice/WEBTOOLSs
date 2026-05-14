@@ -21,7 +21,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-    <link rel="stylesheet" href="css/booking-rating.css">
+    <link rel="stylesheet" href="css/booking-rating.css?v=<?= (int) @filemtime(__DIR__ . '/css/booking-rating.css') ?: time() ?>">
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 
 
-                            <label class="form-label" style="margin-bottom:4px;">Event Date:</label>
+                            <label class="form-label" style="margin-bottom:4px;">Event Date(s):</label>
                             <div id="bookingCalendarContainer" class="booking-calendar" style="margin-bottom:16px;"></div>
                             <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap;">
                                 <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:rgba(255,255,255,0.5);">
@@ -142,15 +142,34 @@ if (session_status() === PHP_SESSION_NONE) {
                                 </div>
                             </div>
                             <input type="hidden" id="eventDate" name="eventDate" value="" required>
-                            <span class="error-message" id="eventDateError">Please select a date</span>
+                            <span class="error-message" id="eventDateError">Please select at least one date</span>
 
-                            <div class="form-row">
-                                <label class="form-label">
-                                    Event Time:
-                                    <input type="text" id="eventTime" class="form-input" placeholder="Select time" readonly required>
-                                    <span class="error-message" id="eventTimeError">Please select a time</span>
+                            <label class="form-label" style="margin-top:10px;">Event hours (time range)</label>
+                            <div class="form-row" style="gap:16px;flex-wrap:wrap;align-items:flex-end;">
+                                <label class="form-label" style="flex:1;min-width:140px;">
+                                    Start time
+                                    <input type="text" id="eventTimeStart" class="form-input" placeholder="e.g. 1:00 PM" readonly required>
+                                    <span class="error-message" id="eventTimeStartError">Select a start time</span>
+                                </label>
+                                <label class="form-label" style="flex:1;min-width:140px;">
+                                    End time
+                                    <input type="text" id="eventTimeEnd" class="form-input" placeholder="e.g. 8:00 PM" readonly required>
+                                    <span class="error-message" id="eventTimeEndError">Select an end time</span>
                                 </label>
                             </div>
+                            <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin:6px 0 12px;">Example: 1:00 PM to 8:00 PM for your bar service window.</p>
+
+                            <div id="sameTimeAllDaysRow" style="display:none;margin-bottom:12px;">
+                                <label style="display:flex;align-items:center;gap:10px;font-size:0.88rem;color:rgba(255,255,255,0.85);cursor:pointer;">
+                                    <input type="checkbox" id="sameTimeAllDays" checked style="width:18px;height:18px;accent-color:#C22626;">
+                                    Use the same hours for every selected day
+                                </label>
+                            </div>
+                            <div id="perDayTimeContainer" style="display:none;margin-bottom:16px;">
+                                <p style="font-size:0.82rem;color:rgba(255,255,255,0.65);margin-bottom:10px;">Set start and end time for each date:</p>
+                                <div id="perDayTimeRows" class="per-day-time-rows"></div>
+                            </div>
+                            <input type="hidden" id="eventTime" name="eventTime" value="">
 
 
 
@@ -333,7 +352,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <!-- Flatpickr & Leaflet JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="js/booking-calendar.js"></script>
+    <script src="js/booking-calendar.js?v=<?= (int) @filemtime(__DIR__ . '/js/booking-calendar.js') ?: time() ?>"></script>
 
 
     <!-- ══ AUTH GUARD SCRIPT — must load BEFORE bookbar.js ══ -->
@@ -346,20 +365,30 @@ if (session_status() === PHP_SESSION_NONE) {
         if (typeof BookingCalendar !== 'undefined' && document.getElementById('bookingCalendarContainer')) {
             window.bookingCalendar = new BookingCalendar('bookingCalendarContainer', {
                 apiUrl: 'booking-api.php',
-                onDateSelect: function(dateStr, bookingCount) {
+                multiSelect: true,
+                onlyFutureDates: true,
+                onDateSelect: function(dateStr, bookingCount, selectedDates) {
                     var el = document.getElementById('eventDate');
+                    var dates = selectedDates || [];
                     if (el) {
-                        el.value = dateStr;
+                        el.value = dates.join(',');
                         el.dispatchEvent(new Event('input', { bubbles: true }));
                         el.dispatchEvent(new Event('change', { bubbles: true }));
                     }
-                    var dateObj = new Date(dateStr + 'T00:00:00');
-                    var formattedDate = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                    var formattedDates = dates.map(function(value) {
+                        var dateObj = new Date(value + 'T00:00:00');
+                        return dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                    });
                     var infoEl = document.getElementById('selectedDateInfo');
                     var textEl = document.getElementById('selectedDateText');
                     if (infoEl && textEl) {
-                        textEl.textContent = formattedDate + ' - ' + (2 - bookingCount) + ' slot(s) left';
-                        infoEl.style.display = 'inline-flex';
+                        textEl.textContent = formattedDates.length
+                            ? formattedDates.join(', ') + ' selected'
+                            : '';
+                        infoEl.style.display = formattedDates.length ? 'inline-flex' : 'none';
+                    }
+                    if (typeof window.onBookingDatesChanged === 'function') {
+                        window.onBookingDatesChanged(dates);
                     }
                 }
             });

@@ -10,10 +10,49 @@ class BookingCalendar {
         this.element = document.getElementById(elementId);
         this.apiUrl = options.apiUrl || 'booking-api.php';
         this.onDateSelect = options.onDateSelect || null;
+        this.multiSelect = !!options.multiSelect;
+        /** When true (default), today and past dates are not selectable — only strict future Y-m-d. */
+        this.onlyFutureDates = options.onlyFutureDates !== false;
         this.availability = {};
         this.selectedDate = null;
+        this.selectedDates = [];
         this.currentMonth = new Date();
         this.init();
+    }
+
+    /** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one). */
+    getTodayYmdLocal() {
+        const t = new Date();
+        const y = t.getFullYear();
+        const m = String(t.getMonth() + 1).padStart(2, '0');
+        const d = String(t.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    isSelectableByDateRule(dateStr) {
+        if (!this.onlyFutureDates) return true;
+        return dateStr > this.getTodayYmdLocal();
+    }
+
+    /** Local Y-m-d for a Date (never use toISOString() for calendar ranges — UTC shifts the day). */
+    formatLocalYmd(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    /** Remove today/past from selection; returns whether anything changed. */
+    prunePastSelectionsIfNeeded() {
+        if (!this.onlyFutureDates) return false;
+        const todayStr = this.getTodayYmdLocal();
+        const snap = JSON.stringify({ dates: this.selectedDates, one: this.selectedDate });
+        this.selectedDates = this.selectedDates.filter((d) => d > todayStr);
+        this.selectedDate = this.selectedDates[0] || null;
+        if (!this.multiSelect) {
+            this.selectedDates = this.selectedDate ? [this.selectedDate] : [];
+        }
+        return snap !== JSON.stringify({ dates: this.selectedDates, one: this.selectedDate });
     }
 
     async init() {
@@ -24,11 +63,15 @@ class BookingCalendar {
 
     async loadAvailability() {
         try {
-            const startDate = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth(), 1);
-            const endDate = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth() + 1, 0);
-            
+            const y = this.currentMonth.getFullYear();
+            const mo = this.currentMonth.getMonth();
+            const startDate = new Date(y, mo, 1);
+            const endDate = new Date(y, mo + 1, 0);
+            const startStr = this.formatLocalYmd(startDate);
+            const endStr = this.formatLocalYmd(endDate);
+
             const response = await fetch(
-                `${this.apiUrl}?action=availability&start_date=${startDate.toISOString().split('T')[0]}&end_date=${endDate.toISOString().split('T')[0]}`
+                `${this.apiUrl}?action=availability&start_date=${encodeURIComponent(startStr)}&end_date=${encodeURIComponent(endStr)}`
             );
             
             if (!response.ok) throw new Error('Failed to load availability');
@@ -43,6 +86,14 @@ class BookingCalendar {
     }
 
     renderCalendar() {
+        if (this.onlyFutureDates) {
+            const pruned = this.prunePastSelectionsIfNeeded();
+            if (pruned && this.onDateSelect) {
+                const d0 = this.selectedDates[0] || '';
+                this.onDateSelect(d0, 0, this.selectedDates.slice());
+            }
+        }
+
         const year = this.currentMonth.getFullYear();
         const month = this.currentMonth.getMonth();
         
@@ -92,31 +143,53 @@ class BookingCalendar {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayEl = document.createElement('div');
             dayEl.className = 'day';
-            
+            dayEl.dataset.date = dateStr;
+
             const availData = this.availability[dateStr];
-            
+
             if (availData) {
                 dayEl.classList.add(`color-${availData.color}`);
                 if (!availData.available) {
                     dayEl.classList.add('disabled');
                 }
             }
-            
+
             dayEl.innerHTML = `
                 <div class="day-number">${day}</div>
                 ${availData ? `<div class="day-count">${availData.count}/2</div>` : ''}
             `;
-            
-            if (availData && availData.available) {
+
+            const isFuture = this.isSelectableByDateRule(dateStr);
+            if (
+                isFuture &&
+                (this.selectedDates.includes(dateStr) || this.selectedDate === dateStr)
+            ) {
+                dayEl.classList.add('selected');
+            }
+
+            if (!isFuture) {
+                dayEl.classList.add('past-or-today');
+                dayEl.setAttribute('aria-disabled', 'true');
+                dayEl.title = 'Only future dates can be booked';
+            } else if (availData && availData.available) {
                 dayEl.style.cursor = 'pointer';
-                dayEl.addEventListener('click', () => this.selectDate(dateStr, dayEl));
             } else if (!availData) {
                 dayEl.style.cursor = 'pointer';
-                dayEl.addEventListener('click', () => this.selectDate(dateStr, dayEl));
             }
-            
+
             daysContainer.appendChild(dayEl);
         }
+
+        const self = this;
+        daysContainer.addEventListener('click', function bookingCalendarDayClick(ev) {
+            const cell = ev.target.closest('.day[data-date]');
+            if (!cell || !daysContainer.contains(cell)) return;
+            if (cell.classList.contains('past-or-today')) return;
+            if (cell.classList.contains('disabled')) return;
+            const ds = cell.getAttribute('data-date');
+            if (!ds || !self.isSelectableByDateRule(ds)) return;
+            self.selectDate(ds, cell);
+        });
         
         // Next month's days
         const remainingDays = 42 - (firstDay + daysInMonth);
@@ -131,6 +204,10 @@ class BookingCalendar {
     }
 
     selectDate(dateStr, dayEl) {
+        if (!this.isSelectableByDateRule(dateStr)) {
+            return;
+        }
+
         const availData = this.availability[dateStr];
         
         if (availData && !availData.available) {
@@ -138,17 +215,29 @@ class BookingCalendar {
             return;
         }
         
-        this.selectedDate = dateStr;
-        
-        // Update UI
-        document.querySelectorAll('.booking-calendar-days .day').forEach(el => {
-            el.classList.remove('selected');
-        });
-        
-        dayEl.classList.add('selected');
+        if (this.multiSelect) {
+            if (this.selectedDates.includes(dateStr)) {
+                this.selectedDates = this.selectedDates.filter(d => d !== dateStr);
+                dayEl.classList.remove('selected');
+            } else {
+                this.selectedDates.push(dateStr);
+                this.selectedDates.sort();
+                dayEl.classList.add('selected');
+            }
+            this.selectedDate = this.selectedDates[0] || null;
+        } else {
+            this.selectedDate = dateStr;
+            this.selectedDates = [dateStr];
+
+            document.querySelectorAll('.booking-calendar-days .day').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            dayEl.classList.add('selected');
+        }
         
         if (this.onDateSelect) {
-            this.onDateSelect(dateStr, availData?.count || 0);
+            this.onDateSelect(dateStr, availData?.count || 0, this.selectedDates.slice());
         }
     }
 

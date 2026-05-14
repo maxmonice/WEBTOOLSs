@@ -1,14 +1,8 @@
 <?php
 
 require_once __DIR__ . '/adminSide/admin-config.php';
-require_once __DIR__ . '/Notifications.php';
 
 requireAdmin();
-
-$notifications = new Notifications($pdo);
-$userNotifications = $notifications->getForUser('admin', $_SESSION['user_id'], 5);
-$unreadCount = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
-$adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 
 // ── Ensure archive columns exist ──────────────────────────────────────────────
 try {
@@ -279,6 +273,7 @@ try { $contentStats['missing_images'] = (int)$pdo->query("SELECT COUNT(*) FROM c
 <title>Content Management — Luke's Admin</title>
 <link rel="stylesheet" href="admin.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script defer src="adminSide/admin-notifications.js?v=<?= time() ?>"></script>
 <style>
 /* ══════════════════════════════════════════════════════════════════
    MANAGE CONTENT MEGA MODAL
@@ -585,28 +580,6 @@ try { $contentStats['missing_images'] = (int)$pdo->query("SELECT COUNT(*) FROM c
 .crop-handle.sw { bottom:-6px; left:-6px; cursor:sw-resize; }
 .crop-handle.se { bottom:-6px; right:-6px; cursor:se-resize; }
 
-/* ── Notification dropdown (keep existing) ─────────── */
-.notification-dropdown {
-  position:absolute; top:100%; right:0; width:320px;
-  background:var(--card2); border:1px solid var(--line-w);
-  border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.3);
-  z-index:1000; display:none; max-height:400px; overflow-y:auto;
-}
-.notification-dropdown.show { display:block; }
-.notification-header { padding:12px 16px; border-bottom:1px solid var(--line-w); display:flex; justify-content:space-between; align-items:center; }
-.notification-header h3 { margin:0; font-size:0.9rem; color:#fff; }
-.notification-header .mark-all { font-size:0.75rem; color:var(--red); background:transparent; border:none; cursor:pointer; }
-.notification-item { padding:12px 16px; border-bottom:1px solid var(--line-w); cursor:pointer; transition:background 0.2s; }
-.notification-item:hover { background:rgba(194,38,38,0.05); }
-.notification-item.unread { background:rgba(52,152,219,0.08); border-left:3px solid #3498db; }
-.notification-content { display:flex; gap:12px; align-items:flex-start; }
-.notification-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:0.9rem; }
-.notification-text { flex:1; }
-.notification-title { font-size:0.85rem; font-weight:600; color:#fff; margin-bottom:4px; }
-.notification-message { font-size:0.78rem; color:var(--muted); line-height:1.4; }
-.notification-time { font-size:0.72rem; color:var(--muted); margin-top:4px; }
-.notification-empty { padding:24px; text-align:center; color:var(--muted); font-size:0.85rem; }
-
 /* ── Feedback table styles ──────────────────────────── */
 .content-item { background:var(--card2); border:1px solid var(--line-w); border-radius:12px; overflow:hidden; }
 
@@ -641,41 +614,7 @@ require __DIR__ . '/adminSide/admin-sidebar-nav.php';
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge" style="position:relative;" onclick="toggleNotifications()">
-          <i class="fa-regular fa-bell"></i>
-          <?php if ($unreadCount > 0): ?>
-          <span class="badge-dot" style="background:var(--red);"></span>
-          <span style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border-radius:10px;padding:2px 6px;font-size:0.7rem;font-weight:bold;min-width:18px;text-align:center;"><?= $unreadCount ?></span>
-          <?php endif; ?>
-        </div>
-        <div class="notification-dropdown" id="notificationDropdown">
-          <div class="notification-header">
-            <h3>Notifications</h3>
-            <button class="mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
-          </div>
-          <div id="notificationList">
-            <?php if (empty($userNotifications)): ?>
-              <div class="notification-empty">No notifications</div>
-            <?php else: ?>
-              <?php foreach ($userNotifications as $notif): ?>
-                <div class="notification-item <?= !$notif['is_read'] ? 'unread' : '' ?>" onclick="markNotificationRead(<?= $notif['id'] ?>)">
-                  <div class="notification-content">
-                    <div class="notification-icon" style="background:<?= getNotificationColor($notif['type']) ?>20;color:<?= getNotificationColor($notif['type']) ?>;"><i class="fa-solid <?= getNotificationIcon($notif['type']) ?>"></i></div>
-                    <div class="notification-text">
-                      <div class="notification-title"><?= htmlspecialchars($notif['title']) ?></div>
-                      <div class="notification-message"><?= htmlspecialchars($notif['message']) ?></div>
-                      <div class="notification-time"><?= timeAgo($notif['created_at']) ?></div>
-                    </div>
-                  </div>
-                </div>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </div>
-        </div>
-        <a href="admin-settings.php" class="admin-avatar" title="Account Settings" style="text-decoration:none;cursor:pointer;"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></a>
-        <a href="account-dashboard.php?user_view=true" class="btn btn-success" style="margin-left:12px;padding:10px 18px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;font-weight:600;border:2px solid var(--red);border-radius:6px;background:linear-gradient(135deg,#C22626,#8B0A1E);box-shadow:0 4px 12px rgba(194,38,38,0.4);color:#ff6b6b;">
-          <i class="fa-solid fa-user"></i> User View
-        </a>
+        <?php $adminTopbarFromRoot = true; require __DIR__ . '/adminSide/admin-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -1067,26 +1006,6 @@ function showToast(msg, type='') {
   t.innerHTML = `<i class="fa-solid fa-${type==='error'?'circle-xmark':'check-circle'}"></i> ${msg}`;
   c.appendChild(t);
   setTimeout(() => t.remove(), 3500);
-}
-
-// Notification helpers
-function toggleNotifications() {
-  const d = document.getElementById('notificationDropdown');
-  d.classList.toggle('show');
-  if (!d.dataset.listenerAdded) {
-    d.dataset.listenerAdded = 'true';
-    document.addEventListener('click', e => {
-      if (!d.contains(e.target) && !e.target.closest('.topbar-badge')) d.classList.remove('show');
-    });
-  }
-}
-function markNotificationRead(id) {
-  fetch('admin-handle-notifications.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'mark_read',notification_id:id})})
-    .then(r=>r.json()).then(d=>{ if(d.success) location.reload(); });
-}
-function markAllNotificationsRead() {
-  fetch('admin-handle-notifications.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'mark_all_read'})})
-    .then(r=>r.json()).then(d=>{ if(d.success) location.reload(); });
 }
 
 function updateFeedback(id) {

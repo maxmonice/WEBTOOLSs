@@ -7,6 +7,21 @@ declare(strict_types=1);
  * and xendit-create-invoice.php (fetch JSON → response).
  */
 
+function webtools_notify_new_order_from_checkout(PDO $pdo, int $orderId, string $customerName, float $total, ?int $userId): void
+{
+    try {
+        require_once dirname(__DIR__) . '/Notifications.php';
+        (new Notifications($pdo))->autoNotify('new_order', [
+            'id' => $orderId,
+            'customer_name' => $customerName !== '' ? $customerName : 'Guest',
+            'total' => number_format($total, 2),
+            'user_id' => $userId,
+        ]);
+    } catch (Throwable $e) {
+        error_log('webtools_notify_new_order_from_checkout: ' . $e->getMessage());
+    }
+}
+
 /**
  * @param array<string,mixed> $data Same shape as JSON body: paymentMethod, items, address, subtotal, shipping, total, payer_email?, lat?, lng?
  * @param array{
@@ -205,6 +220,14 @@ function webtools_run_xendit_checkout(array $data, array $options = []): void {
 
             $pdo->commit();
 
+            webtools_notify_new_order_from_checkout(
+                $pdo,
+                $orderId,
+                $sessionUserName,
+                $total,
+                $sessionUserId !== null ? (int) $sessionUserId : null
+            );
+
             logActivity(
                 'xendit_demo_checkout',
                 "Demo checkout order #{$orderId} — ₱{$total} ({$paymentMethod}, simulated)",
@@ -378,6 +401,14 @@ function webtools_run_xendit_checkout(array $data, array $options = []): void {
         $stmt->execute([json_encode($orderNotesStruct, JSON_UNESCAPED_UNICODE), $orderId]);
 
         $pdo->commit();
+
+        webtools_notify_new_order_from_checkout(
+            $pdo,
+            $orderId,
+            $sessionUserName,
+            $total,
+            $sessionUserId !== null ? (int) $sessionUserId : null
+        );
 
         logActivity(
             $logTag,

@@ -109,7 +109,8 @@ foreach ($allItems as $item) {
                         $data = [
                             'name' => $item['name'],
                             'price' => '₱' . number_format($item['price'], 2),
-                            'image' => $item['image_path']
+                            'image' => $item['image_path'],
+                            'category' => $cat['name']
                         ];
                         if ($item['pieces']) $data['pieces'] = $item['pieces'];
                         if ($item['variations']) $data['variations'] = json_decode($item['variations'], true);
@@ -234,7 +235,7 @@ foreach ($allItems as $item) {
                 const targetCategory = promoCategory.toLowerCase();
                 
                 // Only apply if 'All Items' or category matches
-                if (targetCategory === 'all items' || itemCategory.includes(targetCategory)) {
+                if (['all items', 'all menu', 'all'].includes(targetCategory) || itemCategory.includes(targetCategory)) {
                     // Add the badge
                     const badge = document.createElement('div');
                     badge.className = 'discount-badge';

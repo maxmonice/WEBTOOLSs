@@ -282,7 +282,7 @@ function timeAgoPhp(string $datetime): string {
             <div class="section-block">
                 <div class="section-label"><i class="fa-solid fa-circle-question"></i> Help &amp; Support</div>
                 <div class="menu-rows">
-                    <a class="menu-row" href="#" onclick="return false;">
+                    <a class="menu-row" href="helpcenter.php">
                         <div class="mr-left">
                             <div class="mr-icon"><i class="fa-solid fa-book-open"></i></div>
                             <div class="mr-text"><div class="mr-title">Help Center</div><div class="mr-sub">Browse FAQs and guides</div></div>
@@ -290,7 +290,7 @@ function timeAgoPhp(string $datetime): string {
                         <i class="fa-solid fa-chevron-right mr-arrow"></i>
                     </a>
                     <hr class="menu-divider">
-                    <a class="menu-row" href="mailto:lukeseafoods28@gmail.com">
+                    <a class="menu-row" href="#" onclick="openAdminChat(); return false;">
                         <div class="mr-left">
                             <div class="mr-icon"><i class="fa-solid fa-headset"></i></div>
                             <div class="mr-text"><div class="mr-title">Contact Support</div><div class="mr-sub">Reach out to our admin team</div></div>
@@ -1297,6 +1297,27 @@ function timeAgoPhp(string $datetime): string {
             }
         };
 
+        function fmtSqlTime12(t) {
+            if (!t) return '';
+            const s = String(t).trim();
+            if (/\s[–—-]\s/.test(s) && /(AM|PM)/i.test(s)) return s;
+            const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (!m) return s;
+            let h = parseInt(m[1], 10);
+            const min = m[2];
+            const ap = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${min} ${ap}`;
+        }
+        function formatDashboardBookingTime(b) {
+            if (!b || !b.event_time) return '';
+            const en = b.event_time_end;
+            if (en && String(en).trim() && en !== '00:00:00' && en !== b.event_time) {
+                return `${fmtSqlTime12(b.event_time)} – ${fmtSqlTime12(en)}`;
+            }
+            return fmtSqlTime12(b.event_time);
+        }
+
         async function loadEventBookings() {
             const section = document.getElementById('eventBookingsSection');
             if (!section) return;
@@ -1318,7 +1339,7 @@ function timeAgoPhp(string $datetime): string {
                         <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">
                             <div>
                                 <div style="font-weight:800;color:#fff;margin-bottom:5px;">${b.event_name || 'Event Booking'}</div>
-                                <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);"><i class="fa-regular fa-calendar" style="margin-right:6px;color:var(--red);"></i>${b.event_date || ''} ${b.event_time ? '@ ' + b.event_time : ''}</div>
+                                <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);"><i class="fa-regular fa-calendar" style="margin-right:6px;color:var(--red);"></i>${b.event_date || ''}${formatDashboardBookingTime(b) ? ' @ ' + formatDashboardBookingTime(b) : ''}</div>
                             </div>
                             <span class="order-badge ${String(b.status || '').toLowerCase()}">${statusLabel(b.status)}</span>
                         </div>
@@ -1339,7 +1360,7 @@ function timeAgoPhp(string $datetime): string {
             document.getElementById('bookingDetailBody').innerHTML = `
                 <div class="detail-row"><span class="dr-label">Booking ID</span><span class="dr-value">#BK-${String(booking.id).padStart(3, '0')}</span></div>
                 <div class="detail-row"><span class="dr-label">Event</span><span class="dr-value">${booking.event_name || 'Event Booking'}</span></div>
-                <div class="detail-row"><span class="dr-label">Date & Time</span><span class="dr-value">${booking.event_date || ''} ${booking.event_time ? '@ ' + booking.event_time : ''}</span></div>
+                <div class="detail-row"><span class="dr-label">Date & Time</span><span class="dr-value">${booking.event_date || ''}${formatDashboardBookingTime(booking) ? ' @ ' + formatDashboardBookingTime(booking) : ''}</span></div>
                 <div class="detail-row"><span class="dr-label">Guests</span><span class="dr-value">${booking.num_guests || '-'}</span></div>
                 <div class="detail-row"><span class="dr-label">Type</span><span class="dr-value">${booking.event_type || '-'}</span></div>
                 <div class="detail-row"><span class="dr-label">Status</span><span class="dr-value">${statusLabel(booking.status)}</span></div>

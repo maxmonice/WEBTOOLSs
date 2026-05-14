@@ -123,6 +123,33 @@
     pointer-events: none;
 }
 
+/* Today and past — not bookable (Book Bar / future-only) */
+.booking-calendar .day.past-or-today,
+.booking-calendar .day.past-or-today * {
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+    user-select: none;
+}
+
+.booking-calendar .day.past-or-today {
+    opacity: 0.32;
+    filter: grayscale(0.45);
+}
+
+.booking-calendar .day.past-or-today .day-number {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.booking-calendar .day.past-or-today .day-count {
+    opacity: 0.4;
+}
+
+.booking-calendar .day.past-or-today.color-green:hover,
+.booking-calendar .day.past-or-today.color-red:hover {
+    transform: none;
+    box-shadow: none;
+}
+
 /* Selected day */
 .day.selected {
     background: linear-gradient(135deg, #C22626, #8B0A1E);

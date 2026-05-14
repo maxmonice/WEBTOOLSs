@@ -50,6 +50,23 @@ function getDB(): PDO {
                 if ((int)$stmt->fetchColumn() === 0) {
                     $pdo->exec("ALTER TABLE users ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL AFTER is_archived");
                 }
+                $stmt = $pdo->prepare(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings'"
+                );
+                $stmt->execute();
+                if ((int)$stmt->fetchColumn() > 0) {
+                    $stmt = $pdo->prepare(
+                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'event_time_end'"
+                    );
+                    $stmt->execute();
+                    if ((int)$stmt->fetchColumn() === 0) {
+                        $pdo->exec(
+                            'ALTER TABLE bookings ADD COLUMN event_time_end TIME NULL DEFAULT NULL AFTER event_time'
+                        );
+                    }
+                }
             } catch (Throwable $_) {}
         } catch (PDOException $e) {
             http_response_code(500);

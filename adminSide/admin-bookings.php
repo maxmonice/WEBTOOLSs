@@ -3,11 +3,121 @@ require_once 'admin-config.php';
 require_once '../activity-logger.php';
 $data = null;
 
+/** Whether the live `bookings` table has a given column (cached per request). */
+function admin_bookings_has_column(PDO $pdo, string $column): bool
+{
+    $cache = &$GLOBALS['__admin_bookings_col_cache'];
+    if (!is_array($cache)) {
+        $cache = [];
+    }
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
+    try {
+        $st = $pdo->prepare(
+            'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+        );
+        $st->execute(['bookings', $column]);
+        $cache[$column] = (int) $st->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        $cache[$column] = false;
+    }
+
+    return $cache[$column];
+}
+
+/** Add `event_time_end` when DB was never migrated via getDB() (e.g. admin-only traffic). */
+function admin_bookings_ensure_event_time_end(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (admin_bookings_has_column($pdo, 'event_time_end')) {
+        return;
+    }
+    try {
+        $pdo->exec('ALTER TABLE bookings ADD COLUMN event_time_end TIME NULL DEFAULT NULL AFTER event_time');
+        unset($GLOBALS['__admin_bookings_col_cache']['event_time_end']);
+    } catch (Throwable $e) {
+        error_log('admin_bookings_ensure_event_time_end: ' . $e->getMessage());
+    }
+}
+
+function admin_bookings_parse_time_to_his(string $t): ?string
+{
+    $t = trim($t);
+    foreach (['H:i:s', 'H:i', 'g:i A', 'h:i A', 'g:i a', 'h:i a'] as $fmt) {
+        $d = DateTime::createFromFormat($fmt, $t);
+        if ($d instanceof DateTime) {
+            return $d->format('H:i:s');
+        }
+    }
+    $ts = strtotime($t);
+    if ($ts !== false) {
+        return date('H:i:s', $ts);
+    }
+
+    return null;
+}
+
+/** @return array{0:?string,1:?string} start H:i:s, end H:i:s */
+function admin_bookings_parse_event_time_field(string $field): array
+{
+    $field = trim($field);
+    if ($field === '') {
+        return [null, null];
+    }
+    if (preg_match('/^(.+?)\s*[\x{2013}\x{2014}-]\s*(.+)$/u', $field, $m)) {
+        $a = admin_bookings_parse_time_to_his(trim($m[1]));
+        $b = admin_bookings_parse_time_to_his(trim($m[2]));
+
+        return [$a, $b];
+    }
+    $a = admin_bookings_parse_time_to_his($field);
+
+    return [$a, $a];
+}
+
+function admin_bookings_his_to_ampm(string $sqlTime): string
+{
+    if (!preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?/', trim($sqlTime), $m)) {
+        return $sqlTime;
+    }
+    $h = (int) $m[1];
+    $min = $m[2];
+    $ampm = $h >= 12 ? 'PM' : 'AM';
+    $h12 = $h % 12 ?: 12;
+
+    return sprintf('%d:%s %s', $h12, $min, $ampm);
+}
+
+function admin_bookings_format_time_cell(array $b): string
+{
+    $st = isset($b['event_time']) ? trim((string) $b['event_time']) : '';
+    $en = isset($b['event_time_end']) ? trim((string) $b['event_time_end']) : '';
+    if ($st === '') {
+        return 'N/A';
+    }
+    $startShow = admin_bookings_his_to_ampm($st);
+    if ($en !== '' && $en !== '00:00:00' && $en !== $st) {
+        return htmlspecialchars($startShow . ' – ' . admin_bookings_his_to_ampm($en), ENT_QUOTES, 'UTF-8');
+    }
+
+    return htmlspecialchars($startShow, ENT_QUOTES, 'UTF-8');
+}
+
+admin_bookings_ensure_event_time_end($pdo);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rawInput = file_get_contents('php://input');
     $data = json_decode($rawInput, true);
 
     // If it's a booking creation, allow it without admin session
+    // Public/unauthenticated: customer booking create + account dashboard edits only.
+    // get_booking / get_day_bookings require admin (see first branch → requireAdmin).
     $publicActions = ['create_booking', 'update_booking', 'update_status'];
     if ($data && isset($data['action']) && in_array($data['action'], $publicActions)) {
         // Safe to proceed to specific action validation
@@ -92,31 +202,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         $formattedDate = $dateObj->format('Y-m-d');
-        
-        $timeObj = DateTime::createFromFormat('H:i', $eventTime);
-        if (!$timeObj) $timeObj = DateTime::createFromFormat('h:i A', $eventTime);
-        
-        if (!$timeObj) {
-            echo json_encode(['success' => false, 'message' => 'Invalid time format']);
+
+        [$tStart, $tEnd] = admin_bookings_parse_event_time_field($eventTime);
+        if (!$tStart || !$tEnd) {
+            echo json_encode(['success' => false, 'message' => 'Invalid time format (use start – end, e.g. 1:00 PM – 8:00 PM)']);
             exit;
         }
-        $formattedTime = $timeObj->format('H:i');
-        
-        $stmt = $pdo->prepare("
-            INSERT INTO bookings (
-                user_id, event_name, address, event_date, event_time, 
-                event_type, num_guests, full_name, contact_number, 
-                email_address, notes, user_email, user_name, 
-                status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
-        ");
-        
+
+        $columns = [
+            'event_name', 'address', 'event_date', 'event_time', 'event_type', 'num_guests',
+            'full_name', 'contact_number', 'email_address', 'notes', 'user_email', 'user_name',
+        ];
+        $placeholders = array_fill(0, count($columns), '?');
+        $execValues = [
+            $eventName, $address, $formattedDate, $tStart, $eventType, $numGuests,
+            $fullName, $contactNumber, $emailAddress, $notes, $userEmail, $userName,
+        ];
+        if (admin_bookings_has_column($pdo, 'event_time_end')) {
+            $ti = array_search('event_time', $columns, true);
+            if ($ti !== false) {
+                array_splice($columns, $ti + 1, 0, ['event_time_end']);
+                array_splice($placeholders, $ti + 1, 0, ['?']);
+                array_splice($execValues, $ti + 1, 0, [$tEnd]);
+            }
+        }
+        if (admin_bookings_has_column($pdo, 'user_id')) {
+            array_unshift($columns, 'user_id');
+            array_unshift($placeholders, '?');
+            array_unshift($execValues, null);
+        }
+        $columns[] = 'status';
+        $placeholders[] = "'pending'";
+        $columns[] = 'created_at';
+        $placeholders[] = 'NOW()';
+        if (admin_bookings_has_column($pdo, 'updated_at')) {
+            $columns[] = 'updated_at';
+            $placeholders[] = 'NOW()';
+        }
+
+        $sql = 'INSERT INTO bookings (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
+
         try {
-            $stmt->execute([
-                null, $eventName, $address, $formattedDate, $formattedTime,
-                $eventType, $numGuests, $fullName, $contactNumber,
-                $emailAddress, $notes, $userEmail, $userName
-            ]);
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($execValues);
             $bookingId = $pdo->lastInsertId();
             logActivity('booking_created', "Customer created booking for {$eventName} on {$formattedDate}", $userEmail, $userName);
             echo json_encode(['success' => true, 'message' => 'Booking created successfully', 'booking_id' => $bookingId]);
@@ -131,7 +259,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bookingId = $data['booking_id'] ?? 0;
         
         // Fetch booking to check existence, ownership, and status
-        $check = $pdo->prepare("SELECT user_id, email_address, event_date, status FROM bookings WHERE id = ?");
+        $check = $pdo->prepare(
+            "SELECT user_id, email_address, event_date, status, full_name, contact_number FROM bookings WHERE id = ?"
+        );
         $check->execute([$bookingId]);
         $b = $check->fetch();
 
@@ -156,6 +286,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $eventTime = trim($data['eventTime'] ?? '');
         $eventType = trim($data['eventType'] ?? '');
         $numGuests = trim($data['numGuests'] ?? '');
+        $fullName = trim($data['fullName'] ?? '');
+        $contactNumber = trim($data['contactNumber'] ?? '');
+        $emailAddress = trim($data['emailAddress'] ?? '');
+        if ($fullName === '') {
+            $fullName = trim($b['full_name'] ?? '');
+        }
+        if ($contactNumber === '') {
+            $contactNumber = trim($b['contact_number'] ?? '');
+        }
+        if ($emailAddress === '') {
+            $emailAddress = trim($b['email_address'] ?? '');
+        }
         $notes = trim($data['notes'] ?? '');
 
         // Format Date
@@ -168,15 +310,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $formattedDate = $dateObj->format('Y-m-d');
 
-        // Format Time
-        $timeObj = DateTime::createFromFormat('H:i', $eventTime);
-        if (!$timeObj) $timeObj = DateTime::createFromFormat('h:i A', $eventTime);
-        if (!$timeObj) $timeObj = DateTime::createFromFormat('h:i K', $eventTime);
-        if (!$timeObj) {
-            echo json_encode(['success' => false, 'message' => 'Invalid time format']);
+        [$tStart, $tEnd] = admin_bookings_parse_event_time_field($eventTime);
+        if (!$tStart || !$tEnd) {
+            echo json_encode(['success' => false, 'message' => 'Invalid time format (use start – end, e.g. 1:00 PM – 8:00 PM)']);
             exit;
         }
-        $formattedTime = $timeObj->format('H:i:s');
+
+        $rawTimeInput = trim((string) ($data['eventTime'] ?? ''));
+        $hadRangeInInput = (bool) preg_match('/\s[\x{2013}\x{2014}-]\s/u', $rawTimeInput);
+        if (!$hadRangeInInput && $tStart === $tEnd && admin_bookings_has_column($pdo, 'event_time_end')) {
+            $cur = $pdo->prepare('SELECT event_time_end FROM bookings WHERE id = ?');
+            $cur->execute([$bookingId]);
+            $row = $cur->fetch(PDO::FETCH_ASSOC);
+            $prevEnd = isset($row['event_time_end']) ? trim((string) $row['event_time_end']) : '';
+            if ($prevEnd !== '' && $prevEnd !== '00:00:00' && $prevEnd !== $tStart) {
+                $tEnd = $prevEnd;
+            }
+        }
 
         // 3-day lead time check: New date must be at least 3 days from now
         $now = new DateTime();
@@ -184,26 +334,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $interval = $now->diff($newDateObj);
         $daysLeft = $interval->days;
 
-        if (($interval->invert || $daysLeft < 3) && $b['status'] !== 'cancelled') {
+        if (!isset($_SESSION['is_admin']) && ($interval->invert || $daysLeft < 3) && $b['status'] !== 'cancelled') {
             echo json_encode(['success' => false, 'message' => 'New event date must be at least 3 days from today.']);
             exit;
         }
 
+        if ($fullName === '' || $contactNumber === '' || $emailAddress === '') {
+            echo json_encode(['success' => false, 'message' => 'Customer name, contact, and email are required.']);
+            exit;
+        }
+        if (!filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+            exit;
+        }
 
+        $setSql = "
+            UPDATE bookings SET
+                event_name = ?, address = ?, event_date = ?,
+                event_time = ?, event_type = ?, num_guests = ?,
+                full_name = ?, contact_number = ?, email_address = ?,
+                notes = ?
+        ";
+        $exec = [
+            $eventName, $address, $formattedDate, $tStart,
+            $eventType, $numGuests, $fullName, $contactNumber, $emailAddress, $notes,
+        ];
+        if (admin_bookings_has_column($pdo, 'event_time_end')) {
+            $setSql = "
+            UPDATE bookings SET
+                event_name = ?, address = ?, event_date = ?,
+                event_time = ?, event_time_end = ?, event_type = ?, num_guests = ?,
+                full_name = ?, contact_number = ?, email_address = ?,
+                notes = ?
+        ";
+            $exec = [
+                $eventName, $address, $formattedDate, $tStart, $tEnd,
+                $eventType, $numGuests, $fullName, $contactNumber, $emailAddress, $notes,
+            ];
+        }
+        if (admin_bookings_has_column($pdo, 'updated_at')) {
+            $setSql .= ', updated_at = NOW()';
+        }
+        $setSql .= ' WHERE id = ?';
+        $exec[] = $bookingId;
 
-        $stmt = $pdo->prepare("
-            UPDATE bookings SET 
-                event_name = ?, address = ?, event_date = ?, 
-                event_time = ?, event_type = ?, num_guests = ?, 
-                notes = ?, updated_at = NOW()
-            WHERE id = ?
-        ");
-        
+        $stmt = $pdo->prepare($setSql);
+
         try {
-            $stmt->execute([
-                $eventName, $address, $formattedDate, $formattedTime, 
-                $eventType, $numGuests, $notes, $bookingId
-            ]);
+            $stmt->execute($exec);
             echo json_encode(['success' => true, 'message' => 'Booking updated successfully']);
             exit;
 
@@ -258,10 +436,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if ($data['action'] === 'get_booking') {
-        $id = $data['id'] ?? 0;
+        $id = (int)($data['id'] ?? 0);
+        if ($id < 1) {
+            echo json_encode(['success' => false, 'message' => 'Invalid booking id']);
+            exit;
+        }
         $stmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
         $stmt->execute([$id]);
-        echo json_encode(['success' => true, 'booking' => $stmt->fetch()]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$booking) {
+            echo json_encode(['success' => false, 'message' => 'Booking not found']);
+            exit;
+        }
+
+        // Multi-day submissions create one row per date with the same metadata; surface sibling rows.
+        $related = [];
+        try {
+            $relStmt = $pdo->prepare("
+                SELECT id, event_date, event_time, event_time_end, status
+                FROM bookings
+                WHERE id != ?
+                  AND full_name <=> ?
+                  AND email_address <=> ?
+                  AND event_name <=> ?
+                  AND contact_number <=> ?
+                  AND created_at = ?
+                ORDER BY event_date ASC, id ASC
+            ");
+            $relStmt->execute([
+                $id,
+                $booking['full_name'] ?? '',
+                $booking['email_address'] ?? '',
+                $booking['event_name'] ?? '',
+                $booking['contact_number'] ?? '',
+                $booking['created_at'] ?? null,
+            ]);
+            $related = $relStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $related = [];
+        }
+
+        echo json_encode(
+            ['success' => true, 'booking' => $booking, 'related_bookings' => $related],
+            JSON_UNESCAPED_UNICODE | (defined('JSON_INVALID_UTF8_SUBSTITUTE') ? JSON_INVALID_UTF8_SUBSTITUTE : 0)
+        );
         exit;
     }
     
@@ -269,7 +487,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $date = $data['date'] ?? '';
         $stmt = $pdo->prepare("SELECT * FROM bookings WHERE event_date = ? ORDER BY created_at");
         $stmt->execute([$date]);
-        echo json_encode(['success' => true, 'bookings' => $stmt->fetchAll()]);
+        echo json_encode(
+            ['success' => true, 'bookings' => $stmt->fetchAll(PDO::FETCH_ASSOC)],
+            JSON_UNESCAPED_UNICODE | (defined('JSON_INVALID_UTF8_SUBSTITUTE') ? JSON_INVALID_UTF8_SUBSTITUTE : 0)
+        );
         exit;
     }
 }
@@ -356,76 +577,7 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
         </div>
       </div>
       <div class="topbar-right">
-        <div class="notification-dropdown">
-          <div class="topbar-badge" onclick="toggleNotifications()">
-            <i class="fa-regular fa-bell"></i>
-            <span class="badge-dot"></span>
-          </div>
-          <div class="notification-menu" id="notificationMenu">
-            <div class="notification-header">
-              <h4>Notifications</h4>
-              <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
-            </div>
-            <div class="notification-list">
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-shopping-cart"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Order Received</div>
-                  <div class="notification-message">Order #ORD-0001 has been placed</div>
-                  <div class="notification-time">2 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-calendar-check"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Booking Confirmed</div>
-                  <div class="notification-message">Event booking for May 15, 2025</div>
-                  <div class="notification-time">15 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-user-plus"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New User Registered</div>
-                  <div class="notification-message">John Doe joined the platform</div>
-                  <div class="notification-time">1 hour ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-truck"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">Order Shipped</div>
-                  <div class="notification-message">Order #ORD-0002 has been shipped</div>
-                  <div class="notification-time">2 hours ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-            </div>
-            <div class="notification-footer">
-              <a href="admin-logs.php" class="view-all-link">View all notifications</a>
-            </div>
-          </div>
-        </div>
-        <a href="admin-account.php" class="admin-avatar">A</a>
+        <?php require __DIR__ . '/admin-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -479,8 +631,8 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
                 </select>
                 <select id="yearSelect" onchange="changeYear()" style="background: var(--dark); border: 1px solid var(--line-w); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
                   <?php 
-                  $startYear = 2020;
-                  $endYear = 2030;
+                  $startYear = (int) date('Y') - 5;
+                  $endYear = (int) date('Y') + 8;
                   for ($year = $startYear; $year <= $endYear; $year++) {
                     echo '<option value="' . $year . '"' . ($year == $currentYear ? ' selected' : '') . '>' . $year . '</option>';
                   }
@@ -499,9 +651,15 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
                   <span class="badge badge-yellow">● Pending</span>
                   <span class="badge badge-red">● Cancelled</span>
                 </div>
-                <button class="btn btn-danger btn-sm" onclick="clearAllBookings()" title="Clear All Bookings">
+                <button type="button" class="btn btn-danger btn-sm" onclick="clearAllBookings()" title="Clear All Bookings">
                   <i class="fa-solid fa-trash"></i> Clear All
                 </button>
+                <?php if ($viewMode === 'table'): ?>
+                <div class="search-wrap" style="min-width: 200px; max-width: 280px;">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="search" id="bookingsTableSearch" class="search-input" placeholder="Filter table…" autocomplete="off" aria-label="Filter bookings table">
+                </div>
+                <?php endif; ?>
               </div>
             </div>
           </div>
@@ -513,8 +671,8 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
                 <?= $calendar ?>
               </div>
             <?php else: ?>
-              <div style="overflow-x:auto;">
-                <table class="data-table">
+              <div id="bookingsTableWrap" style="overflow-x:auto;">
+                <table class="data-table" id="bookingsDataTable">
                   <thead>
                     <tr>
                       <th>ID</th><th>Customer</th><th>Event Name</th><th>Date</th><th>Time</th><th>Type</th><th>Guests</th><th>Status</th><th>Actions</th>
@@ -523,52 +681,44 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
                   <tbody>
                     <?php if (!empty($bookings)): ?>
                       <?php foreach ($bookings as $booking): ?>
-                        <?php 
-                          // Parse booking details from notes field
-                          $bookingDetails = json_decode($booking['notes'], true) ?: [];
-                          $fullName = $bookingDetails['full_name'] ?? 'Guest';
-                          $eventName = $bookingDetails['event_name'] ?? 'N/A';
-                          $eventTime = $bookingDetails['event_time'] ?? 'N/A';
-                          $eventType = $bookingDetails['event_type'] ?? 'N/A';
-                          $numGuests = $bookingDetails['num_guests'] ?? 'N/A';
-                        ?>
-                        <tr>
+                        <tr onclick="showBookingDetails(<?= $booking['id'] ?>)" style="cursor: pointer;" title="Click to view details">
                           <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
                           <td>
                             <div class="flex-gap">
-                              <div class="user-avatar"><?= strtoupper(substr($fullName, 0, 2)) ?></div>
-                              <?= htmlspecialchars($fullName) ?>
+                              <div class="user-avatar"><?= strtoupper(substr($booking['full_name'], 0, 2)) ?></div>
+                              <?= htmlspecialchars($booking['full_name'] ?? 'Guest') ?>
                             </div>
                           </td>
-                          <td><?= htmlspecialchars($eventName) ?></td>
+                          <td><?= htmlspecialchars($booking['event_name'] ?? 'N/A') ?></td>
                           <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
-                          <td><?= $eventTime ?></td>
-                          <td><?= htmlspecialchars($eventType) ?></td>
-                          <td><?= $numGuests ?></td>
+                          <td><?= admin_bookings_format_time_cell($booking) ?></td>
+                          <td><?= htmlspecialchars($booking['event_type'] ?? 'N/A') ?></td>
+                          <td><?= htmlspecialchars($booking['num_guests'] ?? 'N/A') ?></td>
                           <td>
                             <span class="badge badge-<?= $booking['status'] === 'confirmed' ? 'green' : ($booking['status'] === 'cancelled' ? 'red' : 'yellow') ?>">
                               <?= ucfirst($booking['status']) ?>
                             </span>
                           </td>
-                          <td>
+                          <td onclick="event.stopPropagation();">
+                            <div class="flex-gap">
+                              <button type="button" class="action-btn" title="View full client details" onclick="showBookingDetails(<?= (int)$booking['id'] ?>)"><i class="fa-solid fa-eye"></i></button>
                             <?php if ($booking['status'] === 'pending'): ?>
-                              <div class="flex-gap">
-                                <button class="action-btn edit" title="Confirm" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'confirmed')">
+                                <button type="button" class="action-btn edit" title="Confirm" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'confirmed')">
                                   <i class="fa-solid fa-check"></i>
                                 </button>
-                                <button class="action-btn" title="Cancel" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'cancelled')">
+                                <button type="button" class="action-btn" title="Cancel" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'cancelled')">
                                   <i class="fa-solid fa-xmark"></i>
                                 </button>
-                              </div>
                             <?php else: ?>
-                              <button class="action-btn edit"><i class="fa-solid fa-pen"></i></button>
+                              <button type="button" class="action-btn edit" title="Edit" onclick="editBooking(<?= $booking['id'] ?>)"><i class="fa-solid fa-pen"></i></button>
                             <?php endif; ?>
+                            </div>
                           </td>
                         </tr>
                       <?php endforeach; ?>
                     <?php else: ?>
                       <tr>
-                        <td colspan="8" style="text-align: center; padding: 40px; color: var(--muted);">
+                        <td colspan="9" style="text-align: center; padding: 40px; color: var(--muted);">
                           <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
                           No bookings yet. Bookings will appear here once customers submit them.
                         </td>
@@ -576,92 +726,21 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
                     <?php endif; ?>
                   </tbody>
                 </table>
-              <?php endif; ?>
+              </div>
+            <?php endif; ?>
           </div>
         </div>
       </div>
 
-      <!-- BOOKINGS TABLE + RESOURCES -->
-      <div class="grid-2" style="margin-top:0;">
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Recent Bookings</span>
-            <div class="search-wrap">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" class="search-input" placeholder="Search..." style="max-width:160px;"/>
-            </div>
-          </div>
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th><th>Customer</th><th>Date</th><th>Status</th><th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (!empty($bookings)): ?>
-                  <?php foreach ($bookings as $booking): ?>
-                    <?php 
-                      // Parse booking details from notes field
-                      $bookingDetails = json_decode($booking['notes'], true) ?: [];
-                      $fullName = $bookingDetails['full_name'] ?? 'Guest';
-                    ?>
-                    <tr>
-                      <td style="color:var(--red);font-weight:700;">#BK-<?= str_pad($booking['id'], 3, '0', STR_PAD_LEFT) ?></td>
-                      <td>
-                        <div class="flex-gap">
-                          <div class="user-avatar"><?= strtoupper(substr($fullName, 0, 2)) ?></div>
-                          <?= htmlspecialchars($fullName) ?>
-                        </div>
-                      </td>
-                      <td><?= date('M d, Y', strtotime($booking['event_date'])) ?></td>
-                      <td>
-                        <span class="badge badge-<?= $booking['status'] === 'confirmed' ? 'green' : ($booking['status'] === 'cancelled' ? 'red' : 'yellow') ?>">
-                          <?= ucfirst($booking['status']) ?>
-                        </span>
-                      </td>
-                      <td>
-                        <?php if ($booking['status'] === 'pending'): ?>
-                          <div class="flex-gap">
-                            <button class="action-btn edit" title="Confirm" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'confirmed')">
-                              <i class="fa-solid fa-check"></i>
-                            </button>
-                            <button class="action-btn" title="Cancel" onclick="updateBookingStatus(<?= $booking['id'] ?>, 'cancelled')">
-                              <i class="fa-solid fa-xmark"></i>
-                            </button>
-                          </div>
-                        <?php else: ?>
-                          <button class="action-btn edit"><i class="fa-solid fa-pen"></i></button>
-                        <?php endif; ?>
-                      </td>
-                    </tr>
-                  <?php endforeach; ?>
-                <?php else: ?>
-                  <tr>
-                    <td colspan="5" style="text-align: center; padding: 40px; color: var(--muted);">
-                      <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                      No bookings yet. Bookings will appear here once customers submit them.
-                    </td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
+      <div class="panel" style="margin-top: 1rem;">
+        <div class="panel-header flex-between" style="flex-wrap: wrap; gap: 12px;">
+          <span class="panel-title"><i class="fa-solid fa-lightbulb" style="color:var(--red);margin-right:8px;"></i>Using this page</span>
         </div>
-
-        <!-- STAFF & EQUIPMENT -->
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Staff & Equipment</span><span class="badge badge-gray">Resource Tracker</span></div>
-          <div class="panel-body">
-            <p style="font-size:0.75rem;color:var(--muted);margin-bottom:14px;">Assigned resources for active bookings. Prevents double-booking.</p>
-            <div class="resource-item">
-              <div>
-                <div class="resource-name"><i class="fa-solid fa-person" style="color:var(--red);margin-right:6px;"></i>No staff assigned</div>
-                <div class="resource-sub">Staff management will be implemented</div>
-              </div>
-              <span class="badge badge-gray">N/A</span>
-            </div>
-          </div>
+        <div class="panel-body">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0;line-height:1.55;">
+            <strong>Calendar</strong> shows this month’s events; click a day for that day’s list, or click a coloured chip for full client details.
+            Switch to <strong>Table view</strong> and use the search box to filter the list. Pending bookings can be confirmed or cancelled from the Actions column.
+          </p>
         </div>
       </div>
     </div>
@@ -695,8 +774,8 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
           <input type="date" class="form-control" id="newEventDate" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Event Time *</label>
-          <input type="time" class="form-control" id="newEventTime" required>
+          <label class="form-label">Event time (range) *</label>
+          <input type="text" class="form-control" id="newEventTime" placeholder="e.g. 1:00 PM – 8:00 PM" required>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
@@ -734,7 +813,7 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
 
 <!-- Booking Details Modal -->
 <div class="modal-overlay" id="bookingDetailModal">
-  <div class="modal">
+  <div class="modal modal-booking-detail">
     <div class="modal-title"><i class="fa-solid fa-info-circle" style="color:var(--red);margin-right:8px;"></i>Booking Details</div>
     <div class="modal-body">
       <div style="margin-bottom: 20px;">
@@ -771,7 +850,12 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
       
       <div style="margin-bottom: 15px;">
         <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Address</div>
-        <div style="font-weight: 600;" id="bookingDetailAddress">Event Address</div>
+        <div style="font-weight: 600; white-space: pre-wrap; word-break: break-word;" id="bookingDetailAddress">Event Address</div>
+      </div>
+
+      <div id="bookingDetailRelatedWrap" style="display: none; margin-bottom: 15px; padding: 12px; background: rgba(194,38,38,0.08); border: 1px solid rgba(194,38,38,0.25); border-radius: 8px;">
+        <div style="font-size: 0.7rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Other dates from the same submission</div>
+        <div style="font-size: 0.8rem; color: rgba(255,255,255,0.9);" id="bookingDetailRelatedList"></div>
       </div>
       
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
@@ -786,13 +870,115 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
       </div>
       
       <div>
-        <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Notes</div>
-        <div style="font-weight: 600;" id="bookingDetailNotes">Notes</div>
+        <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Notes / special requests</div>
+        <div style="font-weight: 600; white-space: pre-wrap; word-break: break-word;" id="bookingDetailNotes">Notes</div>
+      </div>
+      
+      <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--line-w);">
+        <div style="font-size: 0.7rem; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Account Information</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">User Name</div>
+            <div style="font-weight: 600;" id="bookingDetailUserName">-</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">User Email</div>
+            <div style="font-weight: 600;" id="bookingDetailUserEmail">-</div>
+          </div>
+        </div>
+        <div id="bookingDetailUserIdRow" style="display: none; margin-top: 12px;">
+          <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Linked user ID</div>
+          <div style="font-weight: 600;" id="bookingDetailUserId">-</div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line-w);">
+        <div style="font-size: 0.7rem; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Timestamps</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Created</div>
+            <div style="font-weight: 600;" id="bookingDetailCreated">-</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Last Updated</div>
+            <div style="font-weight: 600;" id="bookingDetailUpdated">-</div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal('bookingDetailModal')">Close</button>
+    <div class="modal-footer" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+      <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        <button type="button" class="btn btn-outline btn-sm" id="bookingDetailBtnEdit"><i class="fa-solid fa-pen"></i> Edit</button>
+        <button type="button" class="btn btn-primary btn-sm" id="bookingDetailBtnConfirm" style="display:none;"><i class="fa-solid fa-check"></i> Confirm</button>
+        <button type="button" class="btn btn-danger btn-sm" id="bookingDetailBtnCancelBk" style="display:none;"><i class="fa-solid fa-ban"></i> Cancel booking</button>
+      </div>
+      <button type="button" class="btn btn-outline" onclick="closeModal('bookingDetailModal')">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Edit Booking Modal -->
+<div class="modal-overlay" id="editBookingModal">
+  <div class="modal">
+    <div class="modal-title"><i class="fa-solid fa-pen" style="color:var(--red);margin-right:8px;"></i>Edit Booking</div>
+    <form id="editBookingForm">
+      <input type="hidden" id="editBookingId">
+      <div class="form-group">
+        <label class="form-label">Event Name *</label>
+        <input type="text" class="form-control" id="editEventName" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Customer Name *</label>
+        <input type="text" class="form-control" id="editFullName" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact Number *</label>
+        <input type="tel" class="form-control" id="editContactNumber" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address *</label>
+        <input type="email" class="form-control" id="editEmailAddress" required>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="form-group">
+          <label class="form-label">Event Date *</label>
+          <input type="date" class="form-control" id="editEventDate" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Event time (range) *</label>
+          <input type="text" class="form-control" id="editEventTime" placeholder="e.g. 1:00 PM – 8:00 PM" required>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="form-group">
+          <label class="form-label">Event Type *</label>
+          <select class="form-control" id="editEventType" required>
+            <option value="">Select event type</option>
+            <option value="Birthday">Birthday Party</option>
+            <option value="Wedding">Wedding Reception</option>
+            <option value="Corporate">Corporate Event</option>
+            <option value="Family">Family Gathering</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Number of Guests *</label>
+          <input type="number" class="form-control" id="editNumGuests" min="1" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Event Address *</label>
+        <input type="text" class="form-control" id="editAddress" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" id="editNotes" rows="3" placeholder="Special instructions or notes..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('editBookingModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Update Booking</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -815,6 +1001,11 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
 
 
 
+<script defer src="admin-notifications.js?v=<?= time() ?>"></script>
+<script type="application/json" id="adminBookingsPageConfig"><?= json_encode([
+    'calendarMonth' => (int) $currentMonth,
+    'calendarYear' => (int) $currentYear,
+], JSON_UNESCAPED_UNICODE) ?></script>
 <script src="admin-bookings.js?v=<?= time() ?>"></script>
 </body>
 </html>

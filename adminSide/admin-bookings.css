@@ -287,3 +287,56 @@ select.form-control option,
 .notification-list::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
 }
+
+/* Full client booking detail modal — scroll long addresses / notes */
+#bookingDetailModal .modal.modal-booking-detail {
+  max-width: 560px;
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#bookingDetailModal .modal.modal-booking-detail .modal-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: min(72vh, 640px);
+  padding-right: 6px;
+}
+
+.action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--line-w);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.action-btn:hover {
+  border-color: var(--red);
+  color: #ff6b6b;
+  background: rgba(194, 38, 38, 0.1);
+}
+.action-btn.edit:hover {
+  border-color: #3498db;
+  color: #3498db;
+  background: rgba(52, 152, 219, 0.1);
+}
+
+.toast.error {
+  border-left-color: #ef4444;
+}
+.toast.error i {
+  color: #ef4444;
+}
+
+/* Modals above topbar notification dropdown (z-index 1000) */
+body .modal-overlay {
+  z-index: 2000;
+}

@@ -43,77 +43,7 @@ $adminEmail = htmlspecialchars($_SESSION['user_email'] ?? 'admin@gmail.com');
                 </div>
             </div>
             <div class="topbar-right">
-                <div class="notification-dropdown">
-                    <div class="topbar-badge" onclick="toggleNotifications()">
-                        <i class="fa-regular fa-bell"></i>
-                    </div>
-                    <div class="notification-menu" id="notificationMenu">
-                        <div class="notification-header">
-                            <h4>Notifications</h4>
-                            <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
-                        </div>
-                        <div class="notification-list">
-                            <div class="notification-item unread">
-                                <div class="notification-icon">
-                                    <i class="fa-solid fa-shopping-cart"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <div class="notification-title">New Order Received</div>
-                                    <div class="notification-message">Order #ORD-0001 has been placed</div>
-                                    <div class="notification-time">2 minutes ago</div>
-                                </div>
-                                <div class="notification-close" onclick="removeNotification(this)">
-                                    <i class="fa-solid fa-times"></i>
-                                </div>
-                            </div>
-                            <div class="notification-item unread">
-                                <div class="notification-icon">
-                                    <i class="fa-solid fa-calendar-check"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <div class="notification-title">New Booking Confirmed</div>
-                                    <div class="notification-message">Event booking for May 15, 2025</div>
-                                    <div class="notification-time">15 minutes ago</div>
-                                </div>
-                                <div class="notification-close" onclick="removeNotification(this)">
-                                    <i class="fa-solid fa-times"></i>
-                                </div>
-                            </div>
-                            <div class="notification-item">
-                                <div class="notification-icon">
-                                    <i class="fa-solid fa-user-plus"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <div class="notification-title">New User Registered</div>
-                                    <div class="notification-message">John Doe joined the platform</div>
-                                    <div class="notification-time">1 hour ago</div>
-                                </div>
-                                <div class="notification-close" onclick="removeNotification(this)">
-                                    <i class="fa-solid fa-times"></i>
-                                </div>
-                            </div>
-                            <div class="notification-item">
-                                <div class="notification-icon">
-                                    <i class="fa-solid fa-truck"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <div class="notification-title">Order Shipped</div>
-                                    <div class="notification-message">Order #ORD-0002 has been shipped</div>
-                                    <div class="notification-time">2 hours ago</div>
-                                </div>
-                                <div class="notification-close" onclick="removeNotification(this)">
-                                    <i class="fa-solid fa-times"></i>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="notification-footer">
-                            <a href="admin-logs.php" class="view-all-link">View all notifications</a>
-                        </div>
-                    </div>
-                </div>
-                <a href="admin-account.php" class="admin-avatar" title="<?= $adminName ?>">
-                    <?= strtoupper(substr($adminName, 0, 1)) ?>
-                </a>
+                <?php $adminTopbarName = $adminName; require __DIR__ . '/admin-topbar-right.php'; ?>
             </div>
         </header>
 
@@ -157,7 +87,7 @@ $adminEmail = htmlspecialchars($_SESSION['user_email'] ?? 'admin@gmail.com');
                             </div>
                         </div>
 
-                        <form id="profileForm">
+                        <form id="profileForm" data-default-name="<?= htmlspecialchars($_SESSION['user_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>" data-default-email="<?= htmlspecialchars($_SESSION['user_email'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <div class="form-group">
                                 <label for="name">Full Name</label>
                                 <input type="text" id="name" name="name" value="<?= $adminName ?>" required>
@@ -303,6 +233,7 @@ $adminEmail = htmlspecialchars($_SESSION['user_email'] ?? 'admin@gmail.com');
     
 
     
+<script defer src="admin-notifications.js?v=<?= time() ?>"></script>
 <script src="admin-account.js?v=<?= time() ?>"></script>
 </body>
 </html>

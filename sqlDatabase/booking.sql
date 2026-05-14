@@ -4,6 +4,7 @@ CREATE TABLE `bookings` (
   `address` text NOT NULL,
   `event_date` date NOT NULL,
   `event_time` time NOT NULL,
+  `event_time_end` time DEFAULT NULL,
   `event_type` varchar(100) NOT NULL,
   `num_guests` varchar(50) NOT NULL,
   `full_name` varchar(255) NOT NULL,

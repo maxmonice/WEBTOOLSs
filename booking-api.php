@@ -47,6 +47,60 @@ function bookingColumnExists(PDO $db, string $column): bool {
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function normalizeBookingDates($value): array {
+    if (is_array($value)) {
+        $dates = $value;
+    } else {
+        $dates = preg_split('/\s*,\s*/', (string)$value, -1, PREG_SPLIT_NO_EMPTY);
+    }
+
+    $normalized = [];
+    foreach ($dates as $date) {
+        $ts = strtotime((string)$date);
+        if ($ts !== false) {
+            $normalized[] = date('Y-m-d', $ts);
+        }
+    }
+
+    return array_values(array_unique($normalized));
+}
+
+/** Parse common time strings from flatpickr (12h / 24h). */
+function bookingParseTime(string $t): ?DateTime
+{
+    $t = trim($t);
+    foreach (['h:i A', 'h:i a', 'g:i A', 'g:i a', 'H:i:s', 'H:i'] as $fmt) {
+        $d = DateTime::createFromFormat($fmt, $t);
+        if ($d instanceof DateTime) {
+            return $d;
+        }
+    }
+    return null;
+}
+
+/** Start time only, for `bookings.event_time` when the column is MySQL TIME. */
+function bookingTimeToSql(string $startLabel): string
+{
+    $d = bookingParseTime($startLabel);
+    return $d instanceof DateTime ? $d->format('H:i:s') : '00:00:00';
+}
+
+/** Validate end after start (same calendar day). */
+function bookingValidateTimeOrder(string $startLabel, string $endLabel): ?string
+{
+    $a = bookingParseTime($startLabel);
+    $b = bookingParseTime($endLabel);
+    if (!$a || !$b) {
+        return 'Invalid start or end time.';
+    }
+    $aMin = (int)$a->format('H') * 60 + (int)$a->format('i');
+    $bMin = (int)$b->format('H') * 60 + (int)$b->format('i');
+    if ($bMin <= $aMin) {
+        return 'End time must be after start time.';
+    }
+    return null;
+}
+
 // =====================================================
 //  GET BOOKING AVAILABILITY FOR A DATE RANGE
 //  Returns: { year-month-day: { available: true/false, count: 0-2 } }
@@ -133,8 +187,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Extract and validate data. Accept snake_case from booking-api
             // and camelCase from older frontend code.
-            $eventDate = $data['event_date'] ?? null;
-            $eventTime = $data['event_time'] ?? '12:00';
+            $eventDates = normalizeBookingDates($data['event_dates'] ?? $data['event_date'] ?? null);
+            $eventDate = $eventDates[0] ?? null;
+            $eventTimeLegacy = trim((string)($data['event_time'] ?? ''));
+            $eventTimeStart = trim((string)($data['event_time_start'] ?? ''));
+            $eventTimeEnd = trim((string)($data['event_time_end'] ?? ''));
+            if ($eventTimeStart === '' && $eventTimeEnd === '' && $eventTimeLegacy !== '') {
+                if (preg_match('/^(.+?)\s*[\x{2013}\x{2014}-]\s*(.+)$/u', $eventTimeLegacy, $m)) {
+                    $eventTimeStart = trim($m[1]);
+                    $eventTimeEnd = trim($m[2]);
+                } else {
+                    $eventTimeStart = $eventTimeLegacy;
+                    $eventTimeEnd = $eventTimeLegacy;
+                }
+            }
+
+            $sameTimeAll = $data['same_time_all_days'] ?? true;
+            if (is_string($sameTimeAll)) {
+                $sameTimeAll = !in_array(strtolower($sameTimeAll), ['0', 'false', 'no'], true);
+            } else {
+                $sameTimeAll = (bool)$sameTimeAll;
+            }
+            $eventTimesByDate = $data['event_times_by_date'] ?? null;
+            if (!is_array($eventTimesByDate)) {
+                $eventTimesByDate = null;
+            }
+
             $eventName = trim($data['event_name'] ?? $data['eventName'] ?? '');
             $eventType = trim($data['event_type'] ?? $data['eventType'] ?? '');
             $numGuests = $data['num_guests'] ?? $data['numGuests'] ?? 0;
@@ -152,43 +230,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Validate date is not in the past
-            $eventDateObj = new DateTime($eventDate);
             $today = new DateTime(date('Y-m-d'));
-            if ($eventDateObj < $today) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Cannot book dates in the past']);
-                exit;
+            foreach ($eventDates as $date) {
+                $eventDateObj = new DateTime($date);
+                if ($eventDateObj < $today) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Cannot book dates in the past']);
+                    exit;
+                }
             }
 
-            $timeObj = DateTime::createFromFormat('H:i', $eventTime)
-                ?: DateTime::createFromFormat('H:i:s', $eventTime)
-                ?: DateTime::createFromFormat('h:i A', $eventTime);
-            if (!$timeObj) {
+            if ($eventTimeStart === '' || $eventTimeEnd === '') {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid event time']);
+                echo json_encode(['success' => false, 'error' => 'Event start and end time are required']);
                 exit;
             }
-            $eventTime = $timeObj->format('H:i:s');
+            $orderErr = bookingValidateTimeOrder($eventTimeStart, $eventTimeEnd);
+            if ($orderErr !== null) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => $orderErr]);
+                exit;
+            }
+            $defaultTimeSql = bookingTimeToSql($eventTimeStart);
+            $defaultTimeEndSql = bookingTimeToSql($eventTimeEnd);
 
-            // Check if date already has 2 bookings
-            $stmt = $db->prepare("
+            if (count($eventDates) > 1 && !$sameTimeAll) {
+                foreach ($eventDates as $dCheck) {
+                    if (!$eventTimesByDate || empty($eventTimesByDate[$dCheck]) || !is_array($eventTimesByDate[$dCheck])) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Please provide a time range for each selected date.']);
+                        exit;
+                    }
+                    $ps = trim((string)($eventTimesByDate[$dCheck]['start'] ?? ''));
+                    $pe = trim((string)($eventTimesByDate[$dCheck]['end'] ?? ''));
+                    if ($ps === '' || $pe === '') {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Each day needs a start and end time.']);
+                        exit;
+                    }
+                    $eMsg = bookingValidateTimeOrder($ps, $pe);
+                    if ($eMsg !== null) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => $eMsg . ' (' . $dCheck . ')']);
+                        exit;
+                    }
+                }
+            }
+
+            $availabilityStmt = $db->prepare("
                 SELECT COUNT(*) as booking_count
                 FROM bookings
                 WHERE DATE(event_date) = ?
                 AND status IN ('pending', 'confirmed')
             ");
-            $stmt->execute([date('Y-m-d', strtotime($eventDate))]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            $bookingCount = (int)$result['booking_count'];
+            foreach ($eventDates as $date) {
+                $availabilityStmt->execute([$date]);
+                $bookingCount = (int)$availabilityStmt->fetchColumn();
 
-            if ($bookingCount >= 2) {
-                http_response_code(400);
-                echo json_encode([
-                    'success' => false, 
-                    'error' => 'This date is fully booked. Please select another date.',
-                    'full_booked' => true
-                ]);
-                exit;
+                if ($bookingCount >= 2) {
+                    http_response_code(400);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => date('M j, Y', strtotime($date)) . ' is fully booked. Please remove it or select another date.',
+                        'full_booked' => true
+                    ]);
+                    exit;
+                }
             }
 
             $userName = trim($data['user_name'] ?? $data['userName'] ?? $_SESSION['user_name'] ?? $fullName);
@@ -201,10 +308,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
             $placeholders = ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', "'pending'", 'NOW()'];
             $values = [
-                $eventName, $address, date('Y-m-d', strtotime($eventDate)), $eventTime, $eventType,
+                $eventName, $address, date('Y-m-d', strtotime($eventDate)), $defaultTimeSql, $eventType,
                 $numGuests, $fullName, $contactNumber, $emailAddress, $notes,
                 $userEmail, $userName
             ];
+
+            if (bookingColumnExists($db, 'event_time_end')) {
+                $insertIdx = array_search('event_time', $columns, true);
+                if ($insertIdx !== false) {
+                    array_splice($columns, $insertIdx + 1, 0, ['event_time_end']);
+                    array_splice($placeholders, $insertIdx + 1, 0, ['?']);
+                    array_splice($values, $insertIdx + 1, 0, [$defaultTimeEndSql]);
+                }
+            }
 
             if (isset($_SESSION['user_id']) && bookingColumnExists($db, 'user_id')) {
                 array_unshift($columns, 'user_id');
@@ -221,18 +337,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO bookings (" . implode(', ', $columns) . ")
                 VALUES (" . implode(', ', $placeholders) . ")
             ");
-            $stmt->execute($values);
+            $bookingIds = [];
+            $db->beginTransaction();
 
-            $bookingId = (int)$db->lastInsertId();
+            $baseAssoc = [];
+            $vi = 0;
+            foreach ($columns as $col) {
+                if ($col === 'status' || $col === 'created_at' || $col === 'updated_at') {
+                    continue;
+                }
+                $baseAssoc[$col] = $values[$vi++];
+            }
+
+            foreach ($eventDates as $date) {
+                $assoc = $baseAssoc;
+                $assoc['event_date'] = $date;
+                if (count($eventDates) > 1 && !$sameTimeAll && $eventTimesByDate && !empty($eventTimesByDate[$date])) {
+                    $pair = $eventTimesByDate[$date];
+                    $assoc['event_time'] = bookingTimeToSql(trim((string)($pair['start'] ?? '')));
+                    if (isset($assoc['event_time_end'])) {
+                        $assoc['event_time_end'] = bookingTimeToSql(trim((string)($pair['end'] ?? '')));
+                    }
+                } else {
+                    $assoc['event_time'] = $defaultTimeSql;
+                    if (isset($assoc['event_time_end'])) {
+                        $assoc['event_time_end'] = $defaultTimeEndSql;
+                    }
+                }
+                $rowValues = [];
+                foreach ($columns as $col) {
+                    if ($col === 'status' || $col === 'created_at' || $col === 'updated_at') {
+                        continue;
+                    }
+                    $rowValues[] = $assoc[$col];
+                }
+                $stmt->execute($rowValues);
+                $bookingIds[] = (int)$db->lastInsertId();
+            }
+            $db->commit();
+
+            try {
+                require_once __DIR__ . '/Notifications.php';
+                $notif = new Notifications($db);
+                $uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+                $timeLbl = trim($eventTimeStart) . ' – ' . trim($eventTimeEnd);
+                $dateLbl = count($eventDates) > 1 ? implode(', ', $eventDates) : ($eventDates[0] ?? '');
+                $notif->autoNotify('new_booking', [
+                    'id' => $bookingIds[0] ?? 0,
+                    'customer_name' => $fullName,
+                    'date' => $dateLbl,
+                    'time' => $timeLbl,
+                    'user_id' => $uid ?: null,
+                ]);
+            } catch (Throwable $e) {
+                error_log('booking-api new_booking notify: ' . $e->getMessage());
+            }
 
             http_response_code(201);
             echo json_encode([
                 'success' => true,
-                'message' => 'Booking created successfully! Pending admin confirmation.',
-                'booking_id' => $bookingId
+                'message' => count($bookingIds) > 1 ? 'Bookings created successfully! Pending admin confirmation.' : 'Booking created successfully! Pending admin confirmation.',
+                'booking_id' => $bookingIds[0] ?? null,
+                'booking_ids' => $bookingIds
             ]);
             exit;
         } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             exit;

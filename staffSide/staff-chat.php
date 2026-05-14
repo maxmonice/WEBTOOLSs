@@ -38,7 +38,8 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         .chat-main-header { padding: 20px 30px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 30px; display: flex; flex-direction: column; gap: 20px; }
         .message { max-width: 60%; padding: 12px 18px; border-radius: 16px; font-size: 0.9rem; line-height: 1.5; word-break: break-word; }
-        .message.admin { align-self: flex-end; background: #C22626; color: #fff; border-bottom-right-radius: 4px; }
+        .message.me { align-self: flex-end; background: #C22626; color: #fff; border-bottom-right-radius: 4px; }
+        .message.admin { align-self: flex-start; background: #2a2a2a; color: #fff; border-bottom-left-radius: 4px; }
         .message.customer, .message.rider, .message.staff { align-self: flex-start; background: #2a2a2a; color: #fff; border-bottom-left-radius: 4px; }
         .message-time { display: block; font-size: 0.7rem; opacity: 0.6; margin-top: 5px; text-align: right; }
         .chat-input-area { padding: 25px 30px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; gap: 15px; }
@@ -137,6 +138,8 @@ function escHtml(value) {
 }
 
 let currentPeer = null;
+const CURRENT_CHAT_TYPE = 'staff';
+const CURRENT_CHAT_ID = <?= (int)($_SESSION['user_id'] ?? 0) ?>;
 
 function escHtml(value) {
     return String(value ?? '').replace(/[&<>"]/g, ch => ({
@@ -225,12 +228,14 @@ async function loadMessages() {
         const container = document.getElementById('chatMessages');
 
         if (data.success) {
-            container.innerHTML = data.messages.map(m => `
-                <div class="message ${escHtml(m.sender_type)}">
+            container.innerHTML = data.messages.map(m => {
+                const cls = m.sender_type === CURRENT_CHAT_TYPE && Number(m.sender_id) === CURRENT_CHAT_ID ? 'me' : escHtml(m.sender_type);
+                return `
+                <div class="message ${cls}">
                     ${escHtml(m.message)}
                     <span class="message-time">${escHtml(m.timestamp)}</span>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
             container.scrollTop = container.scrollHeight;
         }
     } catch (e) {

@@ -19,6 +19,52 @@ function fmt(n) {
     return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getActivePromo() {
+    const discount = parseFloat(localStorage.getItem('promo_discount') || '0');
+    const category = (localStorage.getItem('promo_category') || 'All Items').toLowerCase();
+    const code = localStorage.getItem('active_promo') || '';
+    if (!discount || discount <= 0) return null;
+    return { discount, category, code };
+}
+
+function promoAppliesTo(itemData) {
+    const promo = getActivePromo();
+    if (!promo) return false;
+    const itemCategory = String(itemData.category || itemData.applicable_category || '').toLowerCase();
+    return ['all items', 'all menu', 'all'].includes(promo.category) || itemCategory.includes(promo.category);
+}
+
+function applyPromoPrice(itemData, price) {
+    const promo = getActivePromo();
+    if (!promo || !promoAppliesTo(itemData)) {
+        return { price, originalPrice: null, discountPercent: 0, promoCode: '' };
+    }
+    return {
+        price: price * (1 - (promo.discount / 100)),
+        originalPrice: price,
+        discountPercent: promo.discount,
+        promoCode: promo.code
+    };
+}
+window.applyPromoPrice = applyPromoPrice;
+
+function refreshCartPromoPrices() {
+    let changed = false;
+    cart.forEach(item => {
+        const basePrice = Number(item.originalPrice || item.rawPrice || 0);
+        const promoPrice = applyPromoPrice(item, basePrice);
+        if (Math.abs((item.rawPrice || 0) - promoPrice.price) > 0.001 || (item.discountPercent || 0) !== promoPrice.discountPercent) {
+            item.rawPrice = promoPrice.price;
+            item.price = fmt(promoPrice.price);
+            item.originalPrice = promoPrice.originalPrice;
+            item.discountPercent = promoPrice.discountPercent;
+            item.promoCode = promoPrice.promoCode;
+            changed = true;
+        }
+    });
+    if (changed) localStorage.setItem('cart', JSON.stringify(cart));
+}
+
 function lockScroll(lock) {
     document.body.style.overflow = lock ? 'hidden' : '';
 }
@@ -38,18 +84,30 @@ window.updateCartCount = function () {
 // ─── Add to Cart ─────────────────────────────────────────────────────────────
 window.addItemToCart = window.addToCart = function (itemData, qty = 1, variation = null) {
     if (!itemData) return;
-    const price = typeof itemData.price === 'string'
+    const basePrice = Number(itemData.rawPrice) || (typeof itemData.price === 'string'
         ? parseFloat(itemData.price.replace(/[₱,]/g, ''))
-        : itemData.rawPrice || parseFloat(itemData.price) || 0;
+        : parseFloat(itemData.price) || 0);
+    const promoPrice = applyPromoPrice(itemData, basePrice);
+    const price = promoPrice.price;
 
     const existing = cart.find(item => item.name === itemData.name && item.variation === variation);
     if (existing) {
         existing.quantity += qty;
+        existing.rawPrice = price;
+        existing.price = fmt(price);
+        existing.originalPrice = promoPrice.originalPrice;
+        existing.discountPercent = promoPrice.discountPercent;
+        existing.promoCode = promoPrice.promoCode;
+        existing.category = itemData.category || existing.category || null;
     } else {
         cart.push({
             name: itemData.name,
             price: fmt(price),
             rawPrice: price,
+            originalPrice: promoPrice.originalPrice,
+            discountPercent: promoPrice.discountPercent,
+            promoCode: promoPrice.promoCode,
+            category: itemData.category || null,
             pieces: itemData.pieces || null,
             variation: variation || null,
             quantity: qty,
@@ -501,6 +559,7 @@ function renderCart() {
     const checkoutEl = document.getElementById('checkoutTotal');
     const subheadEl = document.getElementById('cartSubheading');
     if (!list) return;
+    refreshCartPromoPrices();
     list.innerHTML = '';
 
     if (cart.length === 0) {
@@ -531,7 +590,8 @@ function renderCart() {
               </div>
               <div class="cart-item-prices">
                 <div class="cart-item-price">${fmt(item.rawPrice * item.quantity)}</div>
-                <div class="cart-item-unit-price">${fmt(item.rawPrice)}</div>
+                <div class="cart-item-unit-price">${item.originalPrice ? `<span style="text-decoration:line-through;color:rgba(255,255,255,0.35);margin-right:5px;">${fmt(item.originalPrice)}</span>` : ''}${fmt(item.rawPrice)}</div>
+                ${item.discountPercent ? `<div class="cart-item-unit-price" style="color:#22c55e;">${item.discountPercent}% promo applied</div>` : ''}
               </div>
               <button class="cart-item-delete" onclick="removeItem(${idx})" title="Remove">
                 <i class="far fa-trash-alt"></i>
@@ -715,7 +775,8 @@ window.submitOrder = async function () {
     const address = document.getElementById('cartAddress')?.value.trim() || '';
     const payerEmail = document.getElementById('xenditPayerEmail')?.value.trim() || '';
     const subtotal = cart.reduce((s, i) => s + (i.rawPrice || 0) * (i.quantity || 1), 0);
-    const total = subtotal + SHIPPING;
+    const tax = subtotal * 0.12;
+    const total = subtotal + tax + SHIPPING;
 
     const paymentDetails = {};
     ['codName', 'codMobile', 'card_mobile'].forEach(id => {
@@ -734,7 +795,7 @@ window.submitOrder = async function () {
         address,
         paymentDetails,
         subtotal,
-        tax: subtotal * 0.12,
+        tax,
         shipping: SHIPPING,
         total,
         lat: window.selectedLat || null,

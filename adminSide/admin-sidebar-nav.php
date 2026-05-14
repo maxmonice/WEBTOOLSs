@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * Shared admin sidebar (brand + nav + footer).
  * Before include, set:
- *   $adminNavActive — one of: dashboard, users, bookings, orders, content, archive, messages, promos, chat, settings, logs, account
+ *   $adminNavActive — one of: dashboard, users, bookings, orders, content, archive, messages, promos, chat, settings, logs
  *   $adminNavFromRoot — true when this file is required from project root (e.g. admin-archive.php); omit or false from adminSide/*.php
  */
 
@@ -34,9 +34,8 @@ $na = static function (string $key) use ($nav): string {
     <a href="<?= htmlspecialchars($ap) ?>admin-promos.php" class="<?= $na('promos') ?>"><i class="fa-solid fa-ticket"></i> Promo Management</a>
     <a href="<?= htmlspecialchars($ap) ?>admin-chat.php" class="<?= $na('chat') ?>"><i class="fa-solid fa-comment-dots"></i> Support Chat</a>
     <div class="nav-section-label">System</div>
-    <a href="<?= htmlspecialchars($rp) ?>admin-settings.php" class="<?= $na('settings') ?>"><i class="fa-solid fa-cog"></i> Site Settings</a>
+    <a href="<?= htmlspecialchars($rp) ?>admin-settings.php" class="<?= $na('settings') ?>"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
     <a href="<?= htmlspecialchars($ap) ?>admin-logs.php" class="<?= $na('logs') ?>"><i class="fa-solid fa-shield-halved"></i> Security &amp; Logs</a>
-    <a href="<?= htmlspecialchars($ap) ?>admin-account.php" class="<?= $na('account') ?>"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
 </nav>
 <div class="sidebar-footer">
     <a href="#" onclick="showLogoutModal(event)" class="logout-btn" style="background: #ef4444; color: #fff;"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>

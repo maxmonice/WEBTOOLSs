@@ -76,12 +76,8 @@ if (($data['action'] ?? 'create_order') !== 'create_order') {
 }
 
 try {
-    $pdo = new PDO(
-        "mysql:host=127.0.0.1;dbname=lukes_seafood;charset=utf8mb4",
-        'root', '',
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-    );
+    require_once __DIR__ . '/Db.php';
+    $pdo = getDB();
 
     $items          = $data['items']          ?? [];
     $address        = $data['address']        ?? '';
@@ -143,6 +139,18 @@ try {
 
     $itemCount = count($items);
     logActivity('order_placed', "Order #{$orderId} placed — {$itemCount} item(s) — ₱{$total}", $userEmail, $userName);
+
+    try {
+        require_once __DIR__ . '/Notifications.php';
+        (new Notifications($pdo))->autoNotify('new_order', [
+            'id' => $orderId,
+            'customer_name' => $userName !== '' ? $userName : 'Guest',
+            'total' => number_format($total, 2),
+            'user_id' => $sessionUserId ? (int) $sessionUserId : null,
+        ]);
+    } catch (Throwable $e) {
+        error_log('process-order new_order notify: ' . $e->getMessage());
+    }
 
     require_once __DIR__ . '/includes/send-receipt.php';
     sendOrderReceiptEmail($userEmail, $userName, $orderId, $items, floatval($data['subtotal'] ?? 0), floatval($data['shipping'] ?? 0), $total, $paymentMethod, floatval($data['tax'] ?? 0));

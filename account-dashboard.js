@@ -830,7 +830,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         let currentChatOrderId = null;
 
         window.openAdminChat = function() {
-            openChat('admin', 1, null); // Assuming 1 is the primary admin ID or just null for system admin
+            openChat('admin', 0, null);
         };
 
         window.openRiderChat = function(riderId, orderId) {
@@ -1266,7 +1266,30 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         loadOrderTracking();
         // Faster polling (10s) when an order is active to detect delivery instantly
-        setInterval(loadOrderTracking, 10000);        async function loadBookings() {
+        setInterval(loadOrderTracking, 10000);
+
+        function fmtSqlTime12Dash(t) {
+            if (!t) return '';
+            const s = String(t).trim();
+            if (/\s[–—-]\s/.test(s) && /(AM|PM)/i.test(s)) return s;
+            const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (!m) return s;
+            let h = parseInt(m[1], 10);
+            const min = m[2];
+            const ap = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${min} ${ap}`;
+        }
+        function formatAccountBookingTimeRange(b) {
+            if (!b || !b.event_time) return '';
+            const en = b.event_time_end;
+            if (en && String(en).trim() && en !== '00:00:00' && en !== b.event_time) {
+                return `${fmtSqlTime12Dash(b.event_time)} – ${fmtSqlTime12Dash(en)}`;
+            }
+            return fmtSqlTime12Dash(b.event_time);
+        }
+
+        async function loadBookings() {
             const section = document.getElementById('eventBookingsSection');
             if (!section) return;
 
@@ -1293,7 +1316,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                                             </div>
                                             <div>
                                                 <div style="font-size:0.95rem; font-weight:700; color:#fff;">${b.event_name}</div>
-                                                <div style="font-size:0.8rem; color:rgba(255,255,255,0.5);">${b.event_date} @ ${b.event_time}</div>
+                                                <div style="font-size:0.8rem; color:rgba(255,255,255,0.5);">${b.event_date}${formatAccountBookingTimeRange(b) ? ' @ ' + formatAccountBookingTimeRange(b) : ''}</div>
                                             </div>
                                         </div>
                                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.8rem;">
@@ -1350,7 +1373,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             document.getElementById('bookingDetailStatusBadge').style.background = getStatusBg(booking.status);
             document.getElementById('vDetailName').textContent = booking.event_name;
             document.getElementById('vDetailId').textContent = `Booking #BK-${String(booking.id).padStart(3, '0')}`;
-            document.getElementById('vDetailDateTime').textContent = `${booking.event_date} @ ${booking.event_time}`;
+            document.getElementById('vDetailDateTime').textContent = `${booking.event_date}${formatAccountBookingTimeRange(booking) ? ' @ ' + formatAccountBookingTimeRange(booking) : ''}`;
             document.getElementById('vDetailGuests').textContent = `${booking.num_guests} Persons`;
             document.getElementById('vDetailType').textContent = booking.event_type;
             document.getElementById('vDetailAddress').textContent = booking.address;

@@ -209,6 +209,9 @@ if ($promosTableExists) {
           <div class="topbar-breadcrumb">Admin <span>/</span> Promos</div>
         </div>
       </div>
+      <div class="topbar-right">
+        <?php require __DIR__ . '/admin-topbar-right.php'; ?>
+      </div>
     </header>
 
     <div class="page-content">
@@ -280,7 +283,9 @@ if ($promosTableExists) {
   </div>
 </div>
 
+<script defer src="admin-notifications.js?v=<?= time() ?>"></script>
 <script>
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -312,6 +317,7 @@ async function deletePromo(id) {
     });
     const result = await res.json();
     if (result.success) location.reload();
+    else alert(result.message || 'Could not delete promo');
 }
 </script>
 </body>

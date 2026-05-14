@@ -39,6 +39,7 @@ try {
             'event_date' => $b['event_date'],
             'event_name' => $b['event_name'] ?? 'Event',
             'event_time' => $b['event_time'] ?? '',
+            'event_time_end' => $b['event_time_end'] ?? '',
             'num_guests' => $b['num_guests'] ?? '',
             'address' => $b['address'] ?? '',
             'event_type' => $b['event_type'] ?? '',

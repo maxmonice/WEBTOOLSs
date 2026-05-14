@@ -1,16 +1,11 @@
 <?php
 require_once 'admin-config.php';
-require_once __DIR__ . '/../Notifications.php';
 requireAdmin();  // 🔒 redirects to account.php if not admin
 
 $stats    = getAdminStats($pdo);
 $activity = getRecentActivity($pdo, 6);
 $orders   = getRecentOrders($pdo, 5);
 $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
-
-$notifications     = new Notifications($pdo);
-$userNotifications = $notifications->getForUser('admin', $_SESSION['user_id'], 8);
-$unreadCount         = $notifications->getUnreadCount('admin', $_SESSION['user_id']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -22,6 +17,7 @@ $unreadCount         = $notifications->getUnreadCount('admin', $_SESSION['user_i
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
 <link rel="stylesheet" href="admin-dashboard.css?v=<?= time() ?>">
+<script defer src="admin-notifications.js?v=<?= time() ?>"></script>
 </head>
 <body>
 <div class="bg-dots"></div>
@@ -43,47 +39,7 @@ $unreadCount         = $notifications->getUnreadCount('admin', $_SESSION['user_i
         </div>
       </div>
       <div class="topbar-right">
-        <div class="live-notif-wrap">
-          <div class="topbar-badge live-notif-trigger" onclick="toggleLiveNotifications(event)">
-            <i class="fa-regular fa-bell"></i>
-            <?php if ($unreadCount > 0): ?>
-            <span class="badge-dot live-notif-dot"></span>
-            <span class="live-notif-count"><?= (int) $unreadCount ?></span>
-            <?php endif; ?>
-          </div>
-          <div class="live-notif-menu" id="liveNotifMenu" role="menu">
-            <div class="live-notif-header">
-              <h4>Notifications</h4>
-              <button type="button" class="live-notif-mark-all" onclick="markAllLiveNotificationsRead()">Mark all read</button>
-            </div>
-            <div class="live-notif-list" id="liveNotifList">
-              <?php if (empty($userNotifications)): ?>
-                <div class="live-notif-empty">No notifications</div>
-              <?php else: ?>
-                <?php foreach ($userNotifications as $notif): ?>
-                <div class="live-notif-item<?= !$notif['is_read'] ? ' unread' : '' ?>" data-id="<?= (int) $notif['id'] ?>" onclick="markLiveNotificationRead(<?= (int) $notif['id'] ?>, this)">
-                  <div class="live-notif-row">
-                    <div class="live-notif-icon" style="background: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>20; color: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>;">
-                      <i class="fa-solid <?= htmlspecialchars(getNotificationIcon($notif['type'])) ?>"></i>
-                    </div>
-                    <div class="live-notif-body">
-                      <div class="live-notif-title"><?= htmlspecialchars($notif['title']) ?></div>
-                      <div class="live-notif-msg"><?= htmlspecialchars($notif['message']) ?></div>
-                      <div class="live-notif-time"><?= htmlspecialchars(timeAgo($notif['created_at'])) ?></div>
-                    </div>
-                  </div>
-                </div>
-                <?php endforeach; ?>
-              <?php endif; ?>
-            </div>
-          </div>
-        </div>
-        <a href="admin-account.php" class="admin-avatar" title="<?= $adminName ?>">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?>
-        </a>
-        <a href="../account-dashboard.php?user_view=true" class="btn-user-view-dash" title="Open customer account page">
-          <i class="fa-solid fa-user"></i> User view
-        </a>
+        <?php $adminTopbarName = $adminName; require __DIR__ . '/admin-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -239,6 +195,6 @@ $unreadCount         = $notifications->getUnreadCount('admin', $_SESSION['user_i
 
 
 
-<script src="admin-dashboard.js?v=<?= time() ?>"></script>
+<script defer src="admin-dashboard.js?v=<?= time() ?>"></script>
 </body>
 </html>

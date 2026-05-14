@@ -414,7 +414,7 @@ main { margin-top: 70px; }
 }
 .summary-row:last-child { border-bottom: none; }
 .summary-label { font-weight: 600; font-size: 0.85rem; color: rgba(255,255,255,0.5); min-width: 140px; flex-shrink: 0; }
-.summary-value { color: #fff; font-size: 0.95rem; text-align: right; word-break: break-word; font-weight: 500; }
+.summary-value { color: #fff; font-size: 0.95rem; text-align: right; word-break: break-word; font-weight: 500; white-space: pre-line; }
 
 .popup-buttons {
     display: flex; gap: 12px;

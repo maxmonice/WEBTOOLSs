@@ -1,42 +1,7 @@
-function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-function filterLogs(type) {
-  // Update active tab
-  document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
-  event.target.classList.add('active');
-  
-  // Filter logic would go here
-  console.log('Filtering logs by:', type);
+function toggleSidebar() {
+  var s = document.getElementById('sidebar');
+  if (s) s.classList.toggle('open');
 }
 
-function toggleNotifications() {
-  const menu = document.getElementById('notificationMenu');
-  menu.classList.toggle('show');
-  
-  // Close when clicking outside
-  document.addEventListener('click', function closeNotifications(e) {
-    if (!e.target.closest('.notification-dropdown')) {
-      menu.classList.remove('show');
-      document.removeEventListener('click', closeNotifications);
-    }
-  });
-}
-
-function removeNotification(element) {
-  const item = element.closest('.notification-item');
-  item.style.transform = 'translateX(100%)';
-  item.style.opacity = '0';
-  setTimeout(() => item.remove(), 300);
-}
-
-function markAllAsRead() {
-  const unreadItems = document.querySelectorAll('.notification-item.unread');
-  unreadItems.forEach(item => {
-    item.classList.remove('unread');
-  });
-  
-  // Remove badge dot
-  const badgeDot = document.querySelector('.badge-dot');
-  if (badgeDot) {
-    badgeDot.style.display = 'none';
-  }
-}
+/** Reserved for future log filters (no tabs on this page yet). */
+function filterLogs(_type) {}

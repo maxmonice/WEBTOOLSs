@@ -49,16 +49,173 @@ document.addEventListener('DOMContentLoaded', () => {
     const storedEmail = sessionStorage.getItem('user_email');
     if (storedName && fullNameInput && !fullNameInput.value) fullNameInput.value = storedName;
     if (storedEmail && emailInput && !emailInput.value) emailInput.value = storedEmail;
-    // Initialize Time Picker (date picker is now handled by BookingCalendar in bookbar.php)
-    flatpickr("#eventTime", {
+    // ─── Time range pickers (start / end) + optional per-day times ─────────────
+    const fpTimeOpts = {
         enableTime: true,
         noCalendar: true,
-        dateFormat: "h:i K",
+        dateFormat: 'h:i K',
         time_24hr: false,
-        theme: "dark",
+        theme: 'dark',
         disableMobile: true,
-        onChange: () => clearError('eventTime')
+        defaultHour: 13,
+        defaultMinute: 0,
+    };
+
+    const fpMainStart = flatpickr('#eventTimeStart', {
+        ...fpTimeOpts,
+        defaultHour: 13,
+        onChange: () => {
+            clearError('eventTimeStart');
+            clearError('eventTimeEnd');
+            syncMainHiddenEventTime();
+        },
     });
+    const fpMainEnd = flatpickr('#eventTimeEnd', {
+        ...fpTimeOpts,
+        defaultHour: 20,
+        onChange: () => {
+            clearError('eventTimeStart');
+            clearError('eventTimeEnd');
+            syncMainHiddenEventTime();
+        },
+    });
+    fpMainStart.setDate(new Date(2020, 0, 1, 13, 0), false);
+    fpMainEnd.setDate(new Date(2020, 0, 1, 20, 0), false);
+    syncMainHiddenEventTime();
+
+    function syncMainHiddenEventTime() {
+        const s = document.getElementById('eventTimeStart')?.value?.trim() || '';
+        const e = document.getElementById('eventTimeEnd')?.value?.trim() || '';
+        const h = document.getElementById('eventTime');
+        if (h) h.value = s && e ? `${s} – ${e}` : '';
+    }
+
+    /** Parse "h:mm AM/PM" to minutes from midnight */
+    function parseTimeToMinutes(str) {
+        if (!str) return null;
+        const m = String(str).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (!m) return null;
+        let h = parseInt(m[1], 10);
+        const min = parseInt(m[2], 10);
+        const ap = m[3].toUpperCase();
+        if (ap === 'PM' && h < 12) h += 12;
+        if (ap === 'AM' && h === 12) h = 0;
+        return h * 60 + min;
+    }
+
+    function validateStartEndOrder(startStr, endStr) {
+        const a = parseTimeToMinutes(startStr);
+        const b = parseTimeToMinutes(endStr);
+        if (a === null || b === null) return { ok: false, msg: 'Please use valid start and end times.' };
+        if (b <= a) return { ok: false, msg: 'End time must be after start time.' };
+        return { ok: true };
+    }
+
+    function escHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    let __perDayFlatpickrs = [];
+
+    function destroyPerDayPickers() {
+        __perDayFlatpickrs.forEach((fp) => {
+            try {
+                fp.destroy();
+            } catch (_) {}
+        });
+        __perDayFlatpickrs = [];
+        const wrap = document.getElementById('perDayTimeRows');
+        if (wrap) wrap.innerHTML = '';
+    }
+
+    function renderPerDayTimeRows(dates) {
+        destroyPerDayPickers();
+        const wrap = document.getElementById('perDayTimeRows');
+        if (!wrap) return;
+        dates.forEach((ymd) => {
+            const label = new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+            });
+            const idS = `dayTimeStart_${ymd}`;
+            const idE = `dayTimeEnd_${ymd}`;
+            const row = document.createElement('div');
+            row.className = 'per-day-time-row';
+            row.style.cssText =
+                'display:grid;grid-template-columns:minmax(160px,1fr) 1fr 1fr;gap:12px;align-items:end;margin-bottom:12px;padding:12px;background:rgba(0,0,0,0.25);border-radius:10px;border:1px solid rgba(255,255,255,0.06);';
+            row.innerHTML = `
+                <div style="font-size:0.85rem;font-weight:600;color:#fff;padding-bottom:4px;">${label}</div>
+                <label class="form-label" style="margin:0;"><span style="font-size:0.72rem;color:rgba(255,255,255,0.5);">Start</span>
+                    <input type="text" id="${idS}" class="form-input" readonly></label>
+                <label class="form-label" style="margin:0;"><span style="font-size:0.72rem;color:rgba(255,255,255,0.5);">End</span>
+                    <input type="text" id="${idE}" class="form-input" readonly></label>`;
+            wrap.appendChild(row);
+            const fpS = flatpickr(`#${idS}`, {
+                ...fpTimeOpts,
+                onChange: () => {
+                    clearError(idS);
+                    clearError(idE);
+                },
+            });
+            const fpE = flatpickr(`#${idE}`, {
+                ...fpTimeOpts,
+                onChange: () => {
+                    clearError(idS);
+                    clearError(idE);
+                },
+            });
+            const baseStart = fpMainStart.selectedDates[0] || new Date(2020, 0, 1, 13, 0);
+            const baseEnd = fpMainEnd.selectedDates[0] || new Date(2020, 0, 1, 20, 0);
+            fpS.setDate(baseStart, false);
+            fpE.setDate(baseEnd, false);
+            __perDayFlatpickrs.push(fpS, fpE);
+        });
+    }
+
+    function getSelectedDatesArray() {
+        return document
+            .getElementById('eventDate')
+            .value.split(',')
+            .map((d) => d.trim())
+            .filter(Boolean);
+    }
+
+    window.onBookingDatesChanged = function (dates) {
+        const sameRow = document.getElementById('sameTimeAllDaysRow');
+        const perWrap = document.getElementById('perDayTimeContainer');
+        const sameCb = document.getElementById('sameTimeAllDays');
+        if (!sameRow || !perWrap) return;
+        if (dates.length > 1) {
+            sameRow.style.display = 'block';
+            const same = sameCb ? sameCb.checked : true;
+            if (!same) {
+                perWrap.style.display = 'block';
+                renderPerDayTimeRows(dates);
+            } else {
+                perWrap.style.display = 'none';
+                destroyPerDayPickers();
+            }
+        } else {
+            sameRow.style.display = 'none';
+            perWrap.style.display = 'none';
+            destroyPerDayPickers();
+        }
+    };
+
+    const sameTimeCb = document.getElementById('sameTimeAllDays');
+    if (sameTimeCb) {
+        sameTimeCb.addEventListener('change', () => {
+            window.onBookingDatesChanged(getSelectedDatesArray());
+        });
+    }
+
+    // Initialize Time Picker (date picker is now handled by BookingCalendar in bookbar.php)
 
     // ─── Leaflet Map Logic ──────────────────────────────────────────────────────
     let map = null;
@@ -91,6 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Expose map trigger globally (called from bookbar.php button) ──
     window.initLeafletMap = function () {
         document.getElementById('mapModalOverlay')?.remove();
+        // Clear any previous map coordinates when opening a new map
+        const addressEl = document.getElementById('address');
+        delete addressEl.dataset.confirmedLat;
+        delete addressEl.dataset.confirmedLng;
         initMapModal();
     };
 
@@ -229,8 +390,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function validateAddressWithinRadius(address) {
+        const addressEl = document.getElementById('address');
         const trimmed = (address || '').trim();
         if (!trimmed) return { ok: false, message: 'Please select or enter an address.' };
+        
+        // If the address was confirmed from the map, use the stored coordinates
+        if (addressEl.dataset.confirmedLat && addressEl.dataset.confirmedLng) {
+            console.log('Using stored map coordinates:', {lat: addressEl.dataset.confirmedLat, lng: addressEl.dataset.confirmedLng});
+            const lat = parseFloat(addressEl.dataset.confirmedLat);
+            const lng = parseFloat(addressEl.dataset.confirmedLng);
+            const R = 6371;
+            const dLat = (lat - STORE_LOC.lat) * Math.PI / 180;
+            const dLon = (lng - STORE_LOC.lng) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(STORE_LOC.lat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            
+            console.log('Distance from store:', distKm, 'Max allowed:', MAX_RADIUS_KM);
+            if (distKm > MAX_RADIUS_KM) {
+                return { ok: false, message: `Location is too far (${distKm.toFixed(1)}km). Max radius is ${MAX_RADIUS_KM}km.` };
+            }
+            return { ok: true };
+        }
+        
+        console.log('No stored map coordinates, attempting to geocode address:', trimmed);
+        // If no map confirmation, validate by geocoding the address text
         if (trimmed.length < 8) return { ok: false, message: 'Please enter a more complete address.' };
 
         try {
@@ -289,6 +472,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (searchInput) searchInput.value = addr;
         btn._address = addr;
+        btn._lat = lat;
+        btn._lng = lng;
 
         if (isOutside) {
             btn.disabled = true;
@@ -312,9 +497,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
     function confirmLocation() {
-        const addr = document.getElementById('confirmLocationBtn')._address;
+        const btn = document.getElementById('confirmLocationBtn');
+        const addr = btn._address;
+        const lat = btn._lat;
+        const lng = btn._lng;
+        
+        console.log('confirmLocation called with:', { addr, lat, lng });
+        
         if (addr) {
             document.getElementById('address').value = addr;
+            // Store the coordinates from the map selection
+            if (lat !== undefined && lng !== undefined) {
+                document.getElementById('address').dataset.confirmedLat = lat;
+                document.getElementById('address').dataset.confirmedLng = lng;
+                console.log('Stored coordinates:', { lat, lng });
+            }
             clearError('address');
         }
         closeMapModal();
@@ -325,7 +522,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'eventName', type: 'text', msg: 'Event name is required' },
         { id: 'address', type: 'text', msg: 'Please provide or select an address' },
         { id: 'eventDate', type: 'text', msg: 'Please select a date' },
-        { id: 'eventTime', type: 'text', msg: 'Please select a time' },
+        { id: 'eventTimeStart', type: 'text', msg: 'Select a start time' },
+        { id: 'eventTimeEnd', type: 'text', msg: 'Select an end time' },
         { id: 'eventType', type: 'select', msg: 'Please select an event type' },
         { id: 'numGuests', type: 'select', msg: 'Please select the number of guests' },
         { id: 'fullName', type: 'text', msg: 'Full name is required' },
@@ -354,7 +552,14 @@ document.addEventListener('DOMContentLoaded', () => {
     fields.forEach(f => {
         const el = document.getElementById(f.id);
         if (el) {
-            el.addEventListener('input', () => clearError(f.id));
+            el.addEventListener('input', () => {
+                clearError(f.id);
+                // If user manually types in address, clear the map coordinates
+                if (f.id === 'address') {
+                    delete el.dataset.confirmedLat;
+                    delete el.dataset.confirmedLng;
+                }
+            });
             el.addEventListener('change', () => clearError(f.id));
             el.addEventListener('blur', () => {
                 const val = el.value.trim();
@@ -395,6 +600,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        const tStart0 = document.getElementById('eventTimeStart')?.value?.trim() || '';
+        const tEnd0 = document.getElementById('eventTimeEnd')?.value?.trim() || '';
+        const tr0 = validateStartEndOrder(tStart0, tEnd0);
+        if (!tr0.ok) {
+            showError('eventTimeStart', tr0.msg);
+            showError('eventTimeEnd', tr0.msg);
+            isValid = false;
+        }
+
+        const datesMulti = getSelectedDatesArray();
+        const sameAll =
+            !document.getElementById('sameTimeAllDays') || document.getElementById('sameTimeAllDays').checked;
+        if (isValid && datesMulti.length > 1 && !sameAll) {
+            for (const ymd of datesMulti) {
+                const ds = document.getElementById(`dayTimeStart_${ymd}`)?.value?.trim();
+                const de = document.getElementById(`dayTimeEnd_${ymd}`)?.value?.trim();
+                if (!ds || !de) {
+                    showNotification(`Select start and end time for each selected day (${ymd}).`, 'error');
+                    isValid = false;
+                    break;
+                }
+                const vr = validateStartEndOrder(ds, de);
+                if (!vr.ok) {
+                    showNotification(`${vr.msg} (${ymd})`, 'error');
+                    isValid = false;
+                    break;
+                }
+            }
+        }
+
         // Strict Address/Radius validation (like the cart)
         if (isValid) {
             const addr = document.getElementById('address').value.trim();
@@ -434,26 +669,52 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function buildEventTimeSummaryHtml() {
+        const dates = getSelectedDatesArray();
+        const sameAll =
+            !document.getElementById('sameTimeAllDays') || document.getElementById('sameTimeAllDays').checked;
+        const s = document.getElementById('eventTimeStart')?.value?.trim() || '';
+        const e = document.getElementById('eventTimeEnd')?.value?.trim() || '';
+        const main = escHtml(`${s} – ${e}`);
+        if (dates.length <= 1 || sameAll) return main;
+        const parts = dates.map((ymd) => {
+            const ds = document.getElementById(`dayTimeStart_${ymd}`)?.value?.trim() || '';
+            const de = document.getElementById(`dayTimeEnd_${ymd}`)?.value?.trim() || '';
+            const lab = new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return `${escHtml(lab)}: ${escHtml(ds)} – ${escHtml(de)}`;
+        });
+        return parts.join('<br>');
+    }
+
     function showSummaryPopup() {
         const rawDate = document.getElementById('eventDate').value;
+        const selectedDates = rawDate.split(',').map(d => d.trim()).filter(Boolean);
         let eventDateLabel = rawDate;
-        if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+        if (selectedDates.length) {
+            eventDateLabel = selectedDates.map(dateStr => {
+                const d = new Date(dateStr + 'T12:00:00');
+                return isNaN(d.getTime())
+                    ? dateStr
+                    : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            }).join(', ');
+        } else if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
             const d = new Date(rawDate.trim() + 'T12:00:00');
             if (!isNaN(d.getTime())) {
                 eventDateLabel = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             }
         }
+        const timeHtml = buildEventTimeSummaryHtml();
         const data = {
-            eventName: document.getElementById('eventName').value,
-            address: document.getElementById('address').value,
-            eventDate: eventDateLabel,
-            eventTime: document.getElementById('eventTime').value,
-            eventType: document.getElementById('eventType').value,
-            numGuests: document.getElementById('numGuests').value,
-            fullName: document.getElementById('fullName').value,
-            contactNumber: document.getElementById('contactNumber').value,
-            emailAddress: document.getElementById('emailAddress').value,
-            notes: document.getElementById('notes').value || 'N/A'
+            eventName: escHtml(document.getElementById('eventName').value),
+            address: escHtml(document.getElementById('address').value),
+            eventDate: escHtml(eventDateLabel),
+            eventTimeHtml: timeHtml,
+            eventType: escHtml(document.getElementById('eventType').value),
+            numGuests: escHtml(document.getElementById('numGuests').value),
+            fullName: escHtml(document.getElementById('fullName').value),
+            contactNumber: escHtml(document.getElementById('contactNumber').value),
+            emailAddress: escHtml(document.getElementById('emailAddress').value),
+            notes: escHtml(document.getElementById('notes').value || 'N/A')
         };
 
         const popupHTML = `
@@ -465,7 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="summary-row"><span class="summary-label">Name:</span><span class="summary-value">${data.eventName}</span></div>
                         <div class="summary-row"><span class="summary-label">Address:</span><span class="summary-value">${data.address}</span></div>
                         <div class="summary-row"><span class="summary-label">Date:</span><span class="summary-value">${data.eventDate}</span></div>
-                        <div class="summary-row"><span class="summary-label">Time:</span><span class="summary-value">${data.eventTime}</span></div>
+                        <div class="summary-row"><span class="summary-label">Time:</span><span class="summary-value">${data.eventTimeHtml}</span></div>
                         <div class="summary-row"><span class="summary-label">Type:</span><span class="summary-value">${data.eventType}</span></div>
                         <div class="summary-row"><span class="summary-label">Guests:</span><span class="summary-value">${data.numGuests}</span></div>
                     </div>
@@ -495,13 +756,48 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSummaryPopup();
         if (!window.__isLoggedIn) { showNotification('Please log in first', 'error'); return; }
 
+        const selectedDates = document.getElementById('eventDate').value.split(',').map(d => d.trim()).filter(Boolean);
+        const tStart = document.getElementById('eventTimeStart').value.trim();
+        const tEnd = document.getElementById('eventTimeEnd').value.trim();
+        const tr = validateStartEndOrder(tStart, tEnd);
+        if (!tr.ok) {
+            showNotification(tr.msg, 'error');
+            return;
+        }
+
+        const sameTimeAllDays =
+            !document.getElementById('sameTimeAllDays') || document.getElementById('sameTimeAllDays').checked;
+
+        let event_times_by_date = null;
+        if (selectedDates.length > 1 && !sameTimeAllDays) {
+            event_times_by_date = {};
+            for (const ymd of selectedDates) {
+                const ds = document.getElementById(`dayTimeStart_${ymd}`)?.value?.trim();
+                const de = document.getElementById(`dayTimeEnd_${ymd}`)?.value?.trim();
+                if (!ds || !de) {
+                    showNotification(`Select start and end time for each day (${ymd}).`, 'error');
+                    return;
+                }
+                const vr = validateStartEndOrder(ds, de);
+                if (!vr.ok) {
+                    showNotification(`${vr.msg} (${ymd})`, 'error');
+                    return;
+                }
+                event_times_by_date[ymd] = { start: ds, end: de };
+            }
+        }
+
+        const combinedTime = `${tStart} – ${tEnd}`;
         const formData = {
             eventName: document.getElementById('eventName').value,
             fullName: document.getElementById('fullName').value,
             contactNumber: document.getElementById('contactNumber').value,
             emailAddress: document.getElementById('emailAddress').value,
             eventDate: document.getElementById('eventDate').value,
-            eventTime: document.getElementById('eventTime').value,
+            eventDates: selectedDates,
+            eventTime: combinedTime,
+            eventTimeStart: tStart,
+            eventTimeEnd: tEnd,
             eventType: document.getElementById('eventType').value,
             numGuests: document.getElementById('numGuests').value,
             address: document.getElementById('address').value,
@@ -510,7 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
             userName: sessionStorage.getItem('user_name')
         };
 
-        if (!formData.eventName || !formData.fullName || !formData.contactNumber || !formData.emailAddress || !formData.eventDate || !formData.eventTime || !formData.eventType || !formData.numGuests || !formData.address) {
+        if (!formData.eventName || !formData.fullName || !formData.contactNumber || !formData.emailAddress || !formData.eventDate || !formData.eventTimeStart || !formData.eventTimeEnd || !formData.eventType || !formData.numGuests || !formData.address) {
             showNotification('Please fill in all required fields', 'error');
             return;
         }
@@ -539,8 +835,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 full_name: formData.fullName,
                 contact_number: formData.contactNumber,
                 email_address: formData.emailAddress,
-                event_date: formatDateForDB(formData.eventDate),
-                event_time: formData.eventTime,
+                event_date: formatDateForDB(formData.eventDates[0] || formData.eventDate),
+                event_dates: formData.eventDates.map(formatDateForDB).filter(Boolean),
+                event_time: combinedTime,
+                event_time_start: formData.eventTimeStart,
+                event_time_end: formData.eventTimeEnd,
+                same_time_all_days: sameTimeAllDays,
+                event_times_by_date: event_times_by_date,
                 event_type: formData.eventType,
                 num_guests: formData.numGuests,
                 address: formData.address,
@@ -573,6 +874,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 showNotification('Booking sent!', 'success');
                 bookingForm.reset();
+                fpMainStart.setDate(new Date(2020, 0, 1, 13, 0), false);
+                fpMainEnd.setDate(new Date(2020, 0, 1, 20, 0), false);
+                syncMainHiddenEventTime();
+                if (document.getElementById('sameTimeAllDays')) document.getElementById('sameTimeAllDays').checked = true;
+                destroyPerDayPickers();
                 if (window.bookingCalendar && typeof window.bookingCalendar.loadAvailability === 'function') {
                     window.bookingCalendar.loadAvailability().then(() => window.bookingCalendar.renderCalendar());
                 }

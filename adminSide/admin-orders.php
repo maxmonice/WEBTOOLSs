@@ -3,12 +3,14 @@ require_once 'admin-config.php';
 require_once '../activity-logger.php';
 requireAdmin();
 
-// Handle order creation from frontend (JSON body)
+// Handle order creation from frontend (JSON body only — do not read php://input for form posts)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $raw  = file_get_contents('php://input');
-    $data = $raw ? json_decode($raw, true) : null;
+    $ct = $_SERVER['CONTENT_TYPE'] ?? '';
+    if (stripos($ct, 'application/json') !== false) {
+        $raw  = file_get_contents('php://input');
+        $data = $raw ? json_decode($raw, true) : null;
 
-    if (isset($data['action']) && $data['action'] === 'create_order') {
+        if (isset($data['action']) && $data['action'] === 'create_order') {
         $items         = $data['items']          ?? [];
         $address       = $data['address']        ?? '';
         $paymentMethod = $data['paymentMethod']  ?? '';
@@ -42,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
         }
         exit;
+        }
     }
 }
 
@@ -146,76 +149,7 @@ try {
         </div>
       </div>
       <div class="topbar-right">
-        <div class="notification-dropdown">
-          <div class="topbar-badge" onclick="toggleNotifications()">
-            <i class="fa-regular fa-bell"></i>
-            <span class="badge-dot"></span>
-          </div>
-          <div class="notification-menu" id="notificationMenu">
-            <div class="notification-header">
-              <h4>Notifications</h4>
-              <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
-            </div>
-            <div class="notification-list">
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-shopping-cart"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Order Received</div>
-                  <div class="notification-message">Order #ORD-0001 has been placed</div>
-                  <div class="notification-time">2 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item unread">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-calendar-check"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New Booking Confirmed</div>
-                  <div class="notification-message">Event booking for May 15, 2025</div>
-                  <div class="notification-time">15 minutes ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-user-plus"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">New User Registered</div>
-                  <div class="notification-message">John Doe joined the platform</div>
-                  <div class="notification-time">1 hour ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-              <div class="notification-item">
-                <div class="notification-icon">
-                  <i class="fa-solid fa-truck"></i>
-                </div>
-                <div class="notification-content">
-                  <div class="notification-title">Order Shipped</div>
-                  <div class="notification-message">Order #ORD-0002 has been shipped</div>
-                  <div class="notification-time">2 hours ago</div>
-                </div>
-                <div class="notification-close" onclick="removeNotification(this)">
-                  <i class="fa-solid fa-times"></i>
-                </div>
-              </div>
-            </div>
-            <div class="notification-footer">
-              <a href="admin-logs.php" class="view-all-link">View all notifications</a>
-            </div>
-          </div>
-        </div>
-        <a href="admin-account.php" class="admin-avatar">A</a>
+        <?php require __DIR__ . '/admin-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -305,22 +239,29 @@ if ($revenueThisMonth >= 1000) {
                     <td><?= htmlspecialchars($itemsText) ?></td>
                     <td><?= '₱' . number_format($orderTotal, 2) ?></td>
                     <td>
-                      <?php 
-$badgeClass = 'yellow'; // default
-if ($order['status'] === 'delivered') $badgeClass = 'green';
-elseif ($order['status'] === 'cancelled') $badgeClass = 'red';
-elseif ($order['status'] === 'shipped' || $order['status'] === 'confirmed') $badgeClass = 'blue';
-?>
-<span class="badge badge-<?= $badgeClass ?>">
-                        <?= ucfirst($order['status']) ?>
+                      <?php
+                        $badgeClass = 'yellow';
+                        if ($order['status'] === 'delivered') {
+                            $badgeClass = 'green';
+                        } elseif ($order['status'] === 'cancelled') {
+                            $badgeClass = 'red';
+                        } elseif ($order['status'] === 'shipped' || $order['status'] === 'confirmed') {
+                            $badgeClass = 'blue';
+                        } elseif ($order['status'] === 'processing' || $order['status'] === 'preparing') {
+                            $badgeClass = 'yellow';
+                        }
+                      ?>
+                      <span class="badge badge-<?= $badgeClass ?>">
+                        <?= ucfirst(htmlspecialchars($order['status'])) ?>
                       </span>
                     </td>
                     <td><?= date('M d, Y', strtotime($order['created_at'])) ?></td>
                     <td>
-                      <div class="flex-gap">
+                      <div class="order-actions" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
                         <?php
                         $statusIcons = [
                           'pending'    => ['icon'=>'fa-hourglass-half',  'color'=>'#f39c12', 'label'=>'Pending'],
+                          'preparing'  => ['icon'=>'fa-fire-burner',     'color'=>'#f97316', 'label'=>'Preparing'],
                           'processing' => ['icon'=>'fa-fire-burner',     'color'=>'#f97316', 'label'=>'Preparing'],
                           'confirmed'  => ['icon'=>'fa-motorcycle',      'color'=>'#3b82f6', 'label'=>'With Rider'],
                           'shipped'    => ['icon'=>'fa-truck',           'color'=>'#a855f7', 'label'=>'Out for Delivery'],
@@ -329,12 +270,28 @@ elseif ($order['status'] === 'shipped' || $order['status'] === 'confirmed') $bad
                         ];
                         $si = $statusIcons[$order['status']] ?? ['icon'=>'fa-circle', 'color'=>'#6b7280', 'label'=>ucfirst($order['status'])];
                         ?>
-                        <span style="color:<?= $si['color'] ?>;font-size:0.8rem;display:inline-flex;align-items:center;gap:5px;">
-                          <i class="fa-solid <?= $si['icon'] ?>"></i> <?= $si['label'] ?>
+                        <span style="color:<?= $si['color'] ?>;font-size:0.78rem;display:inline-flex;align-items:center;gap:5px;">
+                          <i class="fa-solid <?= $si['icon'] ?>"></i> <?= htmlspecialchars($si['label']) ?>
                         </span>
-                        <?php if (!empty($order['eta']) && $order['status'] === 'processing'): ?>
-                          <span style="font-size:0.7rem;color:#f39c12;">· ETA: <?= htmlspecialchars($order['eta']) ?></span>
+                        <?php if (!empty($order['eta']) && ($order['status'] === 'processing' || $order['status'] === 'preparing')): ?>
+                          <span style="font-size:0.72rem;color:#f39c12;">ETA: <?= htmlspecialchars($order['eta']) ?></span>
                         <?php endif; ?>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                          <?php if ($order['status'] === 'pending'): ?>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="adminPrepareOrder(<?= (int)$order['id'] ?>)">Start preparing</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="adminSetOrderStatus(<?= (int)$order['id'] ?>,'cancelled')">Cancel</button>
+                          <?php elseif ($order['status'] === 'processing' || $order['status'] === 'preparing'): ?>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="adminCompletePrepare(<?= (int)$order['id'] ?>)">Ready for rider</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="adminSetOrderStatus(<?= (int)$order['id'] ?>,'cancelled')">Cancel</button>
+                          <?php elseif ($order['status'] === 'confirmed'): ?>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="adminSetOrderStatus(<?= (int)$order['id'] ?>,'shipped')">Out for delivery</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="adminSetOrderStatus(<?= (int)$order['id'] ?>,'cancelled')">Cancel</button>
+                          <?php elseif ($order['status'] === 'shipped'): ?>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="adminSetOrderStatus(<?= (int)$order['id'] ?>,'delivered')">Mark delivered</button>
+                          <?php else: ?>
+                            <span style="font-size:0.75rem;color:var(--muted);">—</span>
+                          <?php endif; ?>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -360,6 +317,7 @@ elseif ($order['status'] === 'shipped' || $order['status'] === 'confirmed') $bad
 
 
 
+<script defer src="admin-notifications.js?v=<?= time() ?>"></script>
 <script src="admin-orders.js?v=<?= time() ?>"></script>
 </body>
 </html>

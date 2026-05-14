@@ -3,11 +3,15 @@ require_once 'admin-config.php';
 require_once '../activity-logger.php';
 requireAdmin();
 
-// Handle log operations
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
-    $data = json_decode(file_get_contents('php://input'), true);
-    
-    if ($data['action'] === 'create_log') {
+// Handle log operations (JSON or form body)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $raw  = file_get_contents('php://input');
+    $data = $raw !== '' && $raw !== false ? json_decode($raw, true) : null;
+    if (!is_array($data)) {
+        $data = $_POST;
+    }
+
+    if (($data['action'] ?? '') === 'create_log') {
         $action = $data['action_type'] ?? '';
         $details = $data['details'] ?? '';
         $userEmail = $data['user_email'] ?? '';
@@ -23,9 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         
         try {
             $stmt->execute([$action, $details, $userEmail, $userName, $ipAddress, $userAgent]);
+            header('Content-Type: application/json');
             echo json_encode(['success' => true, 'message' => 'Log entry created successfully']);
             exit;
         } catch (PDOException $e) {
+            header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
             exit;
         }
@@ -68,7 +74,7 @@ $stats = getActivityStats();
         </div>
       </div>
       <div class="topbar-right">
-        <a href="admin-account.php" class="admin-avatar"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></a>
+        <?php require __DIR__ . '/admin-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -165,6 +171,7 @@ $stats = getActivityStats();
   </div>
 </div>
 
+<script defer src="admin-notifications.js?v=<?= time() ?>"></script>
 <script src="admin-logs.js?v=<?= time() ?>"></script>
 </body>
 </html>

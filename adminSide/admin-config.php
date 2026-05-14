@@ -149,7 +149,7 @@ function getAdminStats(PDO $pdo): array {
 
     try {
         $stats['preparing_orders'] = (int) $pdo
-            ->query("SELECT COUNT(*) FROM orders WHERE status = 'preparing'")
+            ->query("SELECT COUNT(*) FROM orders WHERE status IN ('preparing','processing')")
             ->fetchColumn();
     } catch (\Throwable $_) {}
 
@@ -296,7 +296,9 @@ function peso(float $amount): string {
 /** Badge HTML by status */
 function statusBadge(string $status): string {
     $map = [
-        'pending'   => 'badge-yellow',
+        'pending'    => 'badge-yellow',
+        'processing' => 'badge-yellow',
+        'preparing'  => 'badge-yellow',
         'confirmed' => 'badge-green',
         'active'    => 'badge-green',
         'shipped'   => 'badge-blue',
