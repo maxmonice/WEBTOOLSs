@@ -258,19 +258,30 @@ function handleLogin(array $data): void {
         ]);
         
         session_regenerate_id(true);
-        $_SESSION['user_id']    = (int) $user['id'];
-        $_SESSION['user_name']  = $user['name'];
-        $_SESSION['user_email'] = $user['email'];
-        $_SESSION['role']       = $userRole;
         
-        $redirectUrl = '';
+        // ── Role-specific session keys (ensures mutual exclusion) ──
         if ($userRole === 'admin' || $email === 'admin@gmail.com') {
-            $_SESSION['is_admin'] = true;
+            $_SESSION['admin_user_id']    = (int) $user['id'];
+            $_SESSION['admin_user_name']  = $user['name'];
+            $_SESSION['admin_user_email'] = $user['email'];
+            $_SESSION['is_admin']         = true;
             $redirectUrl = 'adminSide/admin-dashboard.php';
+            
+            // Clear other session types
+            unset($_SESSION['user_id'], $_SESSION['user_name'], $_SESSION['user_email']);
+            unset($_SESSION['staff_user_id'], $_SESSION['staff_user_name'], $_SESSION['staff_user_email'], $_SESSION['is_staff']);
         } else {
-            $_SESSION['is_staff'] = true;
+            $_SESSION['staff_user_id']    = (int) $user['id'];
+            $_SESSION['staff_user_name']  = $user['name'];
+            $_SESSION['staff_user_email'] = $user['email'];
+            $_SESSION['is_staff']         = true;
             $redirectUrl = 'staffSide/staff-dashboard.php';
+            
+            // Clear other session types
+            unset($_SESSION['user_id'], $_SESSION['user_name'], $_SESSION['user_email']);
+            unset($_SESSION['admin_user_id'], $_SESSION['admin_user_name'], $_SESSION['admin_user_email'], $_SESSION['is_admin']);
         }
+        $_SESSION['role'] = $userRole;
         
         // Log login activity
         $logRole = ($email === 'admin@gmail.com') ? 'admin' : $userRole;
@@ -871,7 +882,9 @@ function sendOtpEmail(string $to, string $name, string $code): bool {
             $mail->Username = $smtpUser;
             $mail->Password = $smtpPass;
         }
-        if ($smtpSecure === 'tls') {
+        if ($smtpPort === 465) {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        } elseif ($smtpSecure === 'tls' || $smtpPort === 587) {
             $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         } elseif ($smtpSecure === 'ssl') {
             $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
@@ -913,6 +926,10 @@ function startUserSession(int $id, string $name, string $email): void {
     $_SESSION['user_id']    = $id;
     $_SESSION['user_name']  = $name;
     $_SESSION['user_email'] = $email;
+    
+    // Clear admin/staff keys to ensure separation
+    unset($_SESSION['admin_user_id'], $_SESSION['admin_user_name'], $_SESSION['admin_user_email'], $_SESSION['is_admin']);
+    unset($_SESSION['staff_user_id'], $_SESSION['staff_user_name'], $_SESSION['staff_user_email'], $_SESSION['is_staff']);
 }
 
 function otpDeliveryErrorMessage(): string {

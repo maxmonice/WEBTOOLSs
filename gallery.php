@@ -124,7 +124,7 @@
     </footer>
 
     <div id="lightbox" class="lightbox">
-        <span class="close-btn">×</span>
+        <span class="close-btn"><i class="fa-solid fa-x" style="color: rgb(0, 0, 0);"></i></span>
         <img class="lightbox-image" src="" alt="Enlarged Image">
         <div class="lightbox-prev"><i class="fas fa-chevron-left"></i></div>
         <div class="lightbox-next"><i class="fas fa-chevron-right"></i></div>

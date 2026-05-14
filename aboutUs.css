@@ -1,4 +1,4 @@
-/* =====================================================
+﻿/* =====================================================
    RESET & BASE
    ===================================================== */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -70,7 +70,7 @@ header {
     transition: transform 0.2s, opacity 0.2s !important;
     opacity: 0.9;
 }
-.nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
+.nav-account-icon:hover { opacity: 1 !important; }
 .nav-account-icon.active::after { display: none !important; }
 
 /* =====================================================

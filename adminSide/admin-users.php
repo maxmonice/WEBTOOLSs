@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'INSERT INTO users (name, email, password_hash, provider, email_verified, created_at)
                      VALUES (?, ?, ?, ?, 1, NOW())'
                 )->execute([$name, $email, $hash, 'email']);
-                logActivity('user_added', "Admin added new user: " . htmlspecialchars($name), $_SESSION['user_email'], $_SESSION['user_name']);
+                logActivity('user_added', "Admin added new user: " . htmlspecialchars($name), $_SESSION['admin_user_email'] ?? '', $_SESSION['admin_user_name'] ?? 'Admin');
                 $successMsg = "User <strong>" . htmlspecialchars($name) . "</strong> added successfully.";
             } catch (\Throwable $e) {
                 $errorMsg = 'Error: ' . $e->getMessage();
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($result) {
                         $action = $newStatus === 'suspended' ? 'user_suspended' : 'user_reactivated';
                         $details = "Admin " . ($newStatus === 'suspended' ? 'suspended' : 'reactivated') . " user: " . $u['name'];
-                        logActivity($action, $details, $_SESSION['user_email'], $_SESSION['user_name']);
+                        logActivity($action, $details, $_SESSION['admin_user_email'] ?? '', $_SESSION['admin_user_name'] ?? 'Admin');
                         
                         $successMsg = "User <strong>" . htmlspecialchars($u['name']) . "</strong> " . ($newStatus === 'suspended' ? 'suspended' : 'reactivated') . ".";
                     } else {
@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('DELETE FROM users WHERE id = ? AND email != ?')
                     ->execute([$uid, 'admin@gmail.com']);
                 
-                logActivity('user_deleted', "Admin deleted user: " . htmlspecialchars($u['name'] ?? ''), $_SESSION['user_email'], $_SESSION['user_name']);
+                logActivity('user_deleted', "Admin deleted user: " . htmlspecialchars($u['name'] ?? ''), $_SESSION['admin_user_email'] ?? '', $_SESSION['admin_user_name'] ?? 'Admin');
                 $successMsg = "User <strong>" . htmlspecialchars($u['name'] ?? '') . "</strong> deleted.";
             } catch (\Throwable $e) {
                 $errorMsg = 'Error: ' . $e->getMessage();
@@ -264,7 +264,7 @@ try {
             </div>
           </div>
         </div>
-        <a href="admin-account.php" class="admin-avatar"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></a>
+        <a href="admin-account.php" class="admin-avatar"><?= strtoupper(substr($_SESSION['admin_user_name'] ?? 'A', 0, 1)) ?></a>
       </div>
     </header>
 

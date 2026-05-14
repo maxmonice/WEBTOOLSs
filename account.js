@@ -85,7 +85,8 @@ function signInWithGoogle() {
 // =====================================================
 function loadFacebookSDK() {
     window.fbAsyncInit = function () {
-        FB.init({ appId: '1282425887392045', cookie: true, xfbml: true, version: 'v22.0' });
+        const fbId = window.APP_CONFIG?.facebookAppId || '1282425887392045';
+        FB.init({ appId: fbId, cookie: true, xfbml: true, version: 'v22.0' });
     };
     const script = document.createElement('script');
     script.src   = 'https://connect.facebook.net/en_US/sdk.js';

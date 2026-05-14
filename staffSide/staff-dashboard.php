@@ -41,7 +41,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
       <span class="nav-item locked"><i class="fa-solid fa-sliders"></i> System Config</span>
     </nav>
     <div class="sidebar-footer">
-      <a href="staff-logout.php" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      <a href="staff-logout.php" class="logout-btn" onclick="return confirm('Are you sure you want to log out?');"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
   </aside>
 

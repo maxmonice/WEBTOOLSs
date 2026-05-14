@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $pdo->prepare("UPDATE orders SET status = 'processing', eta = ?, updated_at = NOW() WHERE id = ?")
                 ->execute([$eta, $orderId]);
-            logActivity('order_preparing', "Admin started preparing order #{$orderId} — ETA: {$eta}", $_SESSION['user_email'], $_SESSION['user_name']);
+            logActivity('order_preparing', "Admin started preparing order #{$orderId} — ETA: {$eta}", $_SESSION['admin_user_email'] ?? '', $_SESSION['admin_user_name'] ?? 'Admin');
             echo json_encode(['success' => true, 'message' => 'Order is now being prepared.']);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $pdo->prepare("UPDATE orders SET status = 'confirmed', updated_at = NOW() WHERE id = ?")
                 ->execute([$orderId]);
-            logActivity('order_ready', "Order #{$orderId} marked as ready for rider dispatch", $_SESSION['user_email'], $_SESSION['user_name']);
+            logActivity('order_ready', "Order #{$orderId} marked as ready for rider dispatch", $_SESSION['admin_user_email'] ?? '', $_SESSION['admin_user_name'] ?? 'Admin');
             echo json_encode(['success' => true, 'message' => 'Order is ready for rider!']);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $pdo->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?")
                 ->execute([$newStatus, $orderId]);
-            logActivity('order_status_updated', "Admin updated order #{$orderId} to: {$newStatus}", $_SESSION['user_email'], $_SESSION['user_name']);
+            logActivity('order_status_updated', "Admin updated order #{$orderId} to: {$newStatus}", $_SESSION['admin_user_email'] ?? '', $_SESSION['admin_user_name'] ?? 'Admin');
             echo json_encode(['success' => true]);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);

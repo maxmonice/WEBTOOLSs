@@ -100,11 +100,9 @@ header {
     align-items: center;
     font-size: 1.35rem !important;
     color: white !important;
-    transition: transform 0.2s, opacity 0.2s !important;
     opacity: 0.9;
     position: relative;
 }
-.nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
 .nav-account-icon.active::after { display: none !important; }
 
 /* Order Tracking Bubble */
@@ -118,7 +116,7 @@ header {
     border: none;
     color: #fff;
     padding: 8px 14px;
-    border-radius: 8px;
+    border-radius: 18px;
     font-size: 0.8rem;
     white-space: nowrap;
     box-shadow: 0 4px 16px rgba(0,0,0,0.4);

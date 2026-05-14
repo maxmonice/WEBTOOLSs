@@ -1,6 +1,7 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
-if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
+if ((empty($_SESSION['is_admin']) || empty($_SESSION['admin_user_id'])) &&
+    (empty($_SESSION['is_staff']) || empty($_SESSION['staff_user_id']))) {
     header('Location: login.php');
     exit;
 }

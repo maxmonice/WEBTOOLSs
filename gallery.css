@@ -1,4 +1,4 @@
-/* =====================================================
+﻿/* =====================================================
    RESET & BASE
    ===================================================== */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -240,7 +240,7 @@ header {
     line-height: 1;
     user-select: none;
 }
-.close-btn { background: rgba(255,255,255,0.08); transition: none; }
+.close-btn:hover { transform: scale(1.1); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 
 .lightbox-prev,
 .lightbox-next {

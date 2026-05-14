@@ -3,8 +3,8 @@ require_once 'admin-config.php';
 requireAdmin(); // 🔒 must be admin
 
 // Get admin user info
-$adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
-$adminEmail = htmlspecialchars($_SESSION['user_email'] ?? 'admin@gmail.com');
+$adminName = htmlspecialchars($_SESSION['admin_user_name'] ?? 'Admin');
+$adminEmail = htmlspecialchars($_SESSION['admin_user_email'] ?? 'admin@gmail.com');
 ?>
 
 <!DOCTYPE html>

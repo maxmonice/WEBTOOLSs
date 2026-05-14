@@ -34,6 +34,7 @@ function loadAccountEnv(string $envPath): void {
 }
 loadAccountEnv(__DIR__ . '/.env');
 $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav88iduut5ddf50ecgj0a.apps.googleusercontent.com';
+$facebookAppIdForJs = getenv('FACEBOOK_APP_ID') ?: '1282425887392045';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -262,6 +263,7 @@ $googleClientIdForJs = getenv('GOOGLE_CLIENT_ID') ?: '694050007372-2crn9q3ek8jav
     <script>
         window.APP_CONFIG = window.APP_CONFIG || {};
         window.APP_CONFIG.googleClientId = <?php echo json_encode($googleClientIdForJs, JSON_UNESCAPED_SLASHES); ?>;
+        window.APP_CONFIG.facebookAppId = <?php echo json_encode($facebookAppIdForJs, JSON_UNESCAPED_SLASHES); ?>;
     </script>
     <script src="account.js?v=<?= time() ?>"></script>
 </body>

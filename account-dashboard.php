@@ -87,23 +87,7 @@
       </div>
     </div>
 
-    <!-- My Messages -->
-    <div class="section-block">
-      <div class="section-label"><i class="fa-solid fa-comments"></i> My Messages</div>
-      <div class="messages-list" id="messagesList">
-        <div class="message-thread-item" onclick="openAdminChat()">
-            <div class="thread-avatar admin"><i class="fas fa-headset"></i></div>
-            <div class="thread-info">
-                <div class="thread-header">
-                    <span class="thread-name">Luke's Admin Support</span>
-                    <span class="thread-time" id="admin-last-time"></span>
-                </div>
-                <div class="thread-preview" id="admin-last-msg">Start a conversation with our team.</div>
-            </div>
-        </div>
-        <div id="riderChatThread"></div>
-      </div>
-    </div>
+
 
     <!-- My Event Bookings -->
     <div class="section-block flush" id="bookingsBlock">

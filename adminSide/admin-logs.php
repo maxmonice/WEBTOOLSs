@@ -86,7 +86,7 @@ $stats = getActivityStats();
         </div>
       </div>
       <div class="topbar-right">
-        <a href="admin-account.php" class="admin-avatar"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></a>
+        <a href="admin-account.php" class="admin-avatar"><?= strtoupper(substr($_SESSION['admin_user_name'] ?? 'A', 0, 1)) ?></a>
       </div>
     </header>
 

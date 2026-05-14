@@ -74,6 +74,8 @@ $riderName = htmlspecialchars($_SESSION['rider_name'] ?? 'Rider');
 
     <div class="chat-input-area">
       <div class="input-wrapper">
+        <button class="attach-btn" onclick="document.getElementById('chat-file-input').click()" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.2rem; padding: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fas fa-paperclip"></i></button>
+        <input type="file" id="chat-file-input" style="display:none;" accept="image/*" onchange="console.log('File selected:', this.files[0])">
         <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
         <button id="send-btn" class="send-btn"><i class="fas fa-paper-plane"></i></button>
       </div>

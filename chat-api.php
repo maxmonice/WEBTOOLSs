@@ -9,15 +9,18 @@ $pdo = getDB();
 // Determine requester identity
 $userId = $_SESSION['user_id'] ?? null;
 $riderId = $_SESSION['rider_id'] ?? null;
-$isAdmin = !empty($_SESSION['is_admin']);
-$isStaff = !empty($_SESSION['is_staff']);
+$isAdmin = !empty($_SESSION['is_admin']) && !empty($_SESSION['admin_user_id']);
+$isStaff = !empty($_SESSION['is_staff']) && !empty($_SESSION['staff_user_id']);
 
 $senderType = 'customer';
 $senderId = $userId;
 
-if ($isAdmin || $isStaff) {
+if ($isAdmin) {
     $senderType = 'admin';
-    $senderId = $userId;
+    $senderId = $_SESSION['admin_user_id'];
+} elseif ($isStaff) {
+    $senderType = 'admin'; // Staff also appear as admin in chat
+    $senderId = $_SESSION['staff_user_id'];
 } elseif ($riderId) {
     $senderType = 'rider';
     $senderId = $riderId;

@@ -5,7 +5,7 @@ requireAdmin();  // 🔒 redirects to account.php if not admin
 $stats    = getAdminStats($pdo);
 $activity = getRecentActivity($pdo, 6);
 $orders   = getRecentOrders($pdo, 5);
-$adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
+$adminName = htmlspecialchars($_SESSION['admin_user_name'] ?? 'Admin');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -129,7 +129,7 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
           </div>
         </div>
         <a href="admin-account.php" class="admin-avatar" title="<?= $adminName ?>">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?>
+          <?= strtoupper(substr($_SESSION['admin_user_name'] ?? 'A', 0, 1)) ?>
         </a>
       </div>
     </header>

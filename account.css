@@ -1,4 +1,4 @@
-/* =====================================================
+ï»¿/* =====================================================
    RESET & BASE
    ===================================================== */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -69,7 +69,7 @@ header {
     transition: transform 0.2s, opacity 0.2s !important;
     opacity: 0.9;
 }
-.nav-account-icon:hover { transform: scale(1.15); opacity: 1 !important; }
+.nav-account-icon:hover { opacity: 1 !important; }
 .nav-account-icon.active { color: #fff !important; opacity: 1; }
 .nav-account-icon.active::after { display: none !important; }
 
@@ -109,9 +109,9 @@ header {
 .modal {
     background: linear-gradient(160deg, #6b0d18 0%, #8B0A1E 50%, #7a0c19 100%);
     border-radius: 20px;
-    padding: 40px 36px 32px;
+    padding: 44px 44px 36px;
     width: 100%;
-    max-width: 420px;
+    max-width: 500px;
     box-shadow:
         0 32px 80px rgba(0,0,0,0.6),
         0 0 0 1px rgba(255,255,255,0.06),
@@ -547,7 +547,7 @@ header {
         }
         .otp-success-msg.visible { display: flex; }
 
-        /* Verify button — reuses .btn-primary styles from account.css */
+        /* Verify button ï¿½ reuses .btn-primary styles from account.css */
         .otp-verify-btn {
             display: flex; align-items: center; justify-content: center; gap: 10px;
             width: 100%;

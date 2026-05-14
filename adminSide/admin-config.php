@@ -57,7 +57,7 @@ if (session_status() === PHP_SESSION_NONE) {
 //  authenticated admin.
 // =====================================================
 function requireAdmin(): void {
-    if (empty($_SESSION['is_admin']) || empty($_SESSION['user_id'])) {
+    if (empty($_SESSION['is_admin']) || empty($_SESSION['admin_user_id'])) {
         header('Location: ../account.php');
         exit;
     }

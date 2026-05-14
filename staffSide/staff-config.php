@@ -48,14 +48,8 @@ if (session_status() === PHP_SESSION_NONE) {
 //  staff pages. Non-authenticated users are redirected.
 // =====================================================
 function requireStaff(): void {
-    if (empty($_SESSION['user_id'])) {
+    if (empty($_SESSION['staff_user_id']) && empty($_SESSION['admin_user_id'])) {
         header('Location: ../account.php');
-        exit;
-    }
-    // Block customers from accessing staff panel
-    $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
-    if (!in_array($role, ['staff', 'admin'], true) && empty($_SESSION['is_admin'])) {
-        header('Location: login.php');
         exit;
     }
 }
