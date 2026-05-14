@@ -35,6 +35,81 @@ function staff_update_booking_status(PDO $pdo, int $bookingId, string $status): 
     booking_notifications_after_status_change($pdo, $bookingId, $status);
 }
 
+function staff_bookings_his_to_ampm(?string $sqlTime): string
+{
+    $sqlTime = trim((string)$sqlTime);
+    if ($sqlTime === '') {
+        return 'N/A';
+    }
+    if (!preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?/', $sqlTime, $m)) {
+        return $sqlTime;
+    }
+    $h = (int)$m[1];
+    $min = $m[2];
+    $ampm = $h >= 12 ? 'PM' : 'AM';
+    $h12 = $h % 12 ?: 12;
+    return sprintf('%d:%s %s', $h12, $min, $ampm);
+}
+
+function staff_bookings_format_time_cell(array $booking): string
+{
+    $start = staff_bookings_his_to_ampm($booking['event_time'] ?? '');
+    $endRaw = trim((string)($booking['event_time_end'] ?? ''));
+    if ($start !== 'N/A' && $endRaw !== '' && $endRaw !== '00:00:00' && $endRaw !== (string)($booking['event_time'] ?? '')) {
+        return htmlspecialchars($start . ' – ' . staff_bookings_his_to_ampm($endRaw), ENT_QUOTES, 'UTF-8');
+    }
+    return htmlspecialchars($start, ENT_QUOTES, 'UTF-8');
+}
+
+function staff_bookings_user_join_sql(PDO $pdo): string
+{
+    return staff_bookings_has_column($pdo, 'user_id')
+        ? 'LEFT JOIN users u ON u.id = b.user_id'
+        : '';
+}
+
+function staff_bookings_customer_select_sql(PDO $pdo): string
+{
+    if (staff_bookings_has_column($pdo, 'user_id')) {
+        return 'COALESCE(NULLIF(b.full_name, ""), u.name, "Guest") AS full_name,
+                COALESCE(NULLIF(b.email_address, ""), u.email, "N/A") AS email_address,
+                COALESCE(NULLIF(b.full_name, ""), u.name, "Unknown") AS customer_name,
+                COALESCE(NULLIF(b.email_address, ""), u.email, "N/A") AS customer_email,
+                u.name AS user_name, u.email AS user_email';
+    }
+
+    return 'COALESCE(NULLIF(b.full_name, ""), NULLIF(b.user_name, ""), "Guest") AS full_name,
+            COALESCE(NULLIF(b.email_address, ""), NULLIF(b.user_email, ""), "N/A") AS email_address,
+            COALESCE(NULLIF(b.full_name, ""), NULLIF(b.user_name, ""), "Unknown") AS customer_name,
+            COALESCE(NULLIF(b.email_address, ""), NULLIF(b.user_email, ""), "N/A") AS customer_email,
+            b.user_name AS user_name, b.user_email AS user_email';
+}
+
+function staff_bookings_search_sql(PDO $pdo): string
+{
+    $terms = [
+        'b.full_name LIKE :s',
+        'b.email_address LIKE :s',
+        'b.event_name LIKE :s',
+        'b.contact_number LIKE :s',
+        'b.address LIKE :s',
+    ];
+    if (staff_bookings_has_column($pdo, 'user_id')) {
+        $terms[] = 'u.name LIKE :s';
+        $terms[] = 'u.email LIKE :s';
+    } else {
+        $terms[] = 'b.user_name LIKE :s';
+        $terms[] = 'b.user_email LIKE :s';
+    }
+
+    return '(' . implode(' OR ', $terms) . ')';
+}
+
+function staff_bookings_related_time_end_sql(PDO $pdo): string
+{
+    return staff_bookings_has_column($pdo, 'event_time_end') ? 'event_time_end' : 'NULL AS event_time_end';
+}
+
 $successMsg = '';
 $errorMsg   = '';
 
@@ -72,29 +147,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($jsonPayload !== null || stripos($
             echo json_encode(['success' => false, 'message' => 'Invalid booking ID.']);
             exit;
         }
+        $customerSelect = staff_bookings_customer_select_sql($pdo);
+        $userJoin = staff_bookings_user_join_sql($pdo);
         $stmt = $pdo->prepare(
-            'SELECT b.*, COALESCE(NULLIF(b.full_name, ""), u.name, "Guest") AS full_name,
-                    COALESCE(NULLIF(b.email_address, ""), u.email, "N/A") AS email_address,
-                    u.name AS user_name, u.email AS user_email
+            "SELECT b.*, $customerSelect
              FROM bookings b
-             LEFT JOIN users u ON u.id = b.user_id
-             WHERE b.id = ?'
+             $userJoin
+             WHERE b.id = ?"
         );
         $stmt->execute([$id]);
-        echo json_encode(['success' => true, 'booking' => $stmt->fetch()]);
+        $booking = $stmt->fetch();
+        $related = [];
+        if ($booking) {
+            try {
+                $eventTimeEndSelect = staff_bookings_related_time_end_sql($pdo);
+                $relStmt = $pdo->prepare(
+                    "SELECT id, event_date, event_time, $eventTimeEndSelect, status
+                     FROM bookings
+                     WHERE id != ?
+                       AND full_name <=> ?
+                       AND email_address <=> ?
+                       AND event_name <=> ?
+                       AND contact_number <=> ?
+                       AND created_at = ?
+                     ORDER BY event_date ASC, id ASC"
+                );
+                $relStmt->execute([
+                    $id,
+                    $booking['full_name'] ?? '',
+                    $booking['email_address'] ?? '',
+                    $booking['event_name'] ?? '',
+                    $booking['contact_number'] ?? '',
+                    $booking['created_at'] ?? null,
+                ]);
+                $related = $relStmt->fetchAll();
+            } catch (\Throwable $_) {
+                $related = [];
+            }
+        }
+        echo json_encode(['success' => true, 'booking' => $booking, 'related_bookings' => $related]);
         exit;
     }
 
     if ($action === 'get_day_bookings') {
         $date = trim((string)($data['date'] ?? ''));
+        $customerSelect = staff_bookings_customer_select_sql($pdo);
+        $userJoin = staff_bookings_user_join_sql($pdo);
         $stmt = $pdo->prepare(
-            'SELECT b.*, COALESCE(NULLIF(b.full_name, ""), u.name, "Guest") AS full_name,
-                    COALESCE(NULLIF(b.email_address, ""), u.email, "N/A") AS email_address,
-                    u.name AS user_name, u.email AS user_email
+            "SELECT b.*, $customerSelect
              FROM bookings b
-             LEFT JOIN users u ON u.id = b.user_id
+             $userJoin
              WHERE b.event_date = ?
-             ORDER BY b.event_time ASC, created_at ASC'
+             ORDER BY b.event_time ASC, b.created_at ASC"
         );
         $stmt->execute([$date]);
         echo json_encode(['success' => true, 'bookings' => $stmt->fetchAll()]);
@@ -131,7 +235,7 @@ $status = trim($_GET['status'] ?? '');
 $whereClause = 'WHERE 1=1';
 $params      = [];
 if ($search !== '') {
-    $whereClause .= ' AND (u.name LIKE :s OR b.full_name LIKE :s OR b.event_name LIKE :s)';
+    $whereClause .= ' AND ' . staff_bookings_search_sql($pdo);
     $params[':s'] = "%$search%";
 }
 if ($status !== '') {
@@ -140,12 +244,13 @@ if ($status !== '') {
 }
 
 try {
+    $customerSelect = staff_bookings_customer_select_sql($pdo);
+    $userJoin = staff_bookings_user_join_sql($pdo);
     $stmt = $pdo->prepare(
         "SELECT b.*,
-                COALESCE(NULLIF(b.full_name, ''), u.name, 'Unknown') AS customer_name,
-                COALESCE(NULLIF(b.email_address, ''), u.email, 'N/A') AS customer_email
+                $customerSelect
          FROM bookings b
-         LEFT JOIN users u ON u.id = b.user_id
+         $userJoin
          $whereClause
          ORDER BY b.created_at DESC"
     );
@@ -230,44 +335,7 @@ $calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsBy
         </div>
       </div>
       <div class="topbar-right">
-        <div class="live-notif-wrap">
-          <div class="topbar-badge live-notif-trigger" onclick="toggleLiveNotifications(event)">
-            <i class="fa-regular fa-bell"></i>
-            <?php if ($unreadCount > 0): ?>
-            <span class="badge-dot live-notif-dot"></span>
-            <span class="live-notif-count"><?= (int)$unreadCount ?></span>
-            <?php endif; ?>
-          </div>
-          <div class="live-notif-menu" id="liveNotifMenu" role="menu">
-            <div class="live-notif-header">
-              <h4>Notifications</h4>
-              <button type="button" class="live-notif-mark-all" onclick="markAllLiveNotificationsRead()">Mark all read</button>
-            </div>
-            <div class="live-notif-list" id="liveNotifList">
-              <?php if (empty($userNotifications)): ?>
-                <div class="live-notif-empty">No booking notifications yet.</div>
-              <?php else: ?>
-                <?php foreach ($userNotifications as $notif): ?>
-                <div class="live-notif-item<?= !$notif['is_read'] ? ' unread' : '' ?>" data-id="<?= (int)$notif['id'] ?>" onclick="markLiveNotificationRead(<?= (int)$notif['id'] ?>, this)">
-                  <div class="live-notif-row">
-                    <div class="live-notif-icon" style="background: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>20; color: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>;">
-                      <i class="fa-solid <?= htmlspecialchars(getNotificationIcon($notif['type'])) ?>"></i>
-                    </div>
-                    <div class="live-notif-body">
-                      <div class="live-notif-title"><?= htmlspecialchars($notif['title']) ?></div>
-                      <div class="live-notif-msg"><?= htmlspecialchars($notif['message']) ?></div>
-                      <div class="live-notif-time"><?= htmlspecialchars(timeAgo($notif['created_at'])) ?></div>
-                    </div>
-                  </div>
-                </div>
-                <?php endforeach; ?>
-              <?php endif; ?>
-            </div>
-          </div>
-        </div>
-        <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>
-        </div>
+        <?php require __DIR__ . '/staff-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -368,7 +436,7 @@ $calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsBy
                     <td><?= htmlspecialchars($booking['customer_name']) ?></td>
                     <td><?= htmlspecialchars($booking['event_name'] ?? 'N/A') ?></td>
                     <td><?= $booking['event_date'] ? date('M d, Y', strtotime($booking['event_date'])) : 'N/A' ?></td>
-                    <td><?= !empty($booking['event_time']) ? date('g:i A', strtotime($booking['event_time'])) : 'N/A' ?></td>
+                    <td><?= staff_bookings_format_time_cell($booking) ?></td>
                     <td><?= htmlspecialchars($booking['event_type'] ?? 'N/A') ?></td>
                     <td><?= htmlspecialchars($booking['num_guests'] ?? 'N/A') ?></td>
                     <td><?= statusBadge($booking['status']) ?></td>
@@ -410,11 +478,11 @@ $calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsBy
         <div style="overflow-x:auto;">
           <table class="data-table">
             <thead><tr>
-              <th>Booking ID</th><th>Customer</th><th>Email</th><th>Event Date</th><th>Status</th><th>Actions</th>
+              <th>Booking ID</th><th>Customer</th><th>Email</th><th>Event</th><th>Event Date</th><th>Time</th><th>Type</th><th>Guests</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>
               <?php if (empty($bookings)): ?>
-              <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">
+              <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">
                 <?= $search || $status ? 'No bookings match your filters.' : 'No bookings found.' ?>
               </td></tr>
               <?php else: ?>
@@ -428,7 +496,11 @@ $calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsBy
                   </div>
                 </td>
                 <td><?= htmlspecialchars($b['customer_email']) ?></td>
+                <td><?= htmlspecialchars($b['event_name'] ?? 'N/A') ?></td>
                 <td><?= $b['event_date'] ? date('M d, Y', strtotime($b['event_date'])) : '—' ?></td>
+                <td><?= staff_bookings_format_time_cell($b) ?></td>
+                <td><?= htmlspecialchars($b['event_type'] ?? 'N/A') ?></td>
+                <td><?= htmlspecialchars($b['num_guests'] ?? 'N/A') ?></td>
                 <td><?= statusBadge($b['status']) ?></td>
                 <td>
                   <div class="flex-gap">
@@ -487,14 +559,40 @@ $calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsBy
         <div><div class="detail-label">Guests</div><div class="detail-value" id="bookingDetailGuests">Number</div></div>
         <div><div class="detail-label">Status</div><span class="badge badge-yellow" id="bookingDetailStatus">Status</span></div>
       </div>
-      <div style="margin-bottom:15px;"><div class="detail-label">Address</div><div class="detail-value" id="bookingDetailAddress">Event Address</div></div>
+      <div style="margin-bottom:15px;"><div class="detail-label">Address</div><div class="detail-value" id="bookingDetailAddress" style="white-space:pre-wrap;word-break:break-word;">Event Address</div></div>
+      <div id="bookingDetailRelatedWrap" style="display:none;margin-bottom:15px;padding:12px;background:rgba(194,38,38,0.08);border:1px solid rgba(194,38,38,0.25);border-radius:8px;">
+        <div class="detail-label" style="text-transform:uppercase;letter-spacing:0.05em;">Other dates from the same submission</div>
+        <div class="detail-value" id="bookingDetailRelatedList"></div>
+      </div>
       <div class="booking-detail-grid">
         <div><div class="detail-label">Contact Number</div><div class="detail-value" id="bookingDetailContact">Phone</div></div>
         <div><div class="detail-label">Email</div><div class="detail-value" id="bookingDetailEmail">Email</div></div>
       </div>
-      <div><div class="detail-label">Notes</div><div class="detail-value" id="bookingDetailNotes">Notes</div></div>
+      <div><div class="detail-label">Notes / special requests</div><div class="detail-value" id="bookingDetailNotes" style="white-space:pre-wrap;word-break:break-word;">Notes</div></div>
+      <div style="margin-top:20px;padding-top:15px;border-top:1px solid var(--line-w);">
+        <div class="detail-label" style="text-transform:uppercase;letter-spacing:0.05em;">Account Information</div>
+        <div class="booking-detail-grid" style="margin-bottom:0;">
+          <div><div class="detail-label">User Name</div><div class="detail-value" id="bookingDetailUserName">-</div></div>
+          <div><div class="detail-label">User Email</div><div class="detail-value" id="bookingDetailUserEmail">-</div></div>
+        </div>
+        <div id="bookingDetailUserIdRow" style="display:none;margin-top:12px;">
+          <div class="detail-label">Linked user ID</div>
+          <div class="detail-value" id="bookingDetailUserId">-</div>
+        </div>
+      </div>
+      <div style="margin-top:15px;padding-top:15px;border-top:1px solid var(--line-w);">
+        <div class="detail-label" style="text-transform:uppercase;letter-spacing:0.05em;">Timestamps</div>
+        <div class="booking-detail-grid" style="margin-bottom:0;">
+          <div><div class="detail-label">Created</div><div class="detail-value" id="bookingDetailCreated">-</div></div>
+          <div><div class="detail-label">Last Updated</div><div class="detail-value" id="bookingDetailUpdated">-</div></div>
+        </div>
+      </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <button type="button" class="btn btn-primary btn-sm" id="bookingDetailBtnConfirm" style="display:none;"><i class="fa-solid fa-check"></i> Confirm</button>
+        <button type="button" class="btn btn-danger btn-sm" id="bookingDetailBtnCancelBk" style="display:none;"><i class="fa-solid fa-ban"></i> Cancel booking</button>
+      </div>
       <button class="btn btn-outline" onclick="closeModal('bookingDetailModal')">Close</button>
     </div>
   </div>

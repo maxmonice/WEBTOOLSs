@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * Shared staff sidebar (brand + nav + footer).
  * Before include, set:
- *   $staffNavActive — one of: dashboard, bookings, orders, customers, chat
+ *   $staffNavActive — one of: dashboard, bookings, orders, customers, messages, chat
  *   $staffNavFromRoot — true when required from project root (e.g. staff-bookings.php in web root)
  */
 
@@ -30,6 +30,7 @@ $na = static function (string $key) use ($nav): string {
     <div class="nav-section-label">View Only</div>
     <a href="<?= htmlspecialchars($sp) ?>staff-customers.php" class="<?= $na('customers') ?>"><i class="fa-solid fa-users"></i> Customers</a>
     <div class="nav-section-label">Tools</div>
+    <a href="<?= htmlspecialchars($sp) ?>staff-messages.php" class="<?= $na('messages') ?>"><i class="fa-solid fa-message"></i> Messages</a>
     <a href="<?= htmlspecialchars($sp) ?>staff-chat.php" class="<?= $na('chat') ?>"><i class="fa-solid fa-comment-dots"></i> Support Chat</a>
     <div class="nav-section-label">Restricted</div>
     <span class="nav-item locked"><i class="fa-solid fa-layer-group"></i> Content Management</span>

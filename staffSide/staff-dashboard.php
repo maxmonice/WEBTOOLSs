@@ -42,47 +42,7 @@ $unreadCount         = $notifications->getUnreadCount('staff', $_SESSION['user_i
         </div>
       </div>
       <div class="topbar-right">
-        <div class="live-notif-wrap">
-          <div class="topbar-badge live-notif-trigger" onclick="toggleLiveNotifications(event)">
-            <i class="fa-regular fa-bell"></i>
-            <?php if ($unreadCount > 0): ?>
-            <span class="badge-dot live-notif-dot"></span>
-            <span class="live-notif-count"><?= (int) $unreadCount ?></span>
-            <?php endif; ?>
-          </div>
-          <div class="live-notif-menu" id="liveNotifMenu" role="menu">
-            <div class="live-notif-header">
-              <h4>Notifications</h4>
-              <button type="button" class="live-notif-mark-all" onclick="markAllLiveNotificationsRead()">Mark all read</button>
-            </div>
-            <div class="live-notif-list" id="liveNotifList">
-              <?php if (empty($userNotifications)): ?>
-                <div class="live-notif-empty">No notifications</div>
-              <?php else: ?>
-                <?php foreach ($userNotifications as $notif): ?>
-                <div class="live-notif-item<?= !$notif['is_read'] ? ' unread' : '' ?>" data-id="<?= (int) $notif['id'] ?>" onclick="markLiveNotificationRead(<?= (int) $notif['id'] ?>, this)">
-                  <div class="live-notif-row">
-                    <div class="live-notif-icon" style="background: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>20; color: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>;">
-                      <i class="fa-solid <?= htmlspecialchars(getNotificationIcon($notif['type'])) ?>"></i>
-                    </div>
-                    <div class="live-notif-body">
-                      <div class="live-notif-title"><?= htmlspecialchars($notif['title']) ?></div>
-                      <div class="live-notif-msg"><?= htmlspecialchars($notif['message']) ?></div>
-                      <div class="live-notif-time"><?= htmlspecialchars(timeAgo($notif['created_at'])) ?></div>
-                    </div>
-                  </div>
-                </div>
-                <?php endforeach; ?>
-              <?php endif; ?>
-            </div>
-          </div>
-        </div>
-        <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);" title="<?= $staffName ?>">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>
-        </div>
-        <a href="../account-dashboard.php?user_view=true" class="btn-user-view-dash staff-user-view" title="Open customer account page">
-          <i class="fa-solid fa-user"></i> User view
-        </a>
+        <?php require __DIR__ . '/staff-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -202,6 +162,7 @@ $unreadCount         = $notifications->getUnreadCount('staff', $_SESSION['user_i
               <a href="staff-bookings.php" class="quick-action"><i class="fa-solid fa-calendar-plus"></i>Bookings</a>
               <a href="staff-orders.php" class="quick-action"><i class="fa-solid fa-clipboard-list"></i>Orders</a>
               <a href="staff-customers.php" class="quick-action"><i class="fa-solid fa-users"></i>View Customers</a>
+              <a href="staff-messages.php" class="quick-action"><i class="fa-solid fa-message"></i>Messages</a>
               <a href="staff-orders.php?filter=pending" class="quick-action"><i class="fa-solid fa-truck-fast"></i>Pending Orders</a>
               <!-- Locked actions -->
               <span class="quick-action disabled" title="Admin only"><i class="fa-solid fa-chart-line"></i>Sales Report</span>

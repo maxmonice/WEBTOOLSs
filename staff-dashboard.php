@@ -175,48 +175,7 @@ require __DIR__ . '/staffSide/staff-sidebar-nav.php';
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge" style="position: relative;" onclick="toggleNotifications()">
-          <i class="fa-regular fa-bell"></i>
-          <?php if ($unreadCount > 0): ?>
-          <span class="badge-dot" style="background: var(--red);"></span>
-          <span class="notification-count" style="position: absolute; top: -8px; right: -8px; background: var(--red); color: white; border-radius: 10px; padding: 2px 6px; font-size: 0.7rem; font-weight: bold; min-width: 18px; text-align: center;"><?= $unreadCount ?></span>
-          <?php endif; ?>
-        </div>
-        
-        <!-- Notification Dropdown -->
-        <div class="notification-dropdown" id="notificationDropdown">
-          <div class="notification-header">
-            <h3>Notifications</h3>
-            <button class="mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
-          </div>
-          <div id="notificationList">
-            <?php if (empty($userNotifications)): ?>
-              <div class="notification-empty">No notifications</div>
-            <?php else: ?>
-              <?php foreach ($userNotifications as $notif): ?>
-                <div class="notification-item <?= !$notif['is_read'] ? 'unread' : '' ?>" onclick="markNotificationRead(<?= $notif['id'] ?>)">
-                  <div class="notification-content">
-                    <div class="notification-icon" style="background: <?= getNotificationColor($notif['type']) ?>20; color: <?= getNotificationColor($notif['type']) ?>;">
-                      <i class="fa-solid <?= getNotificationIcon($notif['type']) ?>"></i>
-                    </div>
-                    <div class="notification-text">
-                      <div class="notification-title"><?= htmlspecialchars($notif['title']) ?></div>
-                      <div class="notification-message"><?= htmlspecialchars($notif['message']) ?></div>
-                      <div class="notification-time"><?= timeAgo($notif['created_at']) ?></div>
-                    </div>
-                  </div>
-                </div>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </div>
-        </div>
-        
-        <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>
-        </div>
-        <a href="account-dashboard.php?user_view=true" class="btn btn-info" title="Go to User Webpage" style="margin-left: 12px; padding: 10px 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.5px; border: 2px solid rgba(255,255,255,0.2); border-radius: 6px; background: linear-gradient(135deg, #17a2b8, #138496); box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3); transition: all 0.3s;">
-          <i class="fa-solid fa-user"></i> User View
-        </a>
+        <?php $staffTopbarFromRoot = true; require __DIR__ . '/staffSide/staff-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -341,78 +300,6 @@ require __DIR__ . '/staffSide/staff-sidebar-nav.php';
 
 <script>
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-
-// Notification functions
-function toggleNotifications() {
-  const dropdown = document.getElementById('notificationDropdown');
-  dropdown.classList.toggle('show');
-  
-  // Close dropdown when clicking outside
-  if (!dropdown.dataset.listenerAdded) {
-    dropdown.dataset.listenerAdded = 'true';
-    document.addEventListener('click', function(e) {
-      if (!dropdown.contains(e.target) && !e.target.closest('.topbar-badge')) {
-        dropdown.classList.remove('show');
-      }
-    });
-  }
-}
-
-function markNotificationRead(notificationId) {
-  fetch('staff-handle-notifications.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'mark_read', notification_id: notificationId })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      const item = document.querySelector(`[onclick="markNotificationRead(${notificationId})"]`);
-      if (item) {
-        item.classList.remove('unread');
-      }
-      updateNotificationCount();
-    }
-  });
-}
-
-function markAllNotificationsRead() {
-  fetch('staff-handle-notifications.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'mark_all_read' })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      document.querySelectorAll('.notification-item.unread').forEach(item => {
-        item.classList.remove('unread');
-      });
-      updateNotificationCount();
-    }
-  });
-}
-
-function updateNotificationCount() {
-  const count = document.querySelectorAll('.notification-item.unread').length;
-  const countElement = document.querySelector('.notification-count');
-  const badgeDot = document.querySelector('.badge-dot');
-  
-  if (countElement) {
-    if (count > 0) {
-      countElement.textContent = count;
-      countElement.style.display = 'block';
-      if (badgeDot) badgeDot.style.display = 'block';
-    } else {
-      countElement.style.display = 'none';
-      if (badgeDot) badgeDot.style.display = 'none';
-    }
-  }
-}
-
-function goToUserWebpage() {
-  window.location.href = 'account-dashboard.php?user_view=true';
-}
 </script>
 </body>
 </html>

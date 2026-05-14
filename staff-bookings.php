@@ -7,6 +7,48 @@ requireStaff();
 $successMsg = '';
 $errorMsg   = '';
 
+function root_staff_bookings_has_column(PDO $pdo, string $column): bool
+{
+    static $cache = [];
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'bookings'
+               AND COLUMN_NAME = ?"
+        );
+        $stmt->execute([$column]);
+        $cache[$column] = (int)$stmt->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        $cache[$column] = false;
+    }
+    return $cache[$column];
+}
+
+function root_staff_bookings_format_time(array $booking): string
+{
+    $start = trim((string)($booking['event_time'] ?? ''));
+    if ($start === '') {
+        return 'N/A';
+    }
+    $format = static function (string $time): string {
+        if (!preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?/', trim($time), $m)) {
+            return $time;
+        }
+        $h = (int)$m[1];
+        return sprintf('%d:%s %s', $h % 12 ?: 12, $m[2], $h >= 12 ? 'PM' : 'AM');
+    };
+    $end = trim((string)($booking['event_time_end'] ?? ''));
+    $label = $format($start);
+    if ($end !== '' && $end !== '00:00:00' && $end !== $start) {
+        $label .= ' – ' . $format($end);
+    }
+    return htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+}
+
 // Staff can confirm or cancel bookings — but NOT delete them
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -15,7 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($bid > 0 && in_array($action, ['confirm_booking', 'cancel_booking'], true)) {
         $newStatus = $action === 'confirm_booking' ? 'confirmed' : 'cancelled';
         try {
-            $pdo->prepare('UPDATE bookings SET status = ? WHERE id = ?')->execute([$newStatus, $bid]);
+            $sql = 'UPDATE bookings SET status = ?';
+            if (root_staff_bookings_has_column($pdo, 'updated_at')) {
+                $sql .= ', updated_at = NOW()';
+            }
+            $sql .= ' WHERE id = ?';
+            $pdo->prepare($sql)->execute([$newStatus, $bid]);
             booking_notifications_after_status_change($pdo, $bid, $newStatus);
             $successMsg = 'Booking <strong>#BK-' . str_pad($bid, 3, '0', STR_PAD_LEFT) . '</strong> marked as ' . ucfirst($newStatus) . '.';
             
@@ -39,8 +86,23 @@ $status = trim($_GET['status'] ?? '');
 
 $whereClause = 'WHERE 1=1';
 $params      = [];
+$hasBookingUserId = root_staff_bookings_has_column($pdo, 'user_id');
 if ($search !== '') {
-    $whereClause .= ' AND u.name LIKE :s';
+    $searchTerms = [
+        'b.full_name LIKE :s',
+        'b.email_address LIKE :s',
+        'b.event_name LIKE :s',
+        'b.contact_number LIKE :s',
+        'b.address LIKE :s',
+    ];
+    if ($hasBookingUserId) {
+        $searchTerms[] = 'u.name LIKE :s';
+        $searchTerms[] = 'u.email LIKE :s';
+    } else {
+        $searchTerms[] = 'b.user_name LIKE :s';
+        $searchTerms[] = 'b.user_email LIKE :s';
+    }
+    $whereClause .= ' AND (' . implode(' OR ', $searchTerms) . ')';
     $params[':s'] = "%$search%";
 }
 if ($status !== '') {
@@ -49,12 +111,20 @@ if ($status !== '') {
 }
 
 try {
+    if ($hasBookingUserId) {
+        $customerSelect = "COALESCE(NULLIF(b.full_name, ''), u.name, 'Unknown') AS customer_name,
+                COALESCE(NULLIF(b.email_address, ''), u.email, 'N/A') AS customer_email";
+        $userJoin = 'LEFT JOIN users u ON u.id = b.user_id';
+    } else {
+        $customerSelect = "COALESCE(NULLIF(b.full_name, ''), NULLIF(b.user_name, ''), 'Unknown') AS customer_name,
+                COALESCE(NULLIF(b.email_address, ''), NULLIF(b.user_email, ''), 'N/A') AS customer_email";
+        $userJoin = '';
+    }
     $stmt = $pdo->prepare(
-        "SELECT b.id, b.status, b.event_date, b.created_at, b.notes,
-                COALESCE(u.name, 'Unknown') AS customer_name,
-                COALESCE(u.email, '—') AS customer_email
+        "SELECT b.*,
+                $customerSelect
          FROM bookings b
-         LEFT JOIN users u ON u.id = b.user_id
+         $userJoin
          $whereClause
          ORDER BY b.created_at DESC"
     );
@@ -152,45 +222,7 @@ require __DIR__ . '/staffSide/staff-sidebar-nav.php';
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge" style="position: relative;" onclick="toggleNotifications()">
-          <i class="fa-regular fa-bell"></i>
-          <?php if ($unreadCount > 0): ?>
-          <span class="badge-dot" style="background: var(--red);"></span>
-          <span class="notification-count" style="position: absolute; top: -8px; right: -8px; background: var(--red); color: white; border-radius: 10px; padding: 2px 6px; font-size: 0.7rem; font-weight: bold; min-width: 18px; text-align: center;"><?= $unreadCount ?></span>
-          <?php endif; ?>
-        </div>
-        
-        <!-- Notification Dropdown -->
-        <div class="notification-dropdown" id="notificationDropdown">
-          <div class="notification-header">
-            <h3>Notifications</h3>
-            <button class="mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
-          </div>
-          <div id="notificationList">
-            <?php if (empty($userNotifications)): ?>
-              <div class="notification-empty">No notifications</div>
-            <?php else: ?>
-              <?php foreach ($userNotifications as $notif): ?>
-                <div class="notification-item <?= !$notif['is_read'] ? 'unread' : '' ?>" onclick="markNotificationRead(<?= $notif['id'] ?>)">
-                  <div class="notification-content">
-                    <div class="notification-icon" style="background: <?= getNotificationColor($notif['type']) ?>20; color: <?= getNotificationColor($notif['type']) ?>;">
-                      <i class="fa-solid <?= getNotificationIcon($notif['type']) ?>"></i>
-                    </div>
-                    <div class="notification-text">
-                      <div class="notification-title"><?= htmlspecialchars($notif['title']) ?></div>
-                      <div class="notification-message"><?= htmlspecialchars($notif['message']) ?></div>
-                      <div class="notification-time"><?= timeAgo($notif['created_at']) ?></div>
-                    </div>
-                  </div>
-                </div>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </div>
-        </div>
-        
-        <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>
-        </div>
+        <?php $staffTopbarFromRoot = true; require __DIR__ . '/staffSide/staff-topbar-right.php'; ?>
       </div>
     </header>
 
@@ -315,11 +347,11 @@ require __DIR__ . '/staffSide/staff-sidebar-nav.php';
         <div style="overflow-x:auto;">
           <table class="data-table">
             <thead><tr>
-              <th>Booking ID</th><th>Customer</th><th>Email</th><th>Event Date</th><th>Status</th><th>Actions</th>
+              <th>Booking ID</th><th>Customer</th><th>Email</th><th>Event</th><th>Event Date</th><th>Time</th><th>Type</th><th>Guests</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>
               <?php if (empty($bookings)): ?>
-              <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">
+              <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">
                 <?= $search || $status ? 'No bookings match your filters.' : 'No bookings found.' ?>
               </td></tr>
               <?php else: ?>
@@ -333,7 +365,11 @@ require __DIR__ . '/staffSide/staff-sidebar-nav.php';
                   </div>
                 </td>
                 <td><?= htmlspecialchars($b['customer_email']) ?></td>
+                <td><?= htmlspecialchars($b['event_name'] ?? 'N/A') ?></td>
                 <td><?= $b['event_date'] ? date('M d, Y', strtotime($b['event_date'])) : '—' ?></td>
+                <td><?= root_staff_bookings_format_time($b) ?></td>
+                <td><?= htmlspecialchars($b['event_type'] ?? 'N/A') ?></td>
+                <td><?= htmlspecialchars($b['num_guests'] ?? 'N/A') ?></td>
                 <td><?= statusBadge($b['status']) ?></td>
                 <td>
                   <div class="flex-gap">
@@ -378,74 +414,6 @@ require __DIR__ . '/staffSide/staff-sidebar-nav.php';
 
 <script>
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-
-// Notification functions
-function toggleNotifications() {
-  const dropdown = document.getElementById('notificationDropdown');
-  dropdown.classList.toggle('show');
-  
-  // Close dropdown when clicking outside
-  if (!dropdown.dataset.listenerAdded) {
-    dropdown.dataset.listenerAdded = 'true';
-    document.addEventListener('click', function(e) {
-      if (!dropdown.contains(e.target) && !e.target.closest('.topbar-badge')) {
-        dropdown.classList.remove('show');
-      }
-    });
-  }
-}
-
-function markNotificationRead(notificationId) {
-  fetch('staff-handle-notifications.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'mark_read', notification_id: notificationId })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      const item = document.querySelector(`[onclick="markNotificationRead(${notificationId})"]`);
-      if (item) {
-        item.classList.remove('unread');
-      }
-      updateNotificationCount();
-    }
-  });
-}
-
-function markAllNotificationsRead() {
-  fetch('staff-handle-notifications.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'mark_all_read' })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      document.querySelectorAll('.notification-item.unread').forEach(item => {
-        item.classList.remove('unread');
-      });
-      updateNotificationCount();
-    }
-  });
-}
-
-function updateNotificationCount() {
-  const count = document.querySelectorAll('.notification-item.unread').length;
-  const countElement = document.querySelector('.notification-count');
-  const badgeDot = document.querySelector('.badge-dot');
-  
-  if (countElement) {
-    if (count > 0) {
-      countElement.textContent = count;
-      countElement.style.display = 'block';
-      if (badgeDot) badgeDot.style.display = 'block';
-    } else {
-      countElement.style.display = 'none';
-      if (badgeDot) badgeDot.style.display = 'none';
-    }
-  }
-}
 </script>
 </body>
 </html>

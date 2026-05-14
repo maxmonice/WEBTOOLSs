@@ -1,5 +1,6 @@
 <?php
 require_once 'staff-config.php';
+require_once __DIR__ . '/../Notifications.php';
 requireStaff();
 
 $successMsg = '';
@@ -102,6 +103,9 @@ try {
 
 $stats = getStaffStats($pdo);
 $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
+$notifications = new Notifications($pdo);
+$userNotifications = $notifications->getForUser('staff', $_SESSION['user_id'], 8);
+$unreadCount = $notifications->getUnreadCount('staff', $_SESSION['user_id']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -131,12 +135,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i>
-          <?php if ($stats['pending_orders'] > 0): ?><span class="badge-dot"></span><?php endif; ?>
-        </div>
-        <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>
-        </div>
+        <?php require __DIR__ . '/staff-topbar-right.php'; ?>
       </div>
     </header>
 

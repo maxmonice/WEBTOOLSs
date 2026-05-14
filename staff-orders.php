@@ -146,12 +146,7 @@ require __DIR__ . '/staffSide/staff-sidebar-nav.php';
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i>
-          <?php if ($stats['pending_orders'] > 0): ?><span class="badge-dot"></span><?php endif; ?>
-        </div>
-        <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);">
-          <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>
-        </div>
+        <?php $staffTopbarFromRoot = true; require __DIR__ . '/staffSide/staff-topbar-right.php'; ?>
       </div>
     </header>
 

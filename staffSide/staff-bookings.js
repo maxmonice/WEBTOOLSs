@@ -67,6 +67,27 @@
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
+  function formatTimeRange(start, end) {
+    var startLabel = formatTime(start);
+    if (!end || end === '00:00:00' || end === start) return startLabel;
+    var endLabel = formatTime(end);
+    if (startLabel === 'N/A' || endLabel === 'N/A' || startLabel === endLabel) return startLabel;
+    return startLabel + ' – ' + endLabel;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return 'N/A';
+    var date = new Date(String(value).replace(' ', 'T'));
+    if (isNaN(date.getTime())) return value;
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
   window.openModal = function (id) {
     var modal = document.getElementById(id);
     if (modal) modal.classList.add('open');
@@ -183,11 +204,12 @@
           return;
         }
         var booking = data.booking;
+        var related = Array.isArray(data.related_bookings) ? data.related_bookings : [];
         document.getElementById('bookingDetailId').textContent = '#BK-' + String(booking.id).padStart(3, '0');
         document.getElementById('bookingDetailName').textContent = booking.full_name || booking.user_name || 'Guest';
         document.getElementById('bookingDetailEvent').textContent = booking.event_name || 'N/A';
         document.getElementById('bookingDetailDate').textContent = formatDate(booking.event_date);
-        document.getElementById('bookingDetailTime').textContent = formatTime(booking.event_time);
+        document.getElementById('bookingDetailTime').textContent = formatTimeRange(booking.event_time, booking.event_time_end);
         document.getElementById('bookingDetailType').textContent = booking.event_type || 'N/A';
         document.getElementById('bookingDetailGuests').textContent = booking.num_guests || 'N/A';
         document.getElementById('bookingDetailAddress').textContent = booking.address || 'N/A';
@@ -197,6 +219,49 @@
         var badge = document.getElementById('bookingDetailStatus');
         badge.className = 'badge badge-' + statusClass(booking.status);
         badge.textContent = booking.status || 'pending';
+        var relWrap = document.getElementById('bookingDetailRelatedWrap');
+        var relList = document.getElementById('bookingDetailRelatedList');
+        if (relWrap && relList) {
+          if (!related.length) {
+            relWrap.style.display = 'none';
+            relList.innerHTML = '';
+          } else {
+            relWrap.style.display = 'block';
+            relList.innerHTML = related.map(function (item) {
+              return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">' +
+                '<span><strong>#BK-' + String(item.id).padStart(3, '0') + '</strong> · ' +
+                escHtml(formatDate(item.event_date)) + ' @ ' + escHtml(formatTimeRange(item.event_time, item.event_time_end)) + '</span>' +
+                '<span class="badge badge-' + statusClass(item.status) + '">' + escHtml(item.status || 'pending') + '</span>' +
+                '</div>';
+            }).join('');
+          }
+        }
+        document.getElementById('bookingDetailUserName').textContent = booking.user_name || 'Guest (not logged in)';
+        document.getElementById('bookingDetailUserEmail').textContent = booking.user_email || 'N/A';
+        var userIdRow = document.getElementById('bookingDetailUserIdRow');
+        var hasUserId = booking.user_id != null && String(booking.user_id).trim() !== '';
+        if (userIdRow) userIdRow.style.display = hasUserId ? 'block' : 'none';
+        if (hasUserId) document.getElementById('bookingDetailUserId').textContent = String(booking.user_id);
+        document.getElementById('bookingDetailCreated').textContent = formatDateTime(booking.created_at);
+        document.getElementById('bookingDetailUpdated').textContent = formatDateTime(booking.updated_at);
+        var btnConfirm = document.getElementById('bookingDetailBtnConfirm');
+        var btnCancel = document.getElementById('bookingDetailBtnCancelBk');
+        var isPending = String(booking.status || '').toLowerCase() === 'pending';
+        if (btnConfirm) {
+          btnConfirm.style.display = isPending ? 'inline-flex' : 'none';
+          btnConfirm.onclick = function () {
+            closeModal('bookingDetailModal');
+            updateBookingStatus(booking.id, 'confirmed');
+          };
+        }
+        if (btnCancel) {
+          btnCancel.style.display = isPending ? 'inline-flex' : 'none';
+          btnCancel.onclick = function () {
+            if (!confirm('Cancel this booking?')) return;
+            closeModal('bookingDetailModal');
+            updateBookingStatus(booking.id, 'cancelled');
+          };
+        }
         openModal('bookingDetailModal');
       })
       .catch(function () {
@@ -274,7 +339,7 @@
             return '<div class="booking-card">' +
               '<div class="booking-id">#BK-' + String(booking.id).padStart(3, '0') + '</div>' +
               '<div class="booking-name">' + escHtml(booking.full_name || booking.user_name || 'Guest') + '</div>' +
-              '<div class="booking-detail"><i class="fa-solid fa-clock"></i> ' + escHtml(formatTime(booking.event_time)) + ' · ' + escHtml(booking.event_type || 'N/A') + '</div>' +
+              '<div class="booking-detail"><i class="fa-solid fa-clock"></i> ' + escHtml(formatTimeRange(booking.event_time, booking.event_time_end)) + ' · ' + escHtml(booking.event_type || 'N/A') + '</div>' +
               '<div class="booking-detail"><i class="fa-solid fa-users"></i> ' + escHtml(booking.num_guests || 'N/A') + ' guests</div>' +
               '<div class="booking-detail"><i class="fa-solid fa-location-dot"></i> ' + escHtml(booking.address || 'N/A') + '</div>' +
               '<div class="booking-footer">' +
