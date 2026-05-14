@@ -1,0 +1,29 @@
+WEBTOOLS/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+vendor/
+composer.lock
+node_modules/
+socket-server/node_modules/
+
+# Logs
+*.log
+debug-*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+
+# Cache
+cache/
+tmp/
+uploads/
+riderSide/sessions/
