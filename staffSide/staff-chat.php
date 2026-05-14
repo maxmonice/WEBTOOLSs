@@ -17,8 +17,15 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         .support-chat-page { height: calc(100vh - 64px); padding: 24px; overflow: hidden; }
         .chat-layout { display: grid; grid-template-columns: minmax(280px, 350px) 1fr; height: 100%; background: #1a1a1a; border-radius: 14px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,0.25); }
         .thread-list { background: #161616; border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
-        .thread-header { padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .thread-header h2 { font-family: 'Aclonica', sans-serif; font-size: 1.2rem; color: #fff; }
+        .thread-header { padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .thread-header h2 { font-family: 'Aclonica', sans-serif; font-size: 1.2rem; color: #fff; margin: 0; }
+        .new-thread-btn { background: #222; color: #fff; border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 10px 16px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+        .new-thread-btn:hover { background: rgba(255,255,255,0.06); }
+        .new-thread-panel { padding: 14px 20px; background: #141414; border-bottom: 1px solid rgba(255,255,255,0.05); display: none; gap: 12px; }
+        .new-thread-panel.active { display: grid; }
+        .new-thread-panel .panel-row { display: flex; flex-direction: column; gap: 8px; }
+        .new-thread-panel label { font-size: 0.8rem; color: #999; }
+        .new-thread-panel select { width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: #181818; color: #fff; padding: 12px 14px; }
         .threads-container { flex: 1; overflow-y: auto; }
         .thread-item { padding: 20px 25px; border-bottom: 1px solid rgba(255,255,255,0.02); cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 15px; }
         .thread-item:hover { background: rgba(255,255,255,0.02); }
@@ -32,7 +39,7 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
         .chat-messages { flex: 1; overflow-y: auto; padding: 30px; display: flex; flex-direction: column; gap: 20px; }
         .message { max-width: 60%; padding: 12px 18px; border-radius: 16px; font-size: 0.9rem; line-height: 1.5; word-break: break-word; }
         .message.admin { align-self: flex-end; background: #C22626; color: #fff; border-bottom-right-radius: 4px; }
-        .message.customer, .message.rider { align-self: flex-start; background: #2a2a2a; color: #fff; border-bottom-left-radius: 4px; }
+        .message.customer, .message.rider, .message.staff { align-self: flex-start; background: #2a2a2a; color: #fff; border-bottom-left-radius: 4px; }
         .message-time { display: block; font-size: 0.7rem; opacity: 0.6; margin-top: 5px; text-align: right; }
         .chat-input-area { padding: 25px 30px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; gap: 15px; }
         .chat-input { flex: 1; background: #222; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 20px; color: #fff; outline: none; transition: border-color 0.2s; min-width: 0; }
@@ -79,6 +86,14 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
                 <div class="thread-list">
                     <div class="thread-header">
                         <h2>Active Conversations</h2>
+                        <button type="button" class="new-thread-btn" id="newThreadBtn" onclick="toggleNewThreadPanel()">New Chat</button>
+                    </div>
+                    <div class="new-thread-panel" id="newThreadPanel">
+                        <div class="panel-row">
+                            <label for="adminSelect">Admin contact</label>
+                            <select id="adminSelect"></select>
+                        </div>
+                        <button type="button" class="send-btn" onclick="startAdminChat()">Start chat</button>
                     </div>
                     <div class="threads-container" id="threadsContainer"></div>
                 </div>
@@ -123,6 +138,46 @@ function escHtml(value) {
 
 let currentPeer = null;
 
+function escHtml(value) {
+    return String(value ?? '').replace(/[&<>"]/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+    }[ch]));
+}
+
+async function loadAdminOptions() {
+    try {
+        const res = await fetch('../chat-api.php?action=get_admin_list');
+        const data = await res.json();
+        const select = document.getElementById('adminSelect');
+        select.innerHTML = '<option value="">Select an admin contact</option>';
+
+        if (data.success) {
+            data.admins.forEach(admin => {
+                const option = document.createElement('option');
+                option.value = admin.id;
+                option.textContent = `${admin.name} ${admin.email ? '· ' + admin.email : ''}`;
+                select.appendChild(option);
+            });
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function toggleNewThreadPanel() {
+    const panel = document.getElementById('newThreadPanel');
+    panel.classList.toggle('active');
+}
+
+async function startAdminChat() {
+    const select = document.getElementById('adminSelect');
+    const adminId = select.value;
+    const adminName = select.options[select.selectedIndex]?.textContent?.split('·')[0]?.trim() || 'Admin';
+    if (!adminId) return;
+    selectThread(adminId, 'admin', adminName);
+    document.getElementById('newThreadPanel').classList.remove('active');
+}
+
 async function loadThreads() {
     try {
         const res = await fetch('../chat-api.php?action=get_active_threads');
@@ -136,7 +191,7 @@ async function loadThreads() {
                 const type = escHtml(t.peer_type);
                 return `
                     <div class="thread-item ${isActive ? 'active' : ''}"
-                         onclick="selectThread('${escHtml(t.peer_id)}', '${type}', '${name}')">
+                         onclick="selectThread(${JSON.stringify(t.peer_id)}, ${JSON.stringify(t.peer_type)}, ${JSON.stringify(t.name)})">
                         <div class="thread-avatar">${name.charAt(0) || '?'}</div>
                         <div class="thread-details">
                             <span class="thread-name">${name}</span>
@@ -218,6 +273,7 @@ socket.on('new-message', data => {
     }
 });
 
+loadAdminOptions();
 loadThreads();
 setInterval(loadThreads, 10000);
 </script>

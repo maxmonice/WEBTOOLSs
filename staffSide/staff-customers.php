@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $search = trim($_GET['search'] ?? '');
 
-$whereClause = "WHERE email != 'admin@gmail.com'";
+$whereClause = "WHERE email != 'admin@gmail.com' AND COALESCE(is_archived, 0) = 0";
 $params      = [];
 if ($search !== '') {
     $whereClause .= ' AND (name LIKE :s OR email LIKE :s)';
@@ -33,7 +33,7 @@ try {
 // Basic counts (no sensitive data)
 $totalCustomers = 0;
 try {
-    $totalCustomers = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com'")->fetchColumn();
+    $totalCustomers = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND COALESCE(is_archived,0) = 0")->fetchColumn();
 } catch (\Throwable $_) {}
 
 $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');

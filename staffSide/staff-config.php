@@ -42,6 +42,27 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+try {
+    $chk = $pdo->prepare(
+        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_archived'"
+    );
+    $chk->execute();
+    if ((int)$chk->fetchColumn() === 0) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+    }
+} catch (\Throwable $_) {}
+try {
+    $chk = $pdo->prepare(
+        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'archived_at'"
+    );
+    $chk->execute();
+    if ((int)$chk->fetchColumn() === 0) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL");
+    }
+} catch (\Throwable $_) {}
+
 // =====================================================
 //  STAFF SESSION GUARD
 //  Staff must be logged in. Admins may also access

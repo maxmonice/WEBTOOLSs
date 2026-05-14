@@ -14,15 +14,55 @@ if (!$userId) {
 
 $action = $data['action'] ?? '';
 
+function ensurePromoStorage(PDO $pdo): void {
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS promos (
+            id INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            code VARCHAR(50) NOT NULL UNIQUE,
+            discount_percent INT NOT NULL DEFAULT 0,
+            duration_days INT NULL,
+            applicable_category VARCHAR(100) DEFAULT 'All Items',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS user_promos (
+            user_id INT(10) UNSIGNED NOT NULL,
+            promo_id INT(10) UNSIGNED NOT NULL,
+            claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            PRIMARY KEY (user_id, promo_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (promo_id) REFERENCES promos(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+
+    try {
+        $columnCheck = $pdo->prepare(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos' AND COLUMN_NAME = 'applicable_category'"
+        );
+        $columnCheck->execute();
+        if ((int)$columnCheck->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE promos ADD COLUMN applicable_category VARCHAR(100) DEFAULT 'All Items'");
+        }
+    } catch (Throwable $_) {}
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO promos (code, discount_percent, duration_days, applicable_category)
+         VALUES ('N3WUS3R', 30, NULL, 'All Items')
+         ON DUPLICATE KEY UPDATE
+            discount_percent = VALUES(discount_percent),
+            duration_days = VALUES(duration_days),
+            applicable_category = COALESCE(applicable_category, VALUES(applicable_category))"
+    );
+    $stmt->execute();
+}
+
 if ($action === 'search_promos') {
-    // Check if promos table exists
-    $tableCheck = $pdo->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos'");
-    $promosTableExists = (int)$tableCheck->fetchColumn() > 0;
-    
-    if (!$promosTableExists) {
-        echo json_encode(['success' => false, 'message' => 'Promos table not found. Please run migration.', 'promos' => []]);
-        exit;
-    }
+    ensurePromoStorage($pdo);
     
     $query = $data['query'] ?? '';
     
@@ -45,14 +85,16 @@ if ($action === 'search_promos') {
 }
 
 if ($action === 'claim_promo') {
-    // Check if promos table exists
-    $tableCheck = $pdo->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promos'");
-    if ((int)$tableCheck->fetchColumn() === 0) {
-        echo json_encode(['success' => false, 'message' => 'Promos table not found. Please run migration.']);
-        exit;
-    }
+    ensurePromoStorage($pdo);
     
-    $promoId = $data['promo_id'] ?? 0;
+    $promoId = (int)($data['promo_id'] ?? 0);
+    $promoCode = strtoupper(trim((string)($data['promo_code'] ?? '')));
+
+    if ($promoId <= 0 && $promoCode !== '') {
+        $promoIdStmt = $pdo->prepare("SELECT id FROM promos WHERE UPPER(code) = ? LIMIT 1");
+        $promoIdStmt->execute([$promoCode]);
+        $promoId = (int)($promoIdStmt->fetchColumn() ?: 0);
+    }
     
     // Check if already claimed
     $check = $pdo->prepare("SELECT * FROM user_promos WHERE user_id = ? AND promo_id = ?");

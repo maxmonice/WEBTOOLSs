@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 // Check current status
-                $stmt = $pdo->prepare('SELECT name, status FROM users WHERE id = ?');
+                $stmt = $pdo->prepare('SELECT name, status FROM users WHERE id = ? AND COALESCE(is_archived,0) = 0');
                 $stmt->execute([$uid]);
                 $u = $stmt->fetch();
                 
@@ -84,19 +84,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Delete user
+    // Archive user (soft delete — appears under Admin → Archive → Users)
     if (($_POST['action'] ?? '') === 'delete_user') {
         $uid = (int)($_POST['user_id'] ?? 0);
         if ($uid > 0) {
             try {
-                $stmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
-                $stmt->execute([$uid]);
+                $stmt = $pdo->prepare('SELECT name, email FROM users WHERE id = ? AND email != ? AND COALESCE(is_archived,0) = 0');
+                $stmt->execute([$uid, 'admin@gmail.com']);
                 $u = $stmt->fetch();
-                $pdo->prepare('DELETE FROM users WHERE id = ? AND email != ?')
-                    ->execute([$uid, 'admin@gmail.com']);
-                
-                logActivity('user_deleted', "Admin deleted user: " . htmlspecialchars($u['name'] ?? ''), $_SESSION['user_email'], $_SESSION['user_name']);
-                $successMsg = "User <strong>" . htmlspecialchars($u['name'] ?? '') . "</strong> deleted.";
+                if (!$u) {
+                    $errorMsg = 'User not found or already archived.';
+                } else {
+                    $pdo->prepare(
+                        'UPDATE users SET is_archived = 1, archived_at = NOW() WHERE id = ? AND email != ?'
+                    )->execute([$uid, 'admin@gmail.com']);
+
+                    logActivity('user_archived', 'Admin archived user: ' . htmlspecialchars($u['name'] ?? '') . ' (' . htmlspecialchars($u['email'] ?? '') . ')', $_SESSION['user_email'], $_SESSION['user_name']);
+                    $successMsg = 'User <strong>' . htmlspecialchars($u['name'] ?? '') . '</strong> was moved to <strong>Archive</strong> (Users tab).';
+                }
             } catch (\Throwable $e) {
                 $errorMsg = 'Error: ' . $e->getMessage();
             }
@@ -109,7 +114,7 @@ $search   = trim($_GET['search'] ?? '');
 $provider = trim($_GET['provider'] ?? '');
 
 // ── Fetch users ───────────────────────────────────
-$whereClause = "WHERE email != 'admin@gmail.com'";
+$whereClause = "WHERE email != 'admin@gmail.com' AND COALESCE(is_archived, 0) = 0";
 $params      = [];
 
 if ($search !== '') {
@@ -123,7 +128,7 @@ if ($provider !== '') {
 
 try {
     $stmt = $pdo->prepare(
-        "SELECT id, name, email, provider, email_verified, created_at
+        "SELECT id, name, email, provider, email_verified, created_at, COALESCE(status,'active') AS status
          FROM users $whereClause
          ORDER BY created_at DESC"
     );
@@ -140,8 +145,8 @@ $stats = getAdminStats($pdo);
 $activeCount    = 0;
 $suspendedCount = 0;
 try {
-    $activeCount    = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND status = 'active'")->fetchColumn();
-    $suspendedCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND status = 'suspended'")->fetchColumn();
+    $activeCount    = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND COALESCE(is_archived,0) = 0 AND status = 'active'")->fetchColumn();
+    $suspendedCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND COALESCE(is_archived,0) = 0 AND status = 'suspended'")->fetchColumn();
 } catch (\Throwable $_) {
     $activeCount    = $stats['total_users'];
     $suspendedCount = 0;
@@ -403,11 +408,11 @@ try {
                     </button>
                     <form method="POST" style="display:inline;">
                       <input type="hidden" name="action" value="delete_user">
-                      <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
+                      <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
                       <button type="submit" class="action-btn"
-                              title="Delete User"
-                              onclick="return confirm('Permanently delete this user?')">
-                        <i class="fa-solid fa-trash"></i>
+                              title="Archive user"
+                              onclick="return confirm('Archive this user? They will be removed from the list and can be restored or permanently deleted from Admin → Archive → Users.')">
+                        <i class="fa-solid fa-box-archive"></i>
                       </button>
                     </form>
                   </div>

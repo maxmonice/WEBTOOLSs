@@ -251,7 +251,7 @@ function handleLogin(array $data): void {
     }
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, password_hash, provider, role, status FROM users WHERE email = ?'
+        'SELECT id, name, email, password_hash, provider, role, status FROM users WHERE email = ? AND COALESCE(is_archived,0) = 0'
     );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -401,7 +401,7 @@ function handleVerifyOtp(array $data): void {
 
     $db   = getDB();
     $stmt = $db->prepare(
-        'SELECT otp_code, otp_expires_at, otp_attempts FROM users WHERE id = ?'
+        'SELECT otp_code, otp_expires_at, otp_attempts, COALESCE(is_archived,0) AS is_archived FROM users WHERE id = ?'
     );
     $stmt->execute([$userId]);
     $user = $stmt->fetch();
@@ -415,6 +415,10 @@ function handleVerifyOtp(array $data): void {
     ]);
 
     if (!$user) respond(false, 'User not found.');
+
+    if (!empty($user['is_archived'])) {
+        respond(false, 'This account is no longer active.');
+    }
 
     // Max 5 wrong attempts
     if ((int) $user['otp_attempts'] >= 5) {
@@ -587,7 +591,7 @@ function handleGoogleAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, status FROM users WHERE provider = "google" AND provider_id = ? LIMIT 1'
+        'SELECT id, name, email, status FROM users WHERE provider = "google" AND provider_id = ? AND COALESCE(is_archived,0) = 0 LIMIT 1'
     );
     $stmt->execute([$googleId]);
     $user = $stmt->fetch();
@@ -685,7 +689,7 @@ function handleFacebookAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, status FROM users WHERE provider = "facebook" AND provider_id = ? LIMIT 1'
+        'SELECT id, name, email, status FROM users WHERE provider = "facebook" AND provider_id = ? AND COALESCE(is_archived,0) = 0 LIMIT 1'
     );
     $stmt->execute([$facebookId]);
     $user = $stmt->fetch();
@@ -740,9 +744,14 @@ function handleCheckSession(): void {
         
         // Check if user is suspended
         $db = getDB();
-        $stmt = $db->prepare('SELECT status FROM users WHERE id = ?');
+        $stmt = $db->prepare('SELECT status, COALESCE(is_archived,0) AS is_archived FROM users WHERE id = ?');
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
+        
+        if ($user && !empty($user['is_archived'])) {
+            session_destroy();
+            respond(false, 'This account is no longer active.');
+        }
         
         if ($user && $user['status'] === 'suspended') {
             debugLog($runId, 'H6', 'Auth.php:handleCheckSession:suspended', 'Active user is suspended', [
@@ -780,10 +789,16 @@ function handleCheckSession(): void {
     $token = $_COOKIE['remember_token'] ?? '';
     if ($token) {
         $db   = getDB();
-        $stmt = $db->prepare('SELECT id, name, email, status FROM users WHERE remember_token = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, status, COALESCE(is_archived,0) AS is_archived FROM users WHERE remember_token = ? LIMIT 1');
         $stmt->execute([$token]);
         $user = $stmt->fetch();
         if ($user) {
+            if (!empty($user['is_archived'])) {
+                debugLog($runId, 'H6', 'Auth.php:handleCheckSession:archivedRemember', 'Remember token user is archived', [
+                    'userId' => $user['id'],
+                ]);
+                respond(false, 'Not logged in.');
+            }
             // Check if user is suspended
             if ($user['status'] === 'suspended') {
                 debugLog($runId, 'H6', 'Auth.php:handleCheckSession:suspendedRemember', 'Remember token user is suspended', [

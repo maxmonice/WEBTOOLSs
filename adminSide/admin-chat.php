@@ -24,9 +24,15 @@ $pdo = getDB();
         .support-chat-page { height: calc(100vh - 64px); padding: 24px; overflow: hidden; }
         .chat-layout { display: grid; grid-template-columns: minmax(280px, 350px) 1fr; height: 100%; background: #1a1a1a; border-radius: 14px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,0.25); }
         .thread-list { background: #161616; border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
-        .thread-header { padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .thread-header h2 { font-family: 'Aclonica', sans-serif; font-size: 1.2rem; color: #fff; }
-        
+        .thread-header { padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .thread-header h2 { font-family: 'Aclonica', sans-serif; font-size: 1.2rem; color: #fff; margin: 0; }
+        .new-thread-btn { background: #222; color: #fff; border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 10px 16px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+        .new-thread-btn:hover { background: rgba(255,255,255,0.06); }
+        .new-thread-panel { padding: 14px 20px; background: #141414; border-bottom: 1px solid rgba(255,255,255,0.05); display: none; gap: 12px; }
+        .new-thread-panel.active { display: grid; }
+        .new-thread-panel .panel-row { display: flex; flex-direction: column; gap: 8px; }
+        .new-thread-panel label { font-size: 0.8rem; color: #999; }
+        .new-thread-panel select { width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: #181818; color: #fff; padding: 12px 14px; }
         .threads-container { flex: 1; overflow-y: auto; }
         .thread-item { padding: 20px 25px; border-bottom: 1px solid rgba(255,255,255,0.02); cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 15px; }
         .thread-item:hover { background: rgba(255,255,255,0.02); }
@@ -41,7 +47,7 @@ $pdo = getDB();
         .chat-messages { flex: 1; overflow-y: auto; padding: 30px; display: flex; flex-direction: column; gap: 20px; }
         .message { max-width: 60%; padding: 12px 18px; border-radius: 16px; font-size: 0.9rem; line-height: 1.5; }
         .message.admin { align-self: flex-end; background: #C22626; color: #fff; border-bottom-right-radius: 4px; }
-        .message.customer, .message.rider { align-self: flex-start; background: #2a2a2a; color: #fff; border-bottom-left-radius: 4px; }
+        .message.customer, .message.rider, .message.staff { align-self: flex-start; background: #2a2a2a; color: #fff; border-bottom-left-radius: 4px; }
         .message-time { display: block; font-size: 0.7rem; opacity: 0.6; margin-top: 5px; text-align: right; }
 
         .chat-input-area { padding: 25px 30px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; gap: 15px; }
@@ -87,6 +93,14 @@ $pdo = getDB();
                     <div class="thread-list">
                         <div class="thread-header">
                             <h2>Active Conversations</h2>
+                            <button type="button" class="new-thread-btn" id="newThreadBtn" onclick="toggleNewThreadPanel()">New Chat</button>
+                        </div>
+                        <div class="new-thread-panel" id="newThreadPanel">
+                            <div class="panel-row">
+                                <label for="staffSelect">Staff member</label>
+                                <select id="staffSelect"></select>
+                            </div>
+                            <button type="button" class="send-btn" onclick="startStaffChat()">Start chat</button>
                         </div>
                         <div class="threads-container" id="threadsContainer">
                             <!-- Threads here -->
@@ -129,6 +143,45 @@ $pdo = getDB();
 
         let currentPeer = null;
 
+        function escHtml(value) {
+            return String(value ?? '').replace(/[&<>"]/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+            }[ch]));
+        }
+
+        async function loadStaffOptions() {
+            try {
+                const res = await fetch('../chat-api.php?action=get_staff_list');
+                const data = await res.json();
+                const select = document.getElementById('staffSelect');
+                select.innerHTML = '<option value="">Select a staff member</option>';
+                if (data.success) {
+                    data.staff.forEach(staff => {
+                        const option = document.createElement('option');
+                        option.value = staff.id;
+                        option.textContent = `${staff.name} ${staff.email ? '· ' + staff.email : ''}`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function toggleNewThreadPanel() {
+            const panel = document.getElementById('newThreadPanel');
+            panel.classList.toggle('active');
+        }
+
+        async function startStaffChat() {
+            const select = document.getElementById('staffSelect');
+            const staffId = select.value;
+            const staffName = select.options[select.selectedIndex]?.textContent?.split('·')[0]?.trim() || 'Staff';
+            if (!staffId) return;
+            selectThread(staffId, 'staff', staffName);
+            document.getElementById('newThreadPanel').classList.remove('active');
+        }
+
         async function loadThreads() {
             try {
                 const res = await fetch('../chat-api.php?action=get_active_threads');
@@ -138,11 +191,11 @@ $pdo = getDB();
                 if (data.success) {
                     container.innerHTML = data.threads.map(t => `
                         <div class="thread-item ${currentPeer && currentPeer.id == t.peer_id && currentPeer.type == t.peer_type ? 'active' : ''}" 
-                             onclick="selectThread('${t.peer_id}', '${t.peer_type}', '${t.name}')">
-                            <div class="thread-avatar">${t.name.charAt(0)}</div>
+                             onclick="selectThread(${JSON.stringify(t.peer_id)}, ${JSON.stringify(t.peer_type)}, ${JSON.stringify(t.name)})">
+                            <div class="thread-avatar">${escHtml(t.name).charAt(0)}</div>
                             <div class="thread-details">
-                                <span class="thread-name">${t.name}</span>
-                                <span class="thread-type">${t.peer_type}</span>
+                                <span class="thread-name">${escHtml(t.name)}</span>
+                                <span class="thread-type">${escHtml(t.peer_type)}</span>
                             </div>
                         </div>
                     `).join('');
@@ -164,15 +217,15 @@ $pdo = getDB();
         async function loadMessages() {
             if (!currentPeer) return;
             try {
-                const res = await fetch(`../chat-api.php?action=get_history&other_id=${currentPeer.id}&other_type=${currentPeer.type}`);
+                const res = await fetch(`../chat-api.php?action=get_history&other_id=${encodeURIComponent(currentPeer.id)}&other_type=${encodeURIComponent(currentPeer.type)}`);
                 const data = await res.json();
                 const container = document.getElementById('chatMessages');
                 
                 if (data.success) {
                     container.innerHTML = data.messages.map(m => `
-                        <div class="message ${m.sender_type}">
-                            ${m.message}
-                            <span class="message-time">${m.timestamp}</span>
+                        <div class="message ${escHtml(m.sender_type)}">
+                            ${escHtml(m.message)}
+                            <span class="message-time">${escHtml(m.timestamp)}</span>
                         </div>
                     `).join('');
                     container.scrollTop = container.scrollHeight;
@@ -212,6 +265,7 @@ $pdo = getDB();
             }
         });
 
+        loadStaffOptions();
         loadThreads();
         setInterval(loadThreads, 10000);
     </script>

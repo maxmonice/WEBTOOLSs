@@ -6,6 +6,36 @@ require_once 'Db.php';
 
 $pdo = getDB();
 
+function ensureChatTable(PDO $pdo): void {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages'");
+    $stmt->execute();
+    if ((int)$stmt->fetchColumn() === 0) {
+        $pdo->exec("CREATE TABLE chat_messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            order_id INT UNSIGNED DEFAULT NULL,
+            sender_id INT DEFAULT NULL,
+            sender_type ENUM('customer','rider','admin','staff') NOT NULL,
+            receiver_id INT DEFAULT NULL,
+            receiver_type ENUM('customer','rider','admin','staff') NOT NULL,
+            message TEXT NOT NULL,
+            is_read TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+        )");
+    } else {
+        foreach (['sender_type', 'receiver_type'] as $column) {
+            $stmt = $pdo->prepare("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages' AND COLUMN_NAME = ?");
+            $stmt->execute([$column]);
+            $columnType = $stmt->fetchColumn();
+            if ($columnType && strpos($columnType, "'staff'") === false) {
+                $pdo->exec("ALTER TABLE chat_messages MODIFY {$column} ENUM('customer','rider','admin','staff') NOT NULL");
+            }
+        }
+    }
+}
+
+ensureChatTable($pdo);
+
 // Determine requester identity
 $userId = $_SESSION['user_id'] ?? null;
 $riderId = $_SESSION['rider_id'] ?? null;
@@ -15,7 +45,10 @@ $isStaff = !empty($_SESSION['is_staff']);
 $senderType = 'customer';
 $senderId = $userId;
 
-if ($isAdmin || $isStaff) {
+if ($isStaff) {
+    $senderType = 'staff';
+    $senderId = $userId;
+} elseif ($isAdmin) {
     $senderType = 'admin';
     $senderId = $userId;
 } elseif ($riderId) {
@@ -23,7 +56,7 @@ if ($isAdmin || $isStaff) {
     $senderId = $riderId;
 }
 
-if (!$senderId && !$isAdmin) {
+if (!$senderId) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
@@ -39,6 +72,10 @@ switch ($action) {
 
         if (!$message) {
             echo json_encode(['success' => false, 'message' => 'Empty message']);
+            exit;
+        }
+        if (!$receiverId || !$receiverType) {
+            echo json_encode(['success' => false, 'message' => 'Receiver is required']);
             exit;
         }
 
@@ -110,37 +147,82 @@ switch ($action) {
         break;
 
     case 'get_active_threads':
-        // For admin to see who is chatting
         if (!$isAdmin && !$isStaff) {
-            echo json_encode(['success' => false, 'message' => 'Admin only']);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
             exit;
         }
-        
+
         try {
-            // Get unique pairs of (sender, receiver) excluding admin
-            $stmt = $pdo->query("
-                SELECT DISTINCT 
-                    CASE WHEN sender_type != 'admin' THEN sender_id ELSE receiver_id END as peer_id,
-                    CASE WHEN sender_type != 'admin' THEN sender_type ELSE receiver_type END as peer_type
+            if ($senderType === 'admin') {
+                $stmt = $pdo->query("SELECT DISTINCT
+                    CASE WHEN sender_type = 'staff' THEN sender_id ELSE receiver_id END AS peer_id,
+                    CASE WHEN sender_type = 'staff' THEN sender_type ELSE receiver_type END AS peer_type
                 FROM chat_messages
-                WHERE sender_type = 'admin' OR receiver_type = 'admin'
-            ");
+                WHERE (sender_type = 'staff' AND receiver_type = 'admin')
+                   OR (sender_type = 'admin' AND receiver_type = 'staff')");
+            } elseif ($senderType === 'staff') {
+                $stmt = $pdo->prepare("SELECT DISTINCT
+                    CASE WHEN sender_type = 'admin' THEN sender_id ELSE receiver_id END AS peer_id,
+                    CASE WHEN sender_type = 'admin' THEN sender_type ELSE receiver_type END AS peer_type
+                FROM chat_messages
+                WHERE (sender_type = 'staff' AND receiver_type = 'admin' AND sender_id = ?)
+                   OR (sender_type = 'admin' AND receiver_type = 'staff' AND receiver_id = ?)");
+                $stmt->execute([$senderId, $senderId]);
+            } else {
+                $stmt = $pdo->prepare("SELECT DISTINCT
+                    CASE WHEN sender_type != ? THEN sender_id ELSE receiver_id END as peer_id,
+                    CASE WHEN sender_type != ? THEN sender_type ELSE receiver_type END as peer_type
+                FROM chat_messages
+                WHERE sender_type = ? OR receiver_type = ?");
+                $stmt->execute([$senderType, $senderType, $senderType, $senderType]);
+            }
+
             $peers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Enrich with names
             foreach ($peers as &$peer) {
                 if ($peer['peer_type'] === 'customer') {
                     $u = $pdo->prepare("SELECT name FROM users WHERE id = ?");
                     $u->execute([$peer['peer_id']]);
                     $peer['name'] = $u->fetchColumn() ?: 'Unknown Customer';
-                } else {
-                    $u = $pdo->prepare("SELECT name FROM users WHERE id = ?"); // Assuming riders are in users too with role
+                } elseif ($peer['peer_type'] === 'staff') {
+                    $u = $pdo->prepare("SELECT name FROM users WHERE id = ? AND role = 'staff'");
                     $u->execute([$peer['peer_id']]);
-                    $peer['name'] = $u->fetchColumn() ?: 'Unknown Rider';
+                    $peer['name'] = $u->fetchColumn() ?: 'Unknown Staff';
+                } else {
+                    $u = $pdo->prepare("SELECT name FROM users WHERE id = ?");
+                    $u->execute([$peer['peer_id']]);
+                    $peer['name'] = $u->fetchColumn() ?: 'Unknown';
                 }
             }
-            
+
             echo json_encode(['success' => true, 'threads' => $peers]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        break;
+    case 'get_staff_list':
+        if (!$isAdmin) {
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        try {
+            $stmt = $pdo->query("SELECT id, name, email FROM users WHERE role = 'staff' ORDER BY name ASC");
+            $staff = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'staff' => $staff]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        break;
+    case 'get_admin_list':
+        if (!$isStaff) {
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        try {
+            $stmt = $pdo->query("SELECT id, name, email FROM users WHERE role = 'admin' ORDER BY name ASC");
+            $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'admins' => $admins]);
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }

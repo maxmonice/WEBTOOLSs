@@ -34,6 +34,22 @@ function getDB(): PDO {
                 if ((int)$stmt->fetchColumn() === 0) {
                     $pdo->exec("ALTER TABLE users ADD COLUMN status ENUM('active','suspended') NOT NULL DEFAULT 'active' AFTER role");
                 }
+                $stmt = $pdo->prepare(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_archived'"
+                );
+                $stmt->execute();
+                if ((int)$stmt->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0 AFTER status");
+                }
+                $stmt = $pdo->prepare(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'archived_at'"
+                );
+                $stmt->execute();
+                if ((int)$stmt->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL AFTER is_archived");
+                }
             } catch (Throwable $_) {}
         } catch (PDOException $e) {
             http_response_code(500);

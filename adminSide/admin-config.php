@@ -50,6 +50,28 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// ── User archive columns (soft-delete → Archive page) ─────────────────────
+try {
+    $chk = $pdo->prepare(
+        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_archived'"
+    );
+    $chk->execute();
+    if ((int)$chk->fetchColumn() === 0) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+    }
+} catch (\Throwable $_) {}
+try {
+    $chk = $pdo->prepare(
+        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'archived_at'"
+    );
+    $chk->execute();
+    if ((int)$chk->fetchColumn() === 0) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL");
+    }
+} catch (\Throwable $_) {}
+
 // =====================================================
 //  ADMIN SESSION GUARD
 //  Call requireAdmin() at the top of every admin page.
@@ -92,7 +114,7 @@ function getAdminStats(PDO $pdo): array {
     // ── Users ─────────────────────────────────────
     try {
         $stats['total_users'] = (int) $pdo
-            ->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com'")
+            ->query("SELECT COUNT(*) FROM users WHERE email != 'admin@gmail.com' AND COALESCE(is_archived,0) = 0")
             ->fetchColumn();
     } catch (\Throwable $_) {}
 
@@ -100,7 +122,8 @@ function getAdminStats(PDO $pdo): array {
         $stats['new_users_week'] = (int) $pdo
             ->query("SELECT COUNT(*) FROM users
                      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                       AND email != 'admin@gmail.com'")
+                       AND email != 'admin@gmail.com'
+                       AND COALESCE(is_archived,0) = 0")
             ->fetchColumn();
     } catch (\Throwable $_) {}
 
@@ -173,7 +196,7 @@ function getRecentActivity(PDO $pdo, int $limit = 8): array {
     try {
         $rows = $pdo->query(
             "SELECT name, email, created_at FROM users
-             WHERE email != 'admin@gmail.com'
+             WHERE email != 'admin@gmail.com' AND COALESCE(is_archived,0) = 0
              ORDER BY created_at DESC LIMIT 5"
         )->fetchAll();
         foreach ($rows as $r) {
@@ -284,4 +307,16 @@ function statusBadge(string $status): string {
     ];
     $cls = $map[strtolower($status)] ?? 'badge-gray';
     return '<span class="badge ' . $cls . '">' . htmlspecialchars(ucfirst($status)) . '</span>';
+}
+
+if (!function_exists('logAdminActivity')) {
+    function logAdminActivity(PDO $pdo, string $action, string $details): void {
+        $logger = __DIR__ . '/../activity-logger.php';
+        if (is_readable($logger)) {
+            require_once $logger;
+        }
+        if (function_exists('logActivity')) {
+            logActivity($action, $details, $_SESSION['user_email'] ?? '', $_SESSION['user_name'] ?? '');
+        }
+    }
 }

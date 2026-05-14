@@ -1945,11 +1945,38 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             }
         };
 
-        window.claimNewUserPromo = function() {
+        window.claimNewUserPromo = async function() {
+            const code = 'N3WUS3R';
             closeModal('newUserPromoModal');
-            openPromos();
-            document.getElementById('promoSearchInput').value = 'N3WUS3R';
-            handlePromoSearch();
+
+            try {
+                const res = await fetch('promo-ajax.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'claim_promo', promo_code: code })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast(`Promo ${code} claimed!`);
+                    localStorage.setItem('active_promo', code);
+                    localStorage.setItem('promo_discount', data.discount);
+                    localStorage.setItem('promo_category', data.applicable_category);
+                    return;
+                }
+
+                if (String(data.message || '').toLowerCase().includes('already claimed')) {
+                    showToast(`Promo ${code} is already claimed.`);
+                    return;
+                }
+
+                showToast(data.message || 'Could not claim promo.', true);
+            } catch (e) {
+                openPromos();
+                document.getElementById('promoSearchInput').value = code;
+                handlePromoSearch();
+            }
         };
 
         // Check for new user on init

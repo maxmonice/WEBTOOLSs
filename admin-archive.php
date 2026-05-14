@@ -23,6 +23,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($data['action'] ?? '') === 'get_archived') {
         $type = $data['type'] ?? 'all';
         try {
+            if ($type === 'users') {
+                $stmt = $pdo->prepare(
+                    "SELECT id, name, email, provider, COALESCE(status,'active') AS status, role, archived_at
+                     FROM users
+                     WHERE COALESCE(is_archived,0)=1 AND email != 'admin@gmail.com'
+                     ORDER BY archived_at DESC"
+                );
+                $stmt->execute();
+                echo json_encode(['success' => true, 'items' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+                exit;
+            }
             if ($type === 'menu') {
                 $stmt = $pdo->prepare("SELECT * FROM content_items WHERE is_archived=1 AND category IN ('Salad','Fusion','A La Carte','Platters','Bento') ORDER BY archived_at DESC");
             } elseif ($type === 'gallery') {
@@ -59,10 +70,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $infoStmt->execute([$id]);
             $info = $infoStmt->fetch(PDO::FETCH_ASSOC);
             $pdo->prepare("DELETE FROM content_items WHERE id=? AND is_archived=1")->execute([$id]);
-            logAdminActivity($pdo, 'content_deleted', "Permanently deleted '{$info['name']}' (ID:{$id})");
+            $label = $info['name'] ?? ('#' . $id);
+            logAdminActivity($pdo, 'content_deleted', "Permanently deleted '{$label}' (ID:{$id})");
             echo json_encode(['success' => true, 'message' => 'Item permanently deleted']);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // ── restore_user ───────────────────────────────────────────────────────────
+    if (($data['action'] ?? '') === 'restore_user') {
+        $id = (int)($data['id'] ?? 0);
+        try {
+            $infoStmt = $pdo->prepare("SELECT name, email FROM users WHERE id=? AND COALESCE(is_archived,0)=1 AND email != 'admin@gmail.com'");
+            $infoStmt->execute([$id]);
+            $info = $infoStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$info) {
+                echo json_encode(['success' => false, 'message' => 'Archived user not found.']);
+                exit;
+            }
+            $pdo->prepare("UPDATE users SET is_archived=0, archived_at=NULL WHERE id=?")->execute([$id]);
+            logAdminActivity($pdo, 'user_restored', 'Restored user: ' . ($info['name'] ?? '') . ' (' . ($info['email'] ?? '') . ") (ID:{$id})");
+            echo json_encode(['success' => true, 'message' => 'User restored successfully']);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // ── permanent_delete_user ──────────────────────────────────────────────────
+    if (($data['action'] ?? '') === 'permanent_delete_user') {
+        $id = (int)($data['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid user.']);
+            exit;
+        }
+        try {
+            $chk = $pdo->prepare("SELECT email FROM users WHERE id=? AND COALESCE(is_archived,0)=1");
+            $chk->execute([$id]);
+            $row = $chk->fetch(PDO::FETCH_ASSOC);
+            if (!$row || ($row['email'] ?? '') === 'admin@gmail.com') {
+                echo json_encode(['success' => false, 'message' => 'Archived user not found.']);
+                exit;
+            }
+            $ordStmt = $pdo->prepare('SELECT COUNT(*) FROM orders WHERE user_id = ?');
+            $ordStmt->execute([$id]);
+            if ((int) $ordStmt->fetchColumn() > 0) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'This account has orders on file. For data integrity it cannot be erased permanently; keep it archived or contact support.',
+                ]);
+                exit;
+            }
+            $pdo->prepare("DELETE FROM users WHERE id=? AND COALESCE(is_archived,0)=1 AND email != 'admin@gmail.com'")->execute([$id]);
+            logAdminActivity($pdo, 'user_deleted_permanent', "Permanently deleted user ID {$id} ({$row['email']})");
+            echo json_encode(['success' => true, 'message' => 'User permanently removed']);
+        } catch (PDOException $e) {
+            $msg = $e->getMessage();
+            if (stripos($msg, '1451') !== false || stripos($msg, 'foreign key') !== false) {
+                $msg = 'This account is still referenced by other records (orders, ratings, etc.) and cannot be removed permanently.';
+            }
+            echo json_encode(['success' => false, 'message' => $msg]);
         }
         exit;
     }
@@ -75,10 +144,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $archivedTotal   = 0;
 $archivedMenu    = 0;
 $archivedGallery = 0;
+$archivedUsers   = 0;
 try {
     $archivedTotal   = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE is_archived=1")->fetchColumn();
     $archivedMenu    = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE is_archived=1 AND category IN ('Salad','Fusion','A La Carte','Platters','Bento')")->fetchColumn();
     $archivedGallery = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE is_archived=1 AND category='gallery'")->fetchColumn();
+} catch (Throwable $_) {}
+try {
+    $archivedUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE COALESCE(is_archived,0)=1 AND email != 'admin@gmail.com'")->fetchColumn();
 } catch (Throwable $_) {}
 ?><!DOCTYPE html>
 <html lang="en">
@@ -266,7 +339,7 @@ require __DIR__ . '/adminSide/admin-sidebar-nav.php';
       <div class="page-header flex-between">
         <div>
           <h1>Archive</h1>
-          <p>View, restore, or permanently remove archived content.</p>
+          <p>View, restore, or permanently remove archived content and user accounts.</p>
         </div>
         <a href="admin-content.php" class="btn btn-outline">
           <i class="fa-solid fa-arrow-left"></i> Back to Content
@@ -274,12 +347,12 @@ require __DIR__ . '/adminSide/admin-sidebar-nav.php';
       </div>
 
       <!-- ── Stats ────────────────────────────────────────────── -->
-      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:28px;">
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:28px;">
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-box-archive"></i></div>
           <div class="stat-card-value"><?= $archivedTotal ?></div>
-          <div class="stat-card-label">Total Archived</div>
-          <div class="stat-card-change"><i class="fa-solid fa-layer-group"></i> All types</div>
+          <div class="stat-card-label">Archived content</div>
+          <div class="stat-card-change"><i class="fa-solid fa-layer-group"></i> Menu & gallery</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-icon"><i class="fa-solid fa-utensils"></i></div>
@@ -292,6 +365,12 @@ require __DIR__ . '/adminSide/admin-sidebar-nav.php';
           <div class="stat-card-value"><?= $archivedGallery ?></div>
           <div class="stat-card-label">Gallery Photos</div>
           <div class="stat-card-change"><i class="fa-solid fa-camera"></i> Photo items</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon"><i class="fa-solid fa-users"></i></div>
+          <div class="stat-card-value"><?= $archivedUsers ?></div>
+          <div class="stat-card-label">Archived users</div>
+          <div class="stat-card-change"><i class="fa-solid fa-user-slash"></i> User Management</div>
         </div>
       </div>
 
@@ -327,12 +406,9 @@ require __DIR__ . '/adminSide/admin-sidebar-nav.php';
             </div>
           </div>
 
-          <!-- Users (placeholder) -->
           <div id="archViewUsers" style="display:none;">
-            <div class="arch-empty">
-              <i class="fa-solid fa-users"></i>
-              <strong>No archived users</strong>
-              <p>Users archived from User Management will appear here.</p>
+            <div id="archUsersBody">
+              <div class="arch-empty"><i class="fa-solid fa-spinner fa-spin"></i><strong>Loading…</strong></div>
             </div>
           </div>
 
@@ -346,8 +422,8 @@ require __DIR__ . '/adminSide/admin-sidebar-nav.php';
 <div class="del-modal-overlay" id="deleteModal">
   <div class="del-modal">
     <i class="fa-solid fa-triangle-exclamation"></i>
-    <h3>Permanently Delete?</h3>
-    <p>This action <strong>cannot be undone</strong>. The item will be removed from the database forever.</p>
+    <h3 id="deleteModalTitle">Permanently Delete?</h3>
+    <p id="deleteModalText">This action <strong>cannot be undone</strong>. The item will be removed from the database forever.</p>
     <div class="del-modal-actions">
       <button class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
       <button class="btn btn-danger"  id="confirmDeleteBtn" onclick="confirmDelete()"><i class="fa-solid fa-trash"></i> Delete Forever</button>
@@ -404,6 +480,7 @@ function archSwitchTab(tab) {
   document.getElementById('archTabUsers').classList.toggle('active',   tab === 'users');
   document.getElementById('archViewContent').style.display = tab === 'content' ? '' : 'none';
   document.getElementById('archViewUsers').style.display   = tab === 'users'   ? '' : 'none';
+  if (tab === 'users') archLoadUsers();
 }
 
 function archSwitchSub(sub) {
@@ -476,7 +553,7 @@ function archLoad(type) {
                   <button class="btn btn-outline btn-sm" onclick="restoreItem(${item.id})">
                     <i class="fa-solid fa-rotate-left"></i> Restore
                   </button>
-                  <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${item.id})">
+                  <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${item.id}, 'content')">
                     <i class="fa-solid fa-trash"></i> Delete
                   </button>
                 </div>
@@ -489,6 +566,96 @@ function archLoad(type) {
   })
   .catch(() => {
     body.innerHTML = '<div class="arch-empty"><i class="fa-solid fa-wifi"></i><strong>Network error</strong><p>Please try refreshing the page.</p></div>';
+  });
+}
+
+function archLoadUsers() {
+  const body = document.getElementById('archUsersBody');
+  if (!body) return;
+  body.innerHTML = '<div class="arch-empty"><i class="fa-solid fa-spinner fa-spin"></i><strong>Loading…</strong></div>';
+
+  fetch('admin-archive.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_archived', type: 'users' })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (!d.success) {
+      body.innerHTML = '<div class="arch-empty"><i class="fa-solid fa-circle-exclamation"></i><strong>Error loading users</strong></div>';
+      return;
+    }
+    const items = d.items || [];
+    if (!items.length) {
+      body.innerHTML = `<div class="arch-empty">
+        <i class="fa-solid fa-users"></i>
+        <strong>No archived users</strong>
+        <p>Users archived from User Management will appear here.</p>
+      </div>`;
+      return;
+    }
+
+    body.innerHTML = `<div style="overflow-x:auto;">
+      <table class="arch-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Provider</th>
+            <th>Archived on</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(u => {
+            const dateStr = u.archived_at
+              ? new Date(u.archived_at).toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' })
+              : '—';
+            return `<tr>
+              <td style="font-weight:600;color:#fff;">${escHtml(u.name)}</td>
+              <td style="color:rgba(255,255,255,0.75);">${escHtml(u.email)}</td>
+              <td><span class="arch-badge">${escHtml(u.role || 'customer')}</span></td>
+              <td style="color:rgba(255,255,255,0.55);font-size:0.82rem;">${escHtml(u.status || 'active')}</td>
+              <td style="color:rgba(255,255,255,0.45);font-size:0.82rem;">${escHtml(u.provider || '—')}</td>
+              <td style="color:rgba(255,255,255,0.45);font-size:0.82rem;">${dateStr}</td>
+              <td>
+                <div class="arch-actions">
+                  <button class="btn btn-outline btn-sm" onclick="restoreUser(${u.id})">
+                    <i class="fa-solid fa-rotate-left"></i> Restore
+                  </button>
+                  <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${u.id}, 'user')">
+                    <i class="fa-solid fa-trash"></i> Delete
+                  </button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  })
+  .catch(() => {
+    body.innerHTML = '<div class="arch-empty"><i class="fa-solid fa-wifi"></i><strong>Network error</strong><p>Please try refreshing the page.</p></div>';
+  });
+}
+
+function restoreUser(id) {
+  if (!confirm('Restore this user? They can sign in again and will appear in User Management.')) return;
+  fetch('admin-archive.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'restore_user', id })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      showToast('User restored.', 'success');
+      archLoadUsers();
+    } else {
+      showToast(d.message || 'Failed to restore', 'error');
+    }
   });
 }
 
@@ -513,13 +680,29 @@ function restoreItem(id) {
 
 // ─── Permanent delete ─────────────────────────────────────────────
 let pendingDeleteId = null;
+let pendingDeleteKind = 'content';
 
-function openDeleteModal(id) {
+function openDeleteModal(id, kind = 'content') {
   pendingDeleteId = id;
+  pendingDeleteKind = kind;
+  const titleEl = document.getElementById('deleteModalTitle');
+  const textEl = document.getElementById('deleteModalText');
+  if (kind === 'user') {
+    if (titleEl) titleEl.textContent = 'Permanently delete user?';
+    if (textEl) textEl.innerHTML = 'This removes the account from the database <strong>forever</strong>. Accounts with orders cannot be erased; you will see an error instead.';
+  } else {
+    if (titleEl) titleEl.textContent = 'Permanently Delete?';
+    if (textEl) textEl.innerHTML = 'This action <strong>cannot be undone</strong>. The item will be removed from the database forever.';
+  }
   document.getElementById('deleteModal').classList.add('open');
 }
 function closeDeleteModal() {
   pendingDeleteId = null;
+  pendingDeleteKind = 'content';
+  const titleEl = document.getElementById('deleteModalTitle');
+  const textEl = document.getElementById('deleteModalText');
+  if (titleEl) titleEl.textContent = 'Permanently Delete?';
+  if (textEl) textEl.innerHTML = 'This action <strong>cannot be undone</strong>. The item will be removed from the database forever.';
   document.getElementById('deleteModal').classList.remove('open');
 }
 function confirmDelete() {
@@ -528,22 +711,33 @@ function confirmDelete() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting…';
 
+  const payload = pendingDeleteKind === 'user'
+    ? { action: 'permanent_delete_user', id: pendingDeleteId }
+    : { action: 'permanent_delete', id: pendingDeleteId };
+
   fetch('admin-archive.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'permanent_delete', id: pendingDeleteId })
+    body: JSON.stringify(payload)
   })
   .then(r => r.json())
   .then(d => {
+    const wasUser = pendingDeleteKind === 'user';
     closeDeleteModal();
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Forever';
     if (d.success) {
-      showToast('Item permanently deleted.', 'success');
-      archLoad(currentSub);
+      showToast(wasUser ? 'User permanently removed.' : 'Item permanently deleted.', 'success');
+      if (wasUser) archLoadUsers();
+      else archLoad(currentSub);
     } else {
       showToast(d.message || 'Failed to delete', 'error');
     }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Forever';
+    showToast('Network error. Please try again.', 'error');
   });
 }
 
