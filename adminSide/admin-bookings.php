@@ -1,6 +1,7 @@
 <?php
 require_once 'admin-config.php';
 require_once '../activity-logger.php';
+require_once __DIR__ . '/../BookingNotifications.php';
 $data = null;
 
 /** Whether the live `bookings` table has a given column (cached per request). */
@@ -413,9 +414,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
 
-        $stmt = $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?");
+        $setSql = "UPDATE bookings SET status = ?";
+        if (admin_bookings_has_column($pdo, 'updated_at')) {
+            $setSql .= ", updated_at = NOW()";
+        }
+        $setSql .= " WHERE id = ?";
+        $stmt = $pdo->prepare($setSql);
         try {
             $stmt->execute([$status, $bookingId]);
+            booking_notifications_after_status_change($pdo, (int)$bookingId, $status);
             echo json_encode(['success' => true, 'message' => "Booking updated to $status"]);
             exit;
         } catch (PDOException $e) {

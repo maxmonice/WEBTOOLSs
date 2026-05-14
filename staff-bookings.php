@@ -1,6 +1,7 @@
 <?php
 require_once 'staff-config.php';
 require_once 'Notifications.php';
+require_once 'BookingNotifications.php';
 requireStaff();
 
 $successMsg = '';
@@ -14,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($bid > 0 && in_array($action, ['confirm_booking', 'cancel_booking'], true)) {
         $newStatus = $action === 'confirm_booking' ? 'confirmed' : 'cancelled';
         try {
-            $pdo->prepare('UPDATE bookings SET status = ? WHERE id = ?')
-                ->execute([$newStatus, $bid]);
+            $pdo->prepare('UPDATE bookings SET status = ? WHERE id = ?')->execute([$newStatus, $bid]);
+            booking_notifications_after_status_change($pdo, $bid, $newStatus);
             $successMsg = 'Booking <strong>#BK-' . str_pad($bid, 3, '0', STR_PAD_LEFT) . '</strong> marked as ' . ucfirst($newStatus) . '.';
             
             // Audit log

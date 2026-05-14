@@ -41,6 +41,15 @@ function firstUserIdByRole(PDO $pdo, string $role): ?int {
     return $id ? (int)$id : null;
 }
 
+function directChatRoomId(string $senderType, ?int $senderId, string $receiverType, ?int $receiverId): ?string {
+    if (!$senderId || !$receiverId) {
+        return null;
+    }
+    $pair = [$senderType . '_' . $senderId, $receiverType . '_' . $receiverId];
+    sort($pair, SORT_STRING);
+    return 'direct_' . implode('_', $pair);
+}
+
 ensureChatTable($pdo);
 
 // Determine requester identity
@@ -123,6 +132,9 @@ switch ($action) {
                 $threadType = 'support';
                 $customerId = $receiverId;
                 $roomId = 'support_' . $receiverId;
+            } elseif (in_array($senderType, ['admin', 'staff'], true) && in_array($receiverType, ['admin', 'staff'], true)) {
+                $threadType = 'direct';
+                $roomId = directChatRoomId($senderType, (int)$senderId, $receiverType, (int)$receiverId);
             }
 
             $socketData = [

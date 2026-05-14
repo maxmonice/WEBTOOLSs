@@ -228,10 +228,16 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
             document.getElementById('activeType').textContent = type;
             if (type === 'customer' && socket && socket.connected) {
                 socket.emit('join-chat', `support_${id}`);
+            } else if (['admin', 'staff'].includes(type) && socket && socket.connected) {
+                socket.emit('join-chat', directRoomId(CURRENT_CHAT_TYPE, CURRENT_CHAT_ID, type, id));
             }
             
             loadThreads(); // Refresh active state
             loadMessages();
+        }
+
+        function directRoomId(myType, myId, peerType, peerId) {
+            return ['' + myType + '_' + myId, '' + peerType + '_' + peerId].sort().join('_').replace(/^/, 'direct_');
         }
 
         async function loadMessages() {
@@ -285,12 +291,16 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
         socket.on('connect', () => {
             if (currentPeer && currentPeer.type === 'customer') {
                 socket.emit('join-chat', `support_${currentPeer.id}`);
+            } else if (currentPeer && ['admin', 'staff'].includes(currentPeer.type)) {
+                socket.emit('join-chat', directRoomId(CURRENT_CHAT_TYPE, CURRENT_CHAT_ID, currentPeer.type, currentPeer.id));
             }
         });
         socket.on('new-message', (data) => {
             const isActiveSupportThread = currentPeer && currentPeer.type === 'customer' &&
                 data.threadType === 'support' && data.customerId == currentPeer.id;
-            if (isActiveSupportThread || (currentPeer && data.senderId == currentPeer.id && data.sender == currentPeer.type)) {
+            const isActiveDirectThread = currentPeer && ['admin', 'staff'].includes(currentPeer.type) &&
+                data.threadType === 'direct' && data.roomId === directRoomId(CURRENT_CHAT_TYPE, CURRENT_CHAT_ID, currentPeer.type, currentPeer.id);
+            if (isActiveSupportThread || isActiveDirectThread || (currentPeer && data.senderId == currentPeer.id && data.sender == currentPeer.type)) {
                 loadMessages();
             } else {
                 loadThreads();

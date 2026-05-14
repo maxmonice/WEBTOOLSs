@@ -21,6 +21,16 @@ $action = $input['action'] ?? '';
 
 $notifications = new Notifications($pdo);
 $userId = $_SESSION['user_id'] ?? null;
+$role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'customer';
+
+if (!$userId || $role !== 'customer' || !empty($_SESSION['is_admin']) || !empty($_SESSION['is_staff'])) {
+    echo json_encode([
+        'success' => true,
+        'notifications' => [],
+        'unread_count' => 0
+    ]);
+    exit;
+}
 
 switch ($action) {
     case 'get_notifications':
@@ -34,7 +44,7 @@ switch ($action) {
     case 'mark_read':
         $notificationId = (int)($input['notification_id'] ?? 0);
         if ($notificationId > 0) {
-            $success = $notifications->markAsRead($notificationId, $userId);
+            $success = $notifications->markAsRead($notificationId, $userId, 'customer');
             echo json_encode(['success' => $success]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid notification ID']);

@@ -28,16 +28,34 @@ class Notifications {
     // Get notifications for current user based on role
     public function getForUser(string $userRole, ?int $userId = null, int $limit = 10): array {
         try {
+            $limit = max(1, min(100, (int)$limit));
+            if ($userRole === 'customer') {
+                if (!$userId) {
+                    return [];
+                }
+                $sql = "
+                    SELECT id, title, message, type, is_read, created_at
+                    FROM notifications
+                    WHERE target_role = 'customer'
+                      AND target_user_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT $limit
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$userId]);
+                return $stmt->fetchAll();
+            }
+
             if ($userId) {
                 $sql = "
                     SELECT id, title, message, type, is_read, created_at 
                     FROM notifications 
-                    WHERE (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                    WHERE (target_role = 'all' OR target_role = ? OR (target_role = ? AND target_user_id = ?))
                     ORDER BY created_at DESC 
                     LIMIT $limit
                 ";
                 $stmt = $this->pdo->prepare($sql);
-                $stmt->execute([$userRole, $userId]);
+                $stmt->execute([$userRole, $userRole, $userId]);
             } else {
                 $sql = "
                     SELECT id, title, message, type, is_read, created_at 
@@ -57,11 +75,22 @@ class Notifications {
     }
     
     // Mark notification as read
-    public function markAsRead(int $notificationId, ?int $userId = null): bool {
+    public function markAsRead(int $notificationId, ?int $userId = null, ?string $userRole = null): bool {
         try {
             $sql = "UPDATE notifications SET is_read = TRUE WHERE id = ?";
-            if ($userId) {
-                $sql .= " AND (target_user_id = ? OR target_user_id IS NULL)";
+            if ($userRole === 'customer') {
+                if (!$userId) {
+                    return false;
+                }
+                $sql .= " AND target_role = 'customer' AND target_user_id = ?";
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute([$notificationId, $userId]);
+            } elseif ($userId && $userRole) {
+                $sql .= " AND (target_role = 'all' OR target_role = ? OR (target_role = ? AND target_user_id = ?))";
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute([$notificationId, $userRole, $userRole, $userId]);
+            } elseif ($userId) {
+                $sql .= " AND target_user_id = ?";
                 $stmt = $this->pdo->prepare($sql);
                 return $stmt->execute([$notificationId, $userId]);
             } else {
@@ -77,15 +106,31 @@ class Notifications {
     // Get unread count for user
     public function getUnreadCount(string $userRole, ?int $userId = null): int {
         try {
+            if ($userRole === 'customer') {
+                if (!$userId) {
+                    return 0;
+                }
+                $sql = "
+                    SELECT COUNT(*) as count
+                    FROM notifications
+                    WHERE is_read = FALSE
+                      AND target_role = 'customer'
+                      AND target_user_id = ?
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$userId]);
+                return (int) $stmt->fetchColumn();
+            }
+
             if ($userId) {
                 $sql = "
                     SELECT COUNT(*) as count 
                     FROM notifications 
                     WHERE is_read = FALSE 
-                    AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                    AND (target_role = 'all' OR target_role = ? OR (target_role = ? AND target_user_id = ?))
                 ";
                 $stmt = $this->pdo->prepare($sql);
-                $stmt->execute([$userRole, $userId]);
+                $stmt->execute([$userRole, $userRole, $userId]);
             } else {
                 $sql = "
                     SELECT COUNT(*) as count 
@@ -106,15 +151,30 @@ class Notifications {
     // Mark all notifications as read for user
     public function markAllAsRead(string $userRole, ?int $userId = null): bool {
         try {
+            if ($userRole === 'customer') {
+                if (!$userId) {
+                    return false;
+                }
+                $sql = "
+                    UPDATE notifications
+                    SET is_read = TRUE
+                    WHERE is_read = FALSE
+                      AND target_role = 'customer'
+                      AND target_user_id = ?
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute([$userId]);
+            }
+
             if ($userId) {
                 $sql = "
                     UPDATE notifications 
                     SET is_read = TRUE 
                     WHERE is_read = FALSE 
-                    AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                    AND (target_role = 'all' OR target_role = ? OR (target_role = ? AND target_user_id = ?))
                 ";
                 $stmt = $this->pdo->prepare($sql);
-                return $stmt->execute([$userRole, $userId]);
+                return $stmt->execute([$userRole, $userRole, $userId]);
             } else {
                 $sql = "
                     UPDATE notifications 

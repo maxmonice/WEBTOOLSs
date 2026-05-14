@@ -30,7 +30,7 @@ switch ($action) {
     case 'mark_read':
         $notificationId = (int)($input['notification_id'] ?? 0);
         if ($notificationId > 0) {
-            $success = $notifications->markAsRead($notificationId, $userId);
+            $success = $notifications->markAsRead($notificationId, $userId, $notifRole);
             echo json_encode(['success' => $success]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid notification ID']);

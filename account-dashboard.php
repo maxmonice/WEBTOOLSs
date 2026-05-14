@@ -41,8 +41,13 @@ if ($isAdminPanelSession) {
 }
 
 $notifications = new Notifications($pdo);
-$userNotifications = $notifications->getForUser('customer', $_SESSION['user_id'], 10);
-$unreadCount = $notifications->getUnreadCount('customer', $_SESSION['user_id']);
+if ($isAdminPanelSession || $isStaffPanelSession) {
+    $userNotifications = [];
+    $unreadCount = 0;
+} else {
+    $userNotifications = $notifications->getForUser('customer', $_SESSION['user_id'], 10);
+    $unreadCount = $notifications->getUnreadCount('customer', $_SESSION['user_id']);
+}
 
 // Helper function for PHP-side time formatting
 function timeAgoPhp(string $datetime): string {

@@ -1,6 +1,39 @@
 <?php
 require_once 'staff-config.php';
+require_once __DIR__ . '/../BookingNotifications.php';
 requireStaff();
+
+function staff_bookings_has_column(PDO $pdo, string $column): bool
+{
+    static $cache = [];
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'bookings'
+               AND COLUMN_NAME = ?"
+        );
+        $stmt->execute([$column]);
+        $cache[$column] = (int)$stmt->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        $cache[$column] = false;
+    }
+    return $cache[$column];
+}
+
+function staff_update_booking_status(PDO $pdo, int $bookingId, string $status): void
+{
+    $sql = 'UPDATE bookings SET status = ?';
+    if (staff_bookings_has_column($pdo, 'updated_at')) {
+        $sql .= ', updated_at = NOW()';
+    }
+    $sql .= ' WHERE id = ?';
+    $pdo->prepare($sql)->execute([$status, $bookingId]);
+    booking_notifications_after_status_change($pdo, $bookingId, $status);
+}
 
 $successMsg = '';
 $errorMsg   = '';
@@ -25,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($jsonPayload !== null || stripos($
             exit;
         }
         try {
-            $pdo->prepare('UPDATE bookings SET status = ? WHERE id = ?')->execute([$status, $bookingId]);
+            staff_update_booking_status($pdo, $bookingId, $status);
             echo json_encode(['success' => true, 'message' => 'Booking updated to ' . $status . '.']);
         } catch (\Throwable $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -80,8 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($bid > 0 && in_array($action, ['confirm_booking', 'cancel_booking'], true)) {
         $newStatus = $action === 'confirm_booking' ? 'confirmed' : 'cancelled';
         try {
-            $pdo->prepare('UPDATE bookings SET status = ? WHERE id = ?')
-                ->execute([$newStatus, $bid]);
+            staff_update_booking_status($pdo, $bid, $newStatus);
             $successMsg = 'Booking <strong>#BK-' . str_pad($bid, 3, '0', STR_PAD_LEFT) . '</strong> marked as ' . ucfirst($newStatus) . '.';
         } catch (\Throwable $e) {
             $errorMsg = 'Error: ' . $e->getMessage();
@@ -125,6 +157,9 @@ try {
 
 $stats    = getStaffStats($pdo);
 $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
+$notifications = new Notifications($pdo);
+$userNotifications = $notifications->getForUser('staff', $_SESSION['user_id'], 8);
+$unreadCount = $notifications->getUnreadCount('staff', $_SESSION['user_id']);
 
 $viewMode = $_GET['view'] ?? 'calendar';
 if (!in_array($viewMode, ['calendar', 'table'], true)) $viewMode = 'calendar';
@@ -195,8 +230,40 @@ $calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsBy
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-badge"><i class="fa-regular fa-bell"></i>
-          <?php if ($stats['pending_bookings'] > 0): ?><span class="badge-dot"></span><?php endif; ?>
+        <div class="live-notif-wrap">
+          <div class="topbar-badge live-notif-trigger" onclick="toggleLiveNotifications(event)">
+            <i class="fa-regular fa-bell"></i>
+            <?php if ($unreadCount > 0): ?>
+            <span class="badge-dot live-notif-dot"></span>
+            <span class="live-notif-count"><?= (int)$unreadCount ?></span>
+            <?php endif; ?>
+          </div>
+          <div class="live-notif-menu" id="liveNotifMenu" role="menu">
+            <div class="live-notif-header">
+              <h4>Notifications</h4>
+              <button type="button" class="live-notif-mark-all" onclick="markAllLiveNotificationsRead()">Mark all read</button>
+            </div>
+            <div class="live-notif-list" id="liveNotifList">
+              <?php if (empty($userNotifications)): ?>
+                <div class="live-notif-empty">No booking notifications yet.</div>
+              <?php else: ?>
+                <?php foreach ($userNotifications as $notif): ?>
+                <div class="live-notif-item<?= !$notif['is_read'] ? ' unread' : '' ?>" data-id="<?= (int)$notif['id'] ?>" onclick="markLiveNotificationRead(<?= (int)$notif['id'] ?>, this)">
+                  <div class="live-notif-row">
+                    <div class="live-notif-icon" style="background: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>20; color: <?= htmlspecialchars(getNotificationColor($notif['type'])) ?>;">
+                      <i class="fa-solid <?= htmlspecialchars(getNotificationIcon($notif['type'])) ?>"></i>
+                    </div>
+                    <div class="live-notif-body">
+                      <div class="live-notif-title"><?= htmlspecialchars($notif['title']) ?></div>
+                      <div class="live-notif-msg"><?= htmlspecialchars($notif['message']) ?></div>
+                      <div class="live-notif-time"><?= htmlspecialchars(timeAgo($notif['created_at'])) ?></div>
+                    </div>
+                  </div>
+                </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </div>
+          </div>
         </div>
         <div class="admin-avatar" style="background:linear-gradient(135deg,#f39c12,#e67e22);">
           <?= strtoupper(substr($_SESSION['user_name'] ?? 'S', 0, 1)) ?>

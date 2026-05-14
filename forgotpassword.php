@@ -46,10 +46,59 @@ function loadForgotPasswordEnv(string $envPath): void {
 }
 loadForgotPasswordEnv(__DIR__ . '/.env');
 
+function forgotPasswordBaseUrl(): string {
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+        (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $scheme = $https ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/forgotpassword.php')), '/');
+    return $scheme . '://' . $host . ($scriptDir === '' ? '' : $scriptDir);
+}
+
+function forgotPasswordIsLocalRequest(): bool {
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    return str_starts_with($host, 'localhost') || str_starts_with($host, '127.0.0.1') || str_starts_with($host, '[::1]');
+}
+
+function ensurePasswordResetColumns(PDO $conn): void {
+    $columns = [
+        'reset_token' => "ALTER TABLE users ADD COLUMN reset_token VARCHAR(64) DEFAULT NULL",
+        'token_expiry' => "ALTER TABLE users ADD COLUMN token_expiry DATETIME DEFAULT NULL",
+    ];
+
+    foreach ($columns as $column => $alterSql) {
+        $stmt = $conn->prepare(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'users'
+               AND COLUMN_NAME = ?"
+        );
+        $stmt->execute([$column]);
+        if ((int)$stmt->fetchColumn() === 0) {
+            $conn->exec($alterSql);
+        }
+    }
+
+    try {
+        $stmt = $conn->prepare(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'users'
+               AND INDEX_NAME = 'idx_reset_token'"
+        );
+        $stmt->execute();
+        if ((int)$stmt->fetchColumn() === 0) {
+            $conn->exec("CREATE INDEX idx_reset_token ON users (reset_token)");
+        }
+    } catch (Throwable $e) {
+        error_log('Password reset index check failed: ' . $e->getMessage());
+    }
+}
+
 // Function to send password reset email (same as OTP email system)
 function sendPasswordResetEmail($recipient_email, $recipient_name, $reset_token) {
     $firstName = explode(' ', trim($recipient_name))[0];
-    $reset_url = 'http://' . $_SERVER['HTTP_HOST'] . '/FINAL/WEBTOOLSs/forgotpassword.php?token=' . $reset_token;
+    $reset_url = forgotPasswordBaseUrl() . '/forgotpassword.php?token=' . urlencode($reset_token);
     $subject = "Reset Your Password - Luke's Seafood Trading";
 
     $html = "
@@ -122,47 +171,54 @@ function sendPasswordResetEmail($recipient_email, $recipient_name, $reset_token)
     error_log('SMTP Port: ' . $smtpPort);
     error_log('Has credentials: ' . (!empty($smtpUser) ? 'Yes' : 'No'));
     
-    if (!class_exists('\PHPMailer\PHPMailer\PHPMailer')) {
-        error_log('ERROR: PHPMailer not available');
-        return false;
+    if (class_exists('\PHPMailer\PHPMailer\PHPMailer')) {
+        try {
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = $smtpHost;
+            $mail->Port = $smtpPort;
+            $mail->SMTPAuth = $smtpUser !== '' || $smtpPass !== '';
+
+            if ($mail->SMTPAuth) {
+                $mail->Username = $smtpUser;
+                $mail->Password = $smtpPass;
+            }
+
+            if ($smtpSecure === 'tls') {
+                $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            } elseif ($smtpSecure === 'ssl') {
+                $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+            }
+
+            $mail->CharSet = 'UTF-8';
+            $mail->setFrom($fromEmail, $fromName);
+            $mail->addAddress($recipient_email, $recipient_name);
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $html;
+            $mail->AltBody = "Reset your password here: {$reset_url}";
+
+            $result = $mail->send();
+            error_log('Send result: ' . ($result ? 'SUCCESS' : 'FAILED - ' . $mail->ErrorInfo));
+            error_log('=== END ===');
+            return ['sent' => (bool)$result, 'reset_url' => $reset_url];
+        } catch (\Throwable $e) {
+            error_log('Exception: ' . $e->getMessage());
+        }
+    } else {
+        error_log('PHPMailer not available; trying PHP mail() fallback');
     }
 
-    try {
-        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host = $smtpHost;
-        $mail->Port = $smtpPort;
-        $mail->SMTPAuth = $smtpUser !== '' || $smtpPass !== '';
-        
-        if ($mail->SMTPAuth) {
-            $mail->Username = $smtpUser;
-            $mail->Password = $smtpPass;
-        }
-        
-        if ($smtpSecure === 'tls') {
-            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        } elseif ($smtpSecure === 'ssl') {
-            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
-        }
-
-        $mail->CharSet = 'UTF-8';
-        $mail->setFrom($fromEmail, $fromName);
-        $mail->addAddress($recipient_email, $recipient_name);
-        $mail->isHTML(true);
-        $mail->Subject = $subject;
-        $mail->Body = $html;
-        $mail->AltBody = "Reset your password here: {$reset_url}";
-
-        $result = $mail->send();
-        error_log('Send result: ' . ($result ? 'SUCCESS' : 'FAILED - ' . $mail->ErrorInfo));
-        error_log('=== END ===');
-        
-        return (bool)$result;
-    } catch (\Throwable $e) {
-        error_log('Exception: ' . $e->getMessage());
-        error_log('=== END ===');
-        return false;
-    }
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-type: text/html; charset=UTF-8',
+        'From: ' . $fromName . ' <' . $fromEmail . '>',
+        'Reply-To: ' . $fromEmail,
+    ];
+    $nativeSent = @mail($recipient_email, $subject, $html, implode("\r\n", $headers));
+    error_log('Native mail fallback result: ' . ($nativeSent ? 'SUCCESS' : 'FAILED'));
+    error_log('=== END ===');
+    return ['sent' => (bool)$nativeSent, 'reset_url' => $reset_url];
 }
 
 $message = '';
@@ -180,6 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Check if email exists in database
         try {
             $conn = getDB();
+            ensurePasswordResetColumns($conn);
             
             $stmt = $conn->prepare("SELECT id, name FROM users WHERE email = ?");
             $stmt->execute([$email]);
@@ -191,23 +248,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $reset_token = bin2hex(random_bytes(32));
                 $token_expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
                 
-                // Try to store reset token in database (won't fail if columns don't exist)
-                try {
-                    $update_stmt = $conn->prepare("UPDATE users SET reset_token = ?, token_expiry = ? WHERE email = ?");
-                    $update_stmt->execute([$reset_token, $token_expiry, $email]);
-                } catch (Exception $e) {
-                    // Column doesn't exist yet - just log it
-                    error_log('Warning: reset_token column not found. Please run the migration SQL.');
-                }
+                $update_stmt = $conn->prepare("UPDATE users SET reset_token = ?, token_expiry = ? WHERE email = ?");
+                $update_stmt->execute([$reset_token, $token_expiry, $email]);
                 
                 // Send password reset email (using same SMTP as OTP)
-                $email_sent = sendPasswordResetEmail($email, $user['name'], $reset_token);
+                $emailResult = sendPasswordResetEmail($email, $user['name'], $reset_token);
+                $email_sent = is_array($emailResult) && !empty($emailResult['sent']);
                 
                 $success = true;
                 if ($email_sent) {
                     $message = 'Password reset link has been sent to your email. Please check your inbox and spam folder.';
+                } elseif (is_array($emailResult) && forgotPasswordIsLocalRequest()) {
+                    $safeUrl = htmlspecialchars($emailResult['reset_url'], ENT_QUOTES, 'UTF-8');
+                    $message = 'Email service is not available on this local setup, but your reset request was created. For today\'s local presentation, use this reset link: <a href="' . $safeUrl . '" style="color:#fff;text-decoration:underline;">Reset Password</a>';
                 } else {
-                    $message = 'We\'ve processed your request but email sending failed. Please try again or contact support.';
+                    $success = false;
+                    $error = 'Email sending is not configured. Please contact support or check SMTP settings.';
                 }
             } else {
                 // For security, don't reveal if email exists or not
