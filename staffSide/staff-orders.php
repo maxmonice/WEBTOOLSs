@@ -146,7 +146,11 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
           <h1>Order Management</h1>
           <p>Prepare incoming orders and dispatch them to riders.</p>
         </div>
-        <span class="permission-note"><i class="fa-solid fa-lock"></i> No delete or refund access</span>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <a href="../report-download.php?type=orders" class="btn btn-outline"><i class="fa-solid fa-file-pdf"></i> Order Report</a>
+          <a href="../report-download.php?type=delivery" class="btn btn-outline"><i class="fa-solid fa-truck-fast"></i> Delivery Report</a>
+          <span class="permission-note"><i class="fa-solid fa-lock"></i> No delete or refund access</span>
+        </div>
       </div>
 
       <?php if ($errorMsg): ?>

@@ -5,10 +5,17 @@ requireStaff();
 $successMsg = '';
 $errorMsg   = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
+$rawInput = file_get_contents('php://input');
+$contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+$jsonPayload = null;
+if ($rawInput !== '') {
+    $jsonPayload = json_decode($rawInput, true);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($jsonPayload !== null || stripos($contentType, 'application/json') !== false)) {
     header('Content-Type: application/json');
-    $data = json_decode(file_get_contents('php://input'), true) ?: [];
-    $action = $data['action'] ?? '';
+    $data = is_array($jsonPayload) ? $jsonPayload : ($_POST ?: []);
+    $action = trim((string)($data['action'] ?? ''));
 
     if ($action === 'update_status') {
         $bookingId = (int)($data['booking_id'] ?? 0);
@@ -19,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && stripos($_SERVER['CONTENT_TYPE'] ??
         }
         try {
             $pdo->prepare('UPDATE bookings SET status = ? WHERE id = ?')->execute([$status, $bookingId]);
-            echo json_encode(['success' => true, 'message' => "Booking updated to {$status}."]);
+            echo json_encode(['success' => true, 'message' => 'Booking updated to ' . $status . '.']);
         } catch (\Throwable $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -28,15 +35,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && stripos($_SERVER['CONTENT_TYPE'] ??
 
     if ($action === 'get_booking') {
         $id = (int)($data['id'] ?? 0);
-        $stmt = $pdo->prepare('SELECT * FROM bookings WHERE id = ?');
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid booking ID.']);
+            exit;
+        }
+        $stmt = $pdo->prepare(
+            'SELECT b.*, COALESCE(NULLIF(b.full_name, ""), u.name, "Guest") AS full_name,
+                    COALESCE(NULLIF(b.email_address, ""), u.email, "N/A") AS email_address,
+                    u.name AS user_name, u.email AS user_email
+             FROM bookings b
+             LEFT JOIN users u ON u.id = b.user_id
+             WHERE b.id = ?'
+        );
         $stmt->execute([$id]);
         echo json_encode(['success' => true, 'booking' => $stmt->fetch()]);
         exit;
     }
 
     if ($action === 'get_day_bookings') {
-        $date = $data['date'] ?? '';
-        $stmt = $pdo->prepare('SELECT * FROM bookings WHERE event_date = ? ORDER BY event_time ASC, created_at ASC');
+        $date = trim((string)($data['date'] ?? ''));
+        $stmt = $pdo->prepare(
+            'SELECT b.*, COALESCE(NULLIF(b.full_name, ""), u.name, "Guest") AS full_name,
+                    COALESCE(NULLIF(b.email_address, ""), u.email, "N/A") AS email_address,
+                    u.name AS user_name, u.email AS user_email
+             FROM bookings b
+             LEFT JOIN users u ON u.id = b.user_id
+             WHERE b.event_date = ?
+             ORDER BY b.event_time ASC, created_at ASC'
+        );
         $stmt->execute([$date]);
         echo json_encode(['success' => true, 'bookings' => $stmt->fetchAll()]);
         exit;
@@ -184,7 +210,10 @@ $calendar = staffCalendarHtml($daysInMonth, $firstDayOfWeek, $today, $bookingsBy
           <h1>Booking Management</h1>
           <p>Confirm or cancel bookings. Contact an admin to delete or create bookings.</p>
         </div>
-        <span class="permission-note"><i class="fa-solid fa-lock"></i> View & update only — no delete</span>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <a href="../report-download.php?type=bookings" class="btn btn-outline"><i class="fa-solid fa-file-pdf"></i> Booking Report</a>
+          <span class="permission-note"><i class="fa-solid fa-lock"></i> View & update only — no delete</span>
+        </div>
       </div>
 
       <?php if ($successMsg): ?>

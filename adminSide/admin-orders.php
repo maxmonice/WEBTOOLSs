@@ -189,7 +189,12 @@ if ($revenueThisMonth >= 1000) {
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">All Orders</span>
-          <a href="admin-dashboard.php" class="btn btn-outline btn-sm">Back to Dashboard</a>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <a href="../report-download.php?type=orders" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-pdf"></i> Order Report</a>
+            <a href="../report-download.php?type=sales" class="btn btn-outline btn-sm"><i class="fa-solid fa-chart-line"></i> Sales Report</a>
+            <a href="../report-download.php?type=delivery" class="btn btn-outline btn-sm"><i class="fa-solid fa-truck-fast"></i> Delivery Report</a>
+            <a href="admin-dashboard.php" class="btn btn-outline btn-sm">Back to Dashboard</a>
+          </div>
         </div>
         <div style="overflow-x:auto;">
           <table class="data-table">

@@ -587,7 +587,10 @@ $calendar = generateCalendar($currentMonth, $currentYear, $daysInMonth, $firstDa
           <h1>Booking Management</h1>
           <p>Monitor bookings, assign staff & equipment, and prevent double-booking.</p>
         </div>
-        <button class="btn btn-primary" onclick="openModal('newBookingModal')"><i class="fa-solid fa-calendar-plus"></i> New Booking</button>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <a href="../report-download.php?type=bookings" class="btn btn-outline"><i class="fa-solid fa-file-pdf"></i> Booking Report</a>
+          <button class="btn btn-primary" onclick="openModal('newBookingModal')"><i class="fa-solid fa-calendar-plus"></i> New Booking</button>
+        </div>
       </div>
 
       <!-- STATS -->

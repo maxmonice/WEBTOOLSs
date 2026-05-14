@@ -192,9 +192,12 @@ try {
           <h1>User Management</h1>
           <p>View, manage and monitor all registered customers.</p>
         </div>
-        <button class="btn btn-primary" onclick="openModal('addUserModal')">
-          <i class="fa-solid fa-user-plus"></i> Add User
-        </button>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <a href="../report-download.php?type=customers" class="btn btn-outline"><i class="fa-solid fa-file-pdf"></i> Customer Report</a>
+          <button class="btn btn-primary" onclick="openModal('addUserModal')">
+            <i class="fa-solid fa-user-plus"></i> Add User
+          </button>
+        </div>
       </div>
 
       <!-- ALERTS -->

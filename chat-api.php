@@ -12,11 +12,11 @@ function ensureChatTable(PDO $pdo): void {
     if ((int)$stmt->fetchColumn() === 0) {
         $pdo->exec("CREATE TABLE chat_messages (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            order_id INT UNSIGNED DEFAULT NULL,
+            order_id INT DEFAULT NULL,
             sender_id INT DEFAULT NULL,
-            sender_type ENUM('customer','rider','admin','staff') NOT NULL,
+            sender_type ENUM('customer','rider','admin','staff','support') NOT NULL,
             receiver_id INT DEFAULT NULL,
-            receiver_type ENUM('customer','rider','admin','staff') NOT NULL,
+            receiver_type ENUM('customer','rider','admin','staff','support') NOT NULL,
             message TEXT NOT NULL,
             is_read TINYINT(1) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -27,8 +27,8 @@ function ensureChatTable(PDO $pdo): void {
             $stmt = $pdo->prepare("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages' AND COLUMN_NAME = ?");
             $stmt->execute([$column]);
             $columnType = $stmt->fetchColumn();
-            if ($columnType && strpos($columnType, "'staff'") === false) {
-                $pdo->exec("ALTER TABLE chat_messages MODIFY {$column} ENUM('customer','rider','admin','staff') NOT NULL");
+            if ($columnType && (strpos($columnType, "'staff'") === false || strpos($columnType, "'support'") === false)) {
+                $pdo->exec("ALTER TABLE chat_messages MODIFY {$column} ENUM('customer','rider','admin','staff','support') NOT NULL");
             }
         }
     }
@@ -52,12 +52,15 @@ $isStaff = !empty($_SESSION['is_staff']);
 $senderType = 'customer';
 $senderId = $userId;
 
-if ($isStaff) {
-    $senderType = 'staff';
-    $senderId = $userId;
-} elseif ($isAdmin) {
-    $senderType = 'admin';
-    $senderId = $userId;
+if ($userId) {
+    $roleStmt = $pdo->prepare("SELECT role FROM users WHERE id = ? LIMIT 1");
+    $roleStmt->execute([$userId]);
+    $actualRole = $roleStmt->fetchColumn() ?: 'customer';
+    $isAdmin = $actualRole === 'admin';
+    $isStaff = $actualRole === 'staff';
+    if (in_array($actualRole, ['admin', 'staff'], true)) {
+        $senderType = $actualRole;
+    }
 } elseif ($riderId) {
     $senderType = 'rider';
     $senderId = $riderId;
@@ -82,32 +85,52 @@ switch ($action) {
             exit;
         }
         if ($senderType === 'customer' && ($receiverType === 'admin' || $receiverType === 'support') && !$receiverId) {
-            $receiverType = 'admin';
-            $receiverId = firstUserIdByRole($pdo, 'admin') ?? firstUserIdByRole($pdo, 'staff');
-            if (!$receiverId) {
+            $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('admin','staff')");
+            if ((int)$stmt->fetchColumn() === 0) {
                 echo json_encode(['success' => false, 'message' => 'No support agents are available']);
                 exit;
             }
+            $receiverId = null;
+            $receiverType = 'support';
+        }
+        if ($receiverType === 'support' && $senderType !== 'customer') {
+            echo json_encode(['success' => false, 'message' => 'Choose a customer conversation before replying']);
+            exit;
         }
 
-        if (!$receiverId || !$receiverType) {
+        if ((!$receiverId && $receiverType !== 'support') || !$receiverType) {
             echo json_encode(['success' => false, 'message' => 'Receiver is required']);
             exit;
         }
 
         try {
-            $stmt = $pdo->prepare("
-                INSERT INTO chat_messages 
+            $stmt = $pdo->prepare("INSERT INTO chat_messages 
                 (order_id, sender_id, sender_type, receiver_id, receiver_type, message) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
+                VALUES (?, ?, ?, ?, ?, ?)");
+
             $stmt->execute([$orderId, $senderId, $senderType, $receiverId, $receiverType, $message]);
+            $msgId = $pdo->lastInsertId();
             
             // Trigger Socket.io if possible
-            $msgId = $pdo->lastInsertId();
+            $threadType = null;
+            $roomId = $orderId;
+            $customerId = null;
+            if ($receiverType === 'support' && $senderType === 'customer') {
+                $threadType = 'support';
+                $customerId = $senderId;
+                $roomId = 'support_' . $senderId;
+            } elseif (($senderType === 'admin' || $senderType === 'staff') && $receiverType === 'customer') {
+                $threadType = 'support';
+                $customerId = $receiverId;
+                $roomId = 'support_' . $receiverId;
+            }
+
             $socketData = [
                 'id' => $msgId,
                 'orderId' => $orderId,
+                'roomId' => $roomId,
+                'threadType' => $threadType,
+                'customerId' => $customerId,
                 'sender' => $senderType,
                 'senderId' => $senderId,
                 'message' => $message,
@@ -129,6 +152,7 @@ switch ($action) {
         $otherType = $_GET['other_type'] ?? '';
 
         try {
+            $isSharedSupportHistory = false;
             if ($orderId) {
                 // Fetch by order (Rider <-> Customer)
                 $stmt = $pdo->prepare("
@@ -137,18 +161,20 @@ switch ($action) {
                     ORDER BY created_at ASC
                 ");
                 $stmt->execute([$orderId]);
-            } elseif ($senderType === 'customer' && $otherType === 'admin') {
+            } elseif ($senderType === 'customer' && ($otherType === 'admin' || $otherType === 'support')) {
+                $isSharedSupportHistory = true;
                 $stmt = $pdo->prepare("
                     SELECT * FROM chat_messages
-                    WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff'))
+                    WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff','support'))
                        OR (receiver_id = ? AND receiver_type = 'customer' AND sender_type IN ('admin','staff')))
                     ORDER BY created_at ASC
                 ");
                 $stmt->execute([$senderId, $senderId]);
             } elseif (($senderType === 'admin' || $senderType === 'staff') && $otherType === 'customer') {
+                $isSharedSupportHistory = true;
                 $stmt = $pdo->prepare("
                     SELECT * FROM chat_messages
-                    WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff'))
+                    WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff','support'))
                        OR (receiver_id = ? AND receiver_type = 'customer' AND sender_type IN ('admin','staff')))
                     ORDER BY created_at ASC
                 ");
@@ -165,6 +191,16 @@ switch ($action) {
             }
             
             $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if ($isSharedSupportHistory) {
+                $seenMessages = [];
+                $messages = array_values(array_filter($messages, function ($m) use (&$seenMessages) {
+                    if ($m['sender_type'] !== 'customer') return true;
+                    $key = $m['sender_id'] . '|' . $m['message'] . '|' . $m['created_at'];
+                    if (isset($seenMessages[$key])) return false;
+                    $seenMessages[$key] = true;
+                    return true;
+                }));
+            }
             foreach ($messages as &$m) {
                 $m['timestamp'] = date('g:i A', strtotime($m['created_at']));
                 // Map sender type for frontend simplicity
@@ -191,7 +227,7 @@ switch ($action) {
                     CASE WHEN sender_type = 'customer' THEN sender_id ELSE receiver_id END AS peer_id,
                     'customer' AS peer_type
                 FROM chat_messages
-                WHERE (sender_type = 'customer' AND receiver_type IN ('admin','staff'))
+                WHERE (sender_type = 'customer' AND receiver_type IN ('admin','staff','support'))
                    OR (receiver_type = 'customer' AND sender_type IN ('admin','staff'))");
                 $threadRows = array_merge($threadRows, $supportStmt->fetchAll(PDO::FETCH_ASSOC));
 

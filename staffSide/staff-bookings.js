@@ -88,7 +88,7 @@
   };
 
   window.updateBookingStatus = function (bookingId, status) {
-    fetch('staff-bookings.php', {
+    fetch(window.location.pathname, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update_status', booking_id: bookingId, status: status })
@@ -108,7 +108,7 @@
   };
 
   window.showBookingDetails = function (bookingId) {
-    fetch('staff-bookings.php', {
+    fetch(window.location.pathname, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'get_booking', id: bookingId })
@@ -158,8 +158,10 @@
   };
 
   window.navigateMonth = function (direction) {
-    var month = Number(context.month || new Date().getMonth() + 1);
-    var year = Number(context.year || new Date().getFullYear());
+    var params = new URLSearchParams(window.location.search);
+    var month = Number(params.get('month') || context.month || new Date().getMonth() + 1);
+    var year = Number(params.get('year') || context.year || new Date().getFullYear());
+    var view = params.get('view') || context.view || 'calendar';
     if (direction === 'prev') {
       month -= 1;
       if (month < 1) { month = 12; year -= 1; }
@@ -167,7 +169,7 @@
       month += 1;
       if (month > 12) { month = 1; year += 1; }
     }
-    window.location.href = 'staff-bookings.php?month=' + month + '&year=' + year + '&view=' + (context.view || 'calendar');
+    window.location.href = 'staff-bookings.php?month=' + month + '&year=' + year + '&view=' + encodeURIComponent(view);
   };
 
   window.showDayBookings = function (day) {
@@ -175,12 +177,21 @@
     var year = Number(context.year || new Date().getFullYear());
     var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
 
-    fetch('staff-bookings.php', {
+    fetch(window.location.pathname, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'get_day_bookings', date: dateStr })
     })
-      .then(function (response) { return response.json(); })
+      .then(function (response) {
+        return response.text().then(function (text) {
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error('Invalid JSON response for day bookings:', text);
+            throw new Error('Invalid server response.');
+          }
+        });
+      })
       .then(function (data) {
         if (!data.success) {
           showToast(data.message || 'Failed to load day bookings.', 'error');

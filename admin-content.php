@@ -671,6 +671,7 @@ require __DIR__ . '/adminSide/admin-sidebar-nav.php';
         <div class="panel-header">
           <span class="panel-title">Customer Feedback &amp; Ratings</span>
           <div class="flex-gap">
+            <a href="report-download.php?type=ratings" class="btn btn-outline btn-sm"><i class="fa-solid fa-file-pdf"></i> Food Ratings Report</a>
             <span class="badge badge-yellow"><?= $newFeedbackCount ?> New</span>
             <span class="badge badge-blue"><?= $feedbackCount ? number_format($averageRating,1) : '0.0' ?> Avg Rating</span>
           </div>

@@ -293,7 +293,7 @@ function timeAgoPhp(string $datetime): string {
                     <a class="menu-row" href="#" onclick="openAdminChat(); return false;">
                         <div class="mr-left">
                             <div class="mr-icon"><i class="fa-solid fa-headset"></i></div>
-                            <div class="mr-text"><div class="mr-title">Contact Support</div><div class="mr-sub">Reach out to our admin team</div></div>
+                            <div class="mr-text"><div class="mr-title">Contact Support</div><div class="mr-sub">Admin and staff share this chat. Replies are active during working hours.</div></div>
                         </div>
                         <i class="fa-solid fa-chevron-right mr-arrow"></i>
                     </a>
@@ -713,7 +713,7 @@ function timeAgoPhp(string $datetime): string {
                     <div class="chat-avatar" id="chatAvatar">A</div>
                     <div>
                         <div class="chat-name" id="chatTargetName">Admin Support</div>
-                        <div class="chat-status" id="chatTargetStatus">Online</div>
+                        <div class="chat-status" id="chatTargetStatus">Admin support is active during working hours</div>
                     </div>
                 </div>
                 <button class="chat-close" onclick="closeChat()"><i class="fas fa-times"></i></button>

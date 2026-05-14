@@ -79,7 +79,10 @@ $staffName = htmlspecialchars($_SESSION['user_name'] ?? 'Staff');
           <h1>Customer List</h1>
           <p>View registered customers and their contact details.</p>
         </div>
-        <span class="permission-note"><i class="fa-solid fa-eye"></i> Read-only — no edits or deletions</span>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <a href="../report-download.php?type=customers" class="btn btn-outline"><i class="fa-solid fa-file-pdf"></i> Customer Report</a>
+          <span class="permission-note"><i class="fa-solid fa-eye"></i> Read-only — no edits or deletions</span>
+        </div>
       </div>
 
       <!-- READ-ONLY NOTICE -->

@@ -5,12 +5,23 @@
                 const res  = await fetch('auth.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({action:'check_session'}) });
                 const data = await res.json();
                 if (!data.success) { sessionStorage.clear(); window.location.href = 'account.php'; return; }
+                if (data.is_admin || data.role === 'admin') {
+                    window.location.href = 'adminSide/admin-chat.php';
+                    return;
+                }
+                if (data.is_staff || data.role === 'staff') {
+                    window.location.href = 'staffSide/staff-chat.php';
+                    return;
+                }
+                sessionStorage.setItem('user_id',    data.user_id || '');
+                sessionStorage.setItem('user_role',  data.role || 'customer');
                 sessionStorage.setItem('user_name',  data.name  || '');
                 sessionStorage.setItem('user_email', data.email || '');
             } catch (e) { sessionStorage.clear(); window.location.href = 'account.php'; }
         })().then(() => initDashboard());
 
         function initDashboard() {
+            userData.id    = sessionStorage.getItem('user_id') || '';
             userData.name  = sessionStorage.getItem('user_name')  || 'Guest';
             userData.email = sessionStorage.getItem('user_email') || '';
             userData.photo = localStorage.getItem('user_photo')   || '';
@@ -52,7 +63,7 @@
         };
 
 
-        let userData = { name:'', email:'', photo:'' };
+        let userData = { id:'', name:'', email:'', photo:'' };
 
         function updateUI() {
             const initial = userData.name.trim().charAt(0).toUpperCase() || '?';
@@ -638,6 +649,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     if (orderId) {
                         trackingSocket.emit('join-order', orderId);
                         trackingSocket.emit('join-chat', orderId);
+                        if (userData.id) trackingSocket.emit('join-chat', `support_${userData.id}`);
                         console.log('ðŸ“¡ Joined rooms for order:', orderId);
                     }
                 });
@@ -648,6 +660,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                     if (orderId) {
                         trackingSocket.emit('join-order', orderId);
                         trackingSocket.emit('join-chat', orderId);
+                        if (userData.id) trackingSocket.emit('join-chat', `support_${userData.id}`);
                     }
                 });
 
@@ -668,6 +681,17 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 });
 
                 trackingSocket.on('new-message', (data) => {
+                    if (data.threadType === 'support' && data.customerId == userData.id) {
+                        if (data.sender !== 'customer') {
+                            if (currentChatTarget && currentChatTarget.type === 'support') {
+                                appendToChat(data);
+                                scrollToChatBottom();
+                            } else {
+                                showToast('New message from support!');
+                            }
+                        }
+                        return;
+                    }
                     const supportRoom = 'support_' + (userData.email.replace(/[^a-zA-Z0-9]/g, '_'));
                     if (data.orderId === supportRoom) {
                         if (data.sender !== 'customer') {
@@ -830,7 +854,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
         let currentChatOrderId = null;
 
         window.openAdminChat = function() {
-            openChat('admin', 0, null);
+            openChat('support', '', null);
         };
 
         window.openRiderChat = function(riderId, orderId) {
@@ -844,11 +868,20 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             const overlay = document.getElementById('chatOverlay');
             const nameEl = document.getElementById('chatTargetName');
             const avatarEl = document.getElementById('chatAvatar');
+            const statusEl = document.getElementById('chatTargetStatus');
             const messagesContainer = document.getElementById('chatMessages');
 
-            nameEl.textContent = targetType === 'admin' ? "Admin Support" : "Delivery Rider";
-            avatarEl.textContent = targetType === 'admin' ? "A" : "R";
+            nameEl.textContent = targetType === 'support' ? "Admin Support" : "Delivery Rider";
+            avatarEl.textContent = targetType === 'support' ? "A" : "R";
+            if (statusEl) {
+                statusEl.textContent = targetType === 'support'
+                    ? 'Admin support is active during working hours'
+                    : 'Online when your rider is active';
+            }
             avatarEl.className = `chat-avatar ${targetType}`;
+            if (targetType === 'support' && trackingSocket && trackingSocket.connected && userData.id) {
+                trackingSocket.emit('join-chat', `support_${userData.id}`);
+            }
             
             messagesContainer.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
             overlay.classList.add('active');
@@ -883,10 +916,11 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             
             const div = document.createElement('div');
             div.className = `message ${isMe ? 'customer' : msg.sender_type}`;
-            div.innerHTML = `
-                ${msg.message}
-                <span class="message-time">${msg.timestamp}</span>
-            `;
+            div.textContent = msg.message || '';
+            const time = document.createElement('span');
+            time.className = 'message-time';
+            time.textContent = msg.timestamp || '';
+            div.appendChild(time);
             container.appendChild(div);
         }
 
@@ -899,7 +933,9 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             formData.append('action', 'send_message');
             formData.append('message', message);
             if (currentChatOrderId) formData.append('order_id', currentChatOrderId);
-            formData.append('receiver_id', currentChatTarget.id);
+            if (currentChatTarget.id) {
+                formData.append('receiver_id', currentChatTarget.id);
+            }
             formData.append('receiver_type', currentChatTarget.type);
 
             input.value = '';
@@ -907,10 +943,19 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
             try {
                 const res = await fetch('chat-api.php', { method: 'POST', body: formData });
+                if (!res.ok) {
+                    const text = await res.text();
+                    console.error('Chat send failed HTTP', res.status, res.statusText, text);
+                    throw new Error(`Server returned ${res.status}`);
+                }
                 const data = await res.json();
-                if (!data.success) showToast(data.message, true);
+                if (!data.success) {
+                    console.error('Chat send failed response', data);
+                    showToast(data.message || 'Failed to send message', true);
+                    return;
+                }
+
                 // The socket listener will append the message for us if we want real-time feedback
-                // OR we append immediately for responsiveness
                 appendToChat({
                     sender_type: 'customer',
                     message: message,
@@ -918,6 +963,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
                 });
                 scrollToChatBottom();
             } catch (e) {
+                console.error('Chat send exception', e);
                 showToast("Failed to send message", true);
             }
         }
@@ -940,10 +986,12 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             const socket = io('http://localhost:3000');
             
             socket.on('new-message', (data) => {
+                const isSupportChat = currentChatTarget && currentChatTarget.type === 'support' && data.threadType === 'support';
                 // If it's for current chat
-                if (currentChatTarget && 
+                if ((isSupportChat && data.sender !== 'customer') ||
+                    (currentChatTarget && 
                    ((data.orderId && data.orderId == currentChatOrderId) || 
-                    (!data.orderId && data.sender == currentChatTarget.type && data.senderId == currentChatTarget.id))) {
+                    (!data.orderId && data.sender == currentChatTarget.type && data.senderId == currentChatTarget.id)))) {
                     appendToChat(data);
                     scrollToChatBottom();
                 } else {
@@ -955,7 +1003,7 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
 
         function showChatNotification(data) {
             // Update the thread preview in the messages list
-            if (data.sender === 'admin') {
+            if (data.sender === 'admin' || data.sender === 'staff') {
                 document.getElementById('admin-last-msg').textContent = data.message;
                 document.getElementById('admin-last-time').textContent = data.timestamp;
             }

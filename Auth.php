@@ -306,6 +306,7 @@ function handleLogin(array $data): void {
         $_SESSION['user_name']  = $user['name'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['role']       = $userRole;
+        unset($_SESSION['is_admin'], $_SESSION['is_staff']);
         
         $redirectUrl = '';
         if ($userRole === 'admin' || $email === 'admin@gmail.com') {
@@ -744,7 +745,7 @@ function handleCheckSession(): void {
         
         // Check if user is suspended
         $db = getDB();
-        $stmt = $db->prepare('SELECT status, COALESCE(is_archived,0) AS is_archived FROM users WHERE id = ?');
+        $stmt = $db->prepare('SELECT role, status, COALESCE(is_archived,0) AS is_archived FROM users WHERE id = ?');
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
         
@@ -762,6 +763,14 @@ function handleCheckSession(): void {
             session_destroy();
             respond(false, 'Your account has been suspended.');
         }
+        $role = $user['role'] ?? ($_SESSION['role'] ?? 'customer');
+        $_SESSION['role'] = $role;
+        unset($_SESSION['is_admin'], $_SESSION['is_staff']);
+        if ($role === 'admin' || ($_SESSION['user_email'] ?? '') === 'admin@gmail.com') {
+            $_SESSION['is_admin'] = true;
+        } elseif ($role === 'staff') {
+            $_SESSION['is_staff'] = true;
+        }
         
         // Fetch last used address and mobile from orders
         $lastOrder = $db->prepare('SELECT address, payment_details FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5');
@@ -778,9 +787,12 @@ function handleCheckSession(): void {
         }
         
         respond(true, 'Session active.', [
+            'user_id' => (int)$_SESSION['user_id'],
             'name' => $_SESSION['user_name'],
             'email' => $_SESSION['user_email'],
+            'role' => $role,
             'is_admin' => $_SESSION['is_admin'] ?? false,
+            'is_staff' => $_SESSION['is_staff'] ?? false,
             'last_address' => $lastAddress,
             'last_mobiles' => $mobiles,
         ]);
@@ -789,7 +801,7 @@ function handleCheckSession(): void {
     $token = $_COOKIE['remember_token'] ?? '';
     if ($token) {
         $db   = getDB();
-        $stmt = $db->prepare('SELECT id, name, email, status, COALESCE(is_archived,0) AS is_archived FROM users WHERE remember_token = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, role, status, COALESCE(is_archived,0) AS is_archived FROM users WHERE remember_token = ? LIMIT 1');
         $stmt->execute([$token]);
         $user = $stmt->fetch();
         if ($user) {
@@ -808,11 +820,18 @@ function handleCheckSession(): void {
                 respond(false, 'Your account has been suspended.');
             }
             
-            startUserSession($user['id'], $user['name'], $user['email']);
+            startUserSession($user['id'], $user['name'], $user['email'], $user['role'] ?? 'customer');
             debugLog($runId, 'H6', 'Auth.php:handleCheckSession:restored', 'Session restored via remember token', [
                 'userId' => $user['id'],
             ]);
-            respond(true, 'Session restored.', ['name' => $user['name'], 'email' => $user['email']]);
+            respond(true, 'Session restored.', [
+                'user_id' => (int)$user['id'],
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'role' => $user['role'] ?? 'customer',
+                'is_admin' => ($user['role'] ?? '') === 'admin' || $user['email'] === 'admin@gmail.com',
+                'is_staff' => ($user['role'] ?? '') === 'staff',
+            ]);
         }
     }
 
@@ -967,11 +986,18 @@ function maskEmail(string $email): string {
     return $visible . str_repeat('*', max(1, strlen($local) - 1)) . '@' . $domain;
 }
 
-function startUserSession(int $id, string $name, string $email): void {
+function startUserSession(int $id, string $name, string $email, string $role = 'customer'): void {
     session_regenerate_id(true);
     $_SESSION['user_id']    = $id;
     $_SESSION['user_name']  = $name;
     $_SESSION['user_email'] = $email;
+    $_SESSION['role']       = $role;
+    unset($_SESSION['is_admin'], $_SESSION['is_staff']);
+    if ($role === 'admin' || $email === 'admin@gmail.com') {
+        $_SESSION['is_admin'] = true;
+    } elseif ($role === 'staff') {
+        $_SESSION['is_staff'] = true;
+    }
 }
 
 function otpDeliveryErrorMessage(): string {

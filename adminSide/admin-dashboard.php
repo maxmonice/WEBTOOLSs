@@ -123,7 +123,7 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
 
         <!-- QUICK ACTIONS -->
         <div class="panel">
-          <div class="panel-header"><span class="panel-title">Quick Actions</span></div>
+          <div class="panel-header"><span class="panel-title">Quick Actions &amp; Reports</span></div>
           <div class="panel-body">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <a href="admin-users.php" class="quick-action"><i class="fa-solid fa-user-plus"></i>View Users</a>
@@ -131,8 +131,13 @@ $adminName = htmlspecialchars($_SESSION['user_name'] ?? 'Admin');
               <a href="admin-orders.php" class="quick-action"><i class="fa-solid fa-clipboard-list"></i>View Orders</a>
               <a href="admin-content.php" class="quick-action"><i class="fa-solid fa-plus"></i>Add Product</a>
               <a href="../admin-archive.php" class="quick-action"><i class="fa-solid fa-box-archive"></i>Archive</a>
-              <a href="admin-orders.php" class="quick-action"><i class="fa-solid fa-chart-line"></i>Sales Report</a>
-              <a href="admin-logs.php" class="quick-action"><i class="fa-solid fa-shield-halved"></i>Audit Logs</a>
+              <a href="../report-download.php?type=sales" class="quick-action"><i class="fa-solid fa-chart-line"></i>Sales Report</a>
+              <a href="../report-download.php?type=orders" class="quick-action"><i class="fa-solid fa-file-invoice"></i>Order Report</a>
+              <a href="../report-download.php?type=bookings" class="quick-action"><i class="fa-solid fa-calendar-check"></i>Booking Report</a>
+              <a href="../report-download.php?type=customers" class="quick-action"><i class="fa-solid fa-users"></i>Customer Report</a>
+              <a href="../report-download.php?type=delivery" class="quick-action"><i class="fa-solid fa-truck-fast"></i>Delivery Report</a>
+              <a href="../report-download.php?type=ratings" class="quick-action"><i class="fa-solid fa-star"></i>Food Ratings Report</a>
+              <a href="../report-download.php?type=audit" class="quick-action"><i class="fa-solid fa-shield-halved"></i>Audit Logs Report</a>
             </div>
           </div>
         </div>

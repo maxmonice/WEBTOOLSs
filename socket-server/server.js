@@ -3,50 +3,79 @@ const app = express();
 const http = require('http').createServer(app);
 const cors = require('cors');
 
-// Enable CORS so the PHP pages can communicate with the Node server
+// Enable CORS so the PHP pages can communicate with the Node server.
 app.use(cors());
 
 const io = require('socket.io')(http, {
     cors: {
-        origin: "*", // allow all origins (fine for dev/test)
+        origin: "*",
         methods: ["GET", "POST"]
     }
 });
 
-// HTTP endpoint for PHP to emit socket events
+// HTTP endpoint for PHP to emit socket events.
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/emit', (req, res) => {
-    const { event, orderId, status } = req.query;
-    if (event && orderId) {
-        io.to(`order_${orderId}`).emit(event, { orderId: parseInt(orderId), status });
-        io.to(`chat_${orderId}`).emit(event, { orderId: parseInt(orderId), status });
-        console.log(`[HTTP→Socket] Emitted '${event}' for order ${orderId} with status: ${status}`);
-        res.json({ success: true });
-    } else {
-        res.status(400).json({ error: 'Missing event or orderId' });
+    const { event, orderId, status, data } = req.query;
+    if (!event) {
+        res.status(400).json({ error: 'Missing event' });
+        return;
     }
+
+    if (data) {
+        let payload;
+        try {
+            payload = JSON.parse(data);
+        } catch (err) {
+            res.status(400).json({ error: 'Invalid data payload' });
+            return;
+        }
+
+        const roomId = payload.roomId || payload.orderId;
+        if (roomId) {
+            io.to(`chat_${roomId}`).emit(event, payload);
+        }
+        if (payload.orderId) {
+            io.to(`order_${payload.orderId}`).emit(event, payload);
+        }
+
+        console.log(`[HTTP->Socket] Emitted '${event}' for ${roomId || 'payload'}`);
+        res.json({ success: true });
+        return;
+    }
+
+    if (orderId) {
+        const payload = { orderId: parseInt(orderId), status };
+        io.to(`order_${orderId}`).emit(event, payload);
+        io.to(`chat_${orderId}`).emit(event, payload);
+        console.log(`[HTTP->Socket] Emitted '${event}' for order ${orderId} with status: ${status}`);
+        res.json({ success: true });
+        return;
+    }
+
+    res.status(400).json({ error: 'Missing orderId or data' });
 });
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
-    // Customer joins a room specifically for their Order ID
+    // Customer joins a room specifically for their order ID.
     socket.on('track_order', (orderId) => {
         console.log(`Tracking request for Order: ${orderId}`);
         socket.join(`order_${orderId}`);
     });
-    // Compatibility with customer pages using "join-order"
+
+    // Compatibility with customer pages using "join-order".
     socket.on('join-order', (orderId) => {
         console.log(`Join-order request for Order: ${orderId}`);
         socket.join(`order_${orderId}`);
     });
 
-    // Rider sends a position update
+    // Rider sends a position update.
     socket.on('rider_update', (data) => {
         console.log(`Rider moved for Order: ${data.order_id} to ${data.latitude}, ${data.longitude}`);
-        // Broadcast the update to anyone in that order's room
         io.to(`order_${data.order_id}`).emit('location_update', data);
         io.to(`order_${data.order_id}`).emit('receive-location', {
             lat: data.latitude,
@@ -54,7 +83,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Compatibility with rider pages using "send-location"
+    // Compatibility with rider pages using "send-location".
     socket.on('send-location', (data) => {
         const orderId = data.orderId ?? data.order_id;
         const lat = data.lat ?? data.latitude;
@@ -69,32 +98,29 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Chat System
-    socket.on('join-chat', (orderId) => {
-        console.log(`User joined chat for Order: ${orderId}`);
-        socket.join(`chat_${orderId}`);
+    // Chat System.
+    socket.on('join-chat', (roomId) => {
+        console.log(`User joined chat: ${roomId}`);
+        socket.join(`chat_${roomId}`);
     });
 
     socket.on('send-message', (data) => {
-        const { orderId, sender, message, timestamp } = data;
-        console.log(`New message for Order ${orderId} from ${sender}: ${message}`);
-        // Emit to everyone in the chat room (including sender if they have multiple tabs)
-        io.to(`chat_${orderId}`).emit('new-message', {
-            sender,
-            message,
-            timestamp,
-            orderId
+        const { orderId, roomId, sender, message, timestamp } = data;
+        const targetRoom = roomId || orderId;
+        if (!targetRoom) return;
+        console.log(`New message for chat ${targetRoom} from ${sender}: ${message}`);
+        io.to(`chat_${targetRoom}`).emit('new-message', {
+            ...data,
+            timestamp
         });
     });
 
-    // Order Status Updates (rider accepts, delivers, etc.)
+    // Order Status Updates (rider accepts, delivers, etc.).
     socket.on('status-update', (data) => {
         const { orderId, status } = data;
         if (!orderId || !status) return;
         console.log(`Order ${orderId} status changed to: ${status}`);
-        // Notify customer and any admin/staff in the order room
         io.to(`order_${orderId}`).emit('order-status-update', { orderId, status });
-        // Also notify the chat room
         io.to(`chat_${orderId}`).emit('order-status-update', { orderId, status });
     });
 

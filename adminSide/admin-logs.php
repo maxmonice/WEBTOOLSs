@@ -79,9 +79,12 @@ $stats = getActivityStats();
     </header>
 
     <div class="page-content">
-      <div class="page-header">
-        <h1>Security & Audit Logs</h1>
-        <p>Monitor system activity, user actions, and security events.</p>
+      <div class="page-header flex-between">
+        <div>
+          <h1>Security & Audit Logs</h1>
+          <p>Monitor system activity, user actions, and security events.</p>
+        </div>
+        <a href="../report-download.php?type=audit" class="btn btn-outline"><i class="fa-solid fa-file-pdf"></i> Audit Logs Report</a>
       </div>
 
       <!-- STATS -->

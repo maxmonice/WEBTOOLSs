@@ -5,11 +5,11 @@ $pdo = getDB();
 $sql = "
 CREATE TABLE IF NOT EXISTS chat_messages (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT UNSIGNED DEFAULT NULL,
+    order_id INT DEFAULT NULL,
     sender_id INT DEFAULT NULL,
-    sender_type ENUM('customer', 'rider', 'admin', 'staff') NOT NULL,
+    sender_type ENUM('customer', 'rider', 'admin', 'staff', 'support') NOT NULL,
     receiver_id INT DEFAULT NULL,
-    receiver_type ENUM('customer', 'rider', 'admin', 'staff') NOT NULL,
+    receiver_type ENUM('customer', 'rider', 'admin', 'staff', 'support') NOT NULL,
     message TEXT NOT NULL,
     is_read TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

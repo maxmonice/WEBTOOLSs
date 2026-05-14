@@ -40,6 +40,7 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
         .thread-details { flex: 1; min-width: 0; }
         .thread-name { font-weight: 700; color: #fff; display: block; }
         .thread-type { font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        .support-note { padding: 14px 25px; color: #aaa; background: rgba(194,38,38,0.08); border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.82rem; line-height: 1.45; }
 
         .chat-main { display: flex; flex-direction: column; background: #1a1a1a; }
         .chat-main-header { padding: 20px 30px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; }
@@ -94,6 +95,7 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
                             <h2>Active Conversations</h2>
                             <button type="button" class="new-thread-btn" id="newThreadBtn" onclick="toggleNewThreadPanel()">New Chat</button>
                         </div>
+                        <div class="support-note">Customer support chats are shared with staff. Admin and staff can both reply during working hours.</div>
                         <div class="new-thread-panel" id="newThreadPanel">
                             <div class="panel-row">
                                 <label for="staffSelect">Staff member</label>
@@ -151,6 +153,12 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
             }[ch]));
         }
 
+        function escAttr(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+            }[ch]));
+        }
+
         async function loadStaffOptions() {
             try {
                 const res = await fetch('../chat-api.php?action=get_staff_list');
@@ -193,7 +201,9 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
                 if (data.success) {
                     container.innerHTML = data.threads.map(t => `
                         <div class="thread-item ${currentPeer && currentPeer.id == t.peer_id && currentPeer.type == t.peer_type ? 'active' : ''}" 
-                             onclick="selectThread(${JSON.stringify(t.peer_id)}, ${JSON.stringify(t.peer_type)}, ${JSON.stringify(t.name)})">
+                             data-peer-id="${escAttr(t.peer_id)}"
+                             data-peer-type="${escAttr(t.peer_type)}"
+                             data-peer-name="${escAttr(t.name)}">
                             <div class="thread-avatar">${escHtml(t.name).charAt(0)}</div>
                             <div class="thread-details">
                                 <span class="thread-name">${escHtml(t.name)}</span>
@@ -201,6 +211,11 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
                             </div>
                         </div>
                     `).join('');
+                    container.querySelectorAll('.thread-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            selectThread(item.dataset.peerId, item.dataset.peerType, item.dataset.peerName);
+                        });
+                    });
                 }
             } catch (e) { console.error(e); }
         }
@@ -211,6 +226,9 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
             document.getElementById('chatContent').style.display = 'flex';
             document.getElementById('activeName').textContent = name;
             document.getElementById('activeType').textContent = type;
+            if (type === 'customer' && socket && socket.connected) {
+                socket.emit('join-chat', `support_${id}`);
+            }
             
             loadThreads(); // Refresh active state
             loadMessages();
@@ -225,7 +243,10 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
                 
                 if (data.success) {
                     container.innerHTML = data.messages.map(m => {
-                        const cls = m.sender_type === CURRENT_CHAT_TYPE && Number(m.sender_id) === CURRENT_CHAT_ID ? 'me' : escHtml(m.sender_type);
+                        const isSupportThread = currentPeer && currentPeer.type === 'customer';
+                        const isSupportReply = isSupportThread && ['admin', 'staff'].includes(m.sender_type);
+                        const isOwnDirectMessage = m.sender_type === CURRENT_CHAT_TYPE && Number(m.sender_id) === CURRENT_CHAT_ID;
+                        const cls = (isSupportReply || isOwnDirectMessage) ? 'me' : escHtml(m.sender_type);
                         return `
                         <div class="message ${cls}">
                             ${escHtml(m.message)}
@@ -261,8 +282,15 @@ if (empty($_SESSION['is_admin']) && empty($_SESSION['is_staff'])) {
 
         // Real-time via socket
         const socket = io('http://localhost:3000');
+        socket.on('connect', () => {
+            if (currentPeer && currentPeer.type === 'customer') {
+                socket.emit('join-chat', `support_${currentPeer.id}`);
+            }
+        });
         socket.on('new-message', (data) => {
-            if (currentPeer && data.senderId == currentPeer.id && data.sender == currentPeer.type) {
+            const isActiveSupportThread = currentPeer && currentPeer.type === 'customer' &&
+                data.threadType === 'support' && data.customerId == currentPeer.id;
+            if (isActiveSupportThread || (currentPeer && data.senderId == currentPeer.id && data.sender == currentPeer.type)) {
                 loadMessages();
             } else {
                 loadThreads();
