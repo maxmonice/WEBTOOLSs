@@ -259,8 +259,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         marker = null;
         const modalHTML = `
-        <div id="mapModalOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(8px);">
-          <div id="mapModalContent" style="background:#111;border-radius:20px;width:95%;max-width:900px;position:relative;box-shadow:0 0 50px rgba(0,0,0,1);display:flex;flex-direction:column;max-height:85vh;overflow:hidden;border: 1px solid #333;">
+        <style>
+          #mapModalOverlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.9);
+            display:flex; align-items:center; justify-content:center; z-index:9999;
+            backdrop-filter:blur(8px);
+          }
+          #mapModalContent {
+            background:#111; border-radius:20px; width:95%; max-width:900px;
+            position:relative; box-shadow:0 0 50px rgba(0,0,0,1);
+            display:flex; flex-direction:column; max-height:85vh; overflow:hidden;
+            border: 1px solid #333;
+          }
+          @media (max-width: 768px) {
+            #mapModalOverlay { align-items: flex-start; }
+            #mapModalContent {
+              width: 100% !important;
+              height: 100vh !important;
+              max-height: 100vh !important;
+              border-radius: 0 !important;
+              border: none;
+            }
+            #mapContainer { flex: 1 !important; }
+          }
+        </style>
+        <div id="mapModalOverlay">
+          <div id="mapModalContent">
             <div style="padding:18px 25px;background:linear-gradient(90deg, #9B0A1E 0%, #BE2225 40%, #C22626 100%);display:flex;justify-content:space-between;align-items:center;">
                 <h3 style="margin:0;font-family:'Aclonica',sans-serif;color:#fff;font-size:1.1rem;">📍 Select Event Location</h3>
                 <button id="closeMapBtn" style="background:rgba(0,0,0,0.3);border:none;border-radius:50%;width:32px;height:32px;color:#fff;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>

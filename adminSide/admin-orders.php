@@ -35,10 +35,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'created_by_admin'=> true,
         ]);
         try {
-            $pdo->prepare("
+            $stmt = $pdo->prepare("
                 INSERT INTO orders (user_id, status, total_amount, address, payment_method, notes, created_at, updated_at)
                 VALUES (?, 'pending', ?, ?, ?, ?, NOW(), NOW())
             ")->execute([null, $total, $address, $paymentMethod, $orderNotes]);
+            $orderId = $pdo->lastInsertId();
+
+            if (!empty($items)) {
+                $itemStmt = $pdo->prepare("INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_purchase) VALUES (?, ?, ?, ?)");
+                foreach ($items as $item) {
+                    $mid = $item['id'] ?? null;
+                    if (!$mid) {
+                        $f = $pdo->prepare("SELECT id FROM menu_items WHERE name = ? LIMIT 1");
+                        $f->execute([$item['name']]);
+                        $mid = $f->fetchColumn();
+                    }
+                    if ($mid) {
+                        $itemStmt->execute([$orderId, $mid, $item['quantity'] ?? 1, $item['price'] ?? 0]);
+                    }
+                }
+            }
+
             echo json_encode(['success' => true, 'message' => 'Order created successfully']);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
@@ -63,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $pdo->prepare("UPDATE orders SET status = 'processing', eta = ?, updated_at = NOW() WHERE id = ?")
                 ->execute([$eta, $orderId]);
-            logActivity('order_preparing', "Admin started preparing order #{$orderId} — ETA: {$eta}", $_SESSION['user_email'], $_SESSION['user_name']);
+            logActivity('order_preparing', "Admin started preparing order #{$orderId} — ETA: {$eta}", (int)$_SESSION['user_id']);
             echo json_encode(['success' => true, 'message' => 'Order is now being prepared.']);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -81,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $pdo->prepare("UPDATE orders SET status = 'confirmed', updated_at = NOW() WHERE id = ?")
                 ->execute([$orderId]);
-            logActivity('order_ready', "Order #{$orderId} marked as ready for rider dispatch", $_SESSION['user_email'], $_SESSION['user_name']);
+            logActivity('order_ready', "Order #{$orderId} marked as ready for rider dispatch", (int)$_SESSION['user_id']);
             echo json_encode(['success' => true, 'message' => 'Order is ready for rider!']);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -101,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $pdo->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?")
                 ->execute([$newStatus, $orderId]);
-            logActivity('order_status_updated', "Admin updated order #{$orderId} to: {$newStatus}", $_SESSION['user_email'], $_SESSION['user_name']);
+            logActivity('order_status_updated', "Admin updated order #{$orderId} to: {$newStatus}", (int)$_SESSION['user_id']);
             echo json_encode(['success' => true]);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -113,9 +130,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 // Get orders for display
 $orders = [];
 try {
-    $stmt = $pdo->prepare("SELECT * FROM orders ORDER BY created_at DESC");
+    $stmt = $pdo->prepare("
+        SELECT o.*, u.name as customer_name, u.email as customer_email 
+        FROM orders o 
+        LEFT JOIN users u ON o.user_id = u.id 
+        ORDER BY o.created_at DESC
+    ");
     $stmt->execute();
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch items for each order
+    $itemStmt = $pdo->prepare("
+        SELECT oi.*, mi.name as item_name 
+        FROM order_items oi 
+        JOIN menu_items mi ON oi.menu_item_id = mi.id 
+        WHERE oi.order_id = ?
+    ");
+    foreach ($orders as &$o) {
+        $itemStmt->execute([$o['id']]);
+        $o['items_list'] = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 } catch (PDOException $e) {
     // continue
 }
@@ -213,19 +247,29 @@ if ($revenueThisMonth >= 1000) {
               <?php if (!empty($orders)): ?>
                 <?php foreach ($orders as $order): ?>
                   <?php 
-                    // Parse order details from notes field
                     $orderDetails = json_decode($order['notes'], true) ?: [];
-                    $items = $orderDetails['items'] ?? [];
-                    $userName = $orderDetails['user_name'] ?? 'Guest';
-                    $userEmail = $orderDetails['user_email'] ?? '';
+                    $userName = $order['customer_name'] ?? $orderDetails['user_name'] ?? 'Guest';
+                    $userEmail = $order['customer_email'] ?? $orderDetails['user_email'] ?? '';
                     
                     // Build items list text
                     $itemsList = array_map(function($item) {
-                        return $item['name'] . ($item['quantity'] > 1 ? ' x' . $item['quantity'] : '');
-                    }, $items);
-                    $itemsText = implode(', ', $itemsList);
+                        return $item['item_name'] . ($item['quantity'] > 1 ? ' x' . $item['quantity'] : '');
+                    }, $order['items_list'] ?? []);
                     
-                    // Use total_amount first, then total as fallback
+                    if (empty($itemsList)) {
+                        $decoded = json_decode($order['items'] ?? '[]', true) ?: [];
+                        $notes   = json_decode($order['notes'] ?? '{}', true) ?: [];
+                        $jsonItems = is_array($decoded) ? $decoded : [];
+                        if (isset($decoded['items']) && is_array($decoded['items'])) {
+                            $jsonItems = $decoded['items'];
+                        } elseif (isset($notes['items']) && is_array($notes['items'])) {
+                            $jsonItems = $notes['items'];
+                        }
+                        $itemsList = array_map(fn($i) => ($i['name'] ?? 'Item') . (($i['quantity'] ?? 1) > 1 ? ' x' . $i['quantity'] : ''), $jsonItems);
+                    }
+                    
+                    $itemsText = !empty($itemsList) ? implode(', ', $itemsList) : 'No items';
+                    
                     $orderTotal = $order['total_amount'] ?? $order['total'] ?? 0;
                   ?>
                   <tr>

@@ -77,8 +77,8 @@ function orderBelongsToCurrentUser(array $order, string $ownerColumn, int $userI
 function syncRiderAverage(PDO $db, int $riderId): array {
     $ratingStmt = $db->prepare("
         SELECT AVG(rating) as average_rating, COUNT(*) as rating_count
-        FROM rider_ratings
-        WHERE rider_id = ?
+        FROM reviews
+        WHERE review_type = 'rider' AND target_id = ?
     ");
     $ratingStmt->execute([$riderId]);
     $ratingData = $ratingStmt->fetch(PDO::FETCH_ASSOC);
@@ -121,8 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
                 COUNT(*) as rating_count,
                 MIN(rating) as min_rating,
                 MAX(rating) as max_rating
-            FROM rider_ratings
-            WHERE rider_id = ?
+            FROM reviews
+            WHERE review_type = 'rider' AND target_id = ?
         ");
         $stmt->execute([$riderId]);
         $ratingData = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -179,8 +179,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
                 COUNT(*) as rating_count,
                 MIN(rating) as min_rating,
                 MAX(rating) as max_rating
-            FROM food_ratings
-            WHERE menu_item_id = ?
+            FROM reviews
+            WHERE review_type = 'food' AND target_id = ?
         ");
         $stmt->execute([$menuItemId]);
         $ratingData = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -272,14 +272,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Insert or update rider rating
             $stmt = $db->prepare("
-                INSERT INTO rider_ratings (order_id, rider_id, customer_id, rating, comment)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO reviews (order_id, user_id, review_type, target_id, rating, comment)
+                VALUES (?, ?, 'rider', ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
                     rating = VALUES(rating),
                     comment = VALUES(comment),
                     updated_at = NOW()
             ");
-            $stmt->execute([$orderId, $riderId, $userId, $rating, $comment]);
+            $stmt->execute([$orderId, $userId, $riderId, $rating, $comment]);
 
             if (ratingColumnExists($db, 'orders', 'delivery_rating_given')) {
                 $updateStmt = $db->prepare("
@@ -364,22 +364,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Insert or update food rating
             $stmt = $db->prepare("
-                INSERT INTO food_ratings (order_id, menu_item_id, customer_id, rating, comment)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO reviews (order_id, user_id, review_type, target_id, rating, comment)
+                VALUES (?, ?, 'food', ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
                     rating = VALUES(rating),
                     comment = VALUES(comment),
                     updated_at = NOW()
             ");
-            $stmt->execute([$orderId, $menuItemId, $userId, $rating, $comment]);
+            $stmt->execute([$orderId, $userId, $menuItemId, $rating, $comment]);
 
             // Get updated average rating
             $ratingStmt = $db->prepare("
                 SELECT 
                     AVG(rating) as average_rating,
                     COUNT(*) as rating_count
-                FROM food_ratings
-                WHERE menu_item_id = ?
+                FROM reviews
+                WHERE review_type = 'food' AND target_id = ?
             ");
             $ratingStmt->execute([$menuItemId]);
             $ratingData = $ratingStmt->fetch(PDO::FETCH_ASSOC);

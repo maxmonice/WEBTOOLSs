@@ -74,6 +74,12 @@ function timeAgoPhp(string $datetime): string {
         webtools_load_env(__DIR__);
         echo getenv("LOCATIONIQ_TOKEN") ?: ""; 
     ?>';
+    
+    // Theme Manager
+    const savedTheme = localStorage.getItem('customer-theme');
+    if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+    }
 </script>
 
 </head>
@@ -94,14 +100,17 @@ function timeAgoPhp(string $datetime): string {
                 <a href="account.php" class="nav-account-icon active">
                     <i class="fas fa-user-circle"></i>
                 </a>
+                <?php if (!$isUserViewMode): ?>
                 <div class="nav-notifications" style="position: relative;" onclick="toggleNotifications()">
                     <i class="fas fa-bell"></i>
                     <?php if ($unreadCount > 0): ?>
                     <span class="notification-badge" id="notificationCount"><?= $unreadCount ?></span>
                     <?php endif; ?>
                 </div>
+                <?php endif; ?>
             </nav>
 
+            <?php if (!$isUserViewMode): ?>
             <!-- Notification Dropdown -->
             <div class="notification-dropdown" id="notificationDropdown">
                 <div class="notification-header">
@@ -129,6 +138,7 @@ function timeAgoPhp(string $datetime): string {
                     <?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -252,6 +262,27 @@ function timeAgoPhp(string $datetime): string {
                         </div>
                         <i class="fa-solid fa-chevron-right mr-arrow"></i>
                     </a>
+                </div>
+            </div>
+
+            <!-- Display Settings -->
+            <div class="section-block">
+                <div class="section-label"><i class="fa-solid fa-palette"></i> Display Settings</div>
+                <div class="menu-rows">
+                    <div class="menu-row" style="cursor:default; border-left:none;">
+                        <div class="mr-left">
+                            <div class="mr-icon" id="themeIconContainer"><i class="fa-solid fa-moon" id="themeIcon"></i></div>
+                            <div class="mr-text">
+                                <div class="mr-title" id="themeTitle">Dark Mode</div>
+                                <div class="mr-sub">Toggle light/dark appearance</div>
+                            </div>
+                        </div>
+                        <label class="theme-switch" style="position:relative; display:inline-block; width:50px; height:26px;">
+                            <input type="checkbox" id="themeToggle" style="opacity:0; width:0; height:0;" onchange="toggleCustomerTheme()">
+                            <span class="slider round" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:rgba(255,255,255,0.1); transition:.4s; border-radius:34px; border: 1px solid var(--border);"></span>
+                            <span class="slider-dot" style="position:absolute; content:''; height:18px; width:18px; left:4px; bottom:4px; background-color:var(--red); transition:.4s; border-radius:50%;"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -751,7 +782,34 @@ function timeAgoPhp(string $datetime): string {
 
         let userData = { name:'<?= $renderName ?>', email:'<?= $renderEmail ?>' };
 
+        function toggleCustomerTheme() {
+            const isLight = document.documentElement.classList.toggle('light-theme');
+            localStorage.setItem('customer-theme', isLight ? 'light' : 'dark');
+            updateThemeIcon(isLight);
+        }
+
+        function updateThemeIcon(isLight) {
+            const icon = document.getElementById('themeIcon');
+            const title = document.getElementById('themeTitle');
+            const toggle = document.getElementById('themeToggle');
+            if (!icon || !title) return;
+            
+            if (isLight) {
+                icon.className = 'fa-solid fa-sun';
+                title.textContent = 'Light Mode';
+                if (toggle) toggle.checked = true;
+            } else {
+                icon.className = 'fa-solid fa-moon';
+                title.textContent = 'Dark Mode';
+                if (toggle) toggle.checked = false;
+            }
+        }
+
         function updateUI() {
+            // Theme toggle sync
+            const isLight = document.documentElement.classList.contains('light-theme');
+            updateThemeIcon(isLight);
+            
             const initial = userData.name.trim().charAt(0).toUpperCase() || '?';
             document.getElementById('avatarInitial').textContent = initial;
             // Only update if elements still have placeholder values or different values

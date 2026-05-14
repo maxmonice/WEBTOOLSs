@@ -91,40 +91,35 @@ header {
 /* =====================================================
    LAYOUT
    ===================================================== */
-.content-wrapper { display: flex; width: 100%; margin-top: 70px; min-height: 100vh; }
+.content-wrapper { display: flex; flex-direction: row; width: 100%; margin-top: 70px; min-height: 100vh; }
 
 /* =====================================================
-   LEFT SIDEBAR
+   LEFT SIDEBAR (Desktop)
    ===================================================== */
 .left-sidebar {
-    width: 200px;
-    background: linear-gradient(180deg, var(--red-deep) 0%, #1a0408 100%);
-    color: #fff; padding: 28px 0;
+    width: 260px;
+    background: #1a0408;
+    color: #fff; padding: 30px 0;
     position: sticky; top: 70px;
-    align-self: flex-start;
     height: calc(100vh - 70px);
-    overflow-y: hidden; flex-shrink: 0;
+    overflow-y: auto;
+    flex-shrink: 0;
     border-right: 1px solid var(--line);
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-.left-sidebar::-webkit-scrollbar {
-    display: none;
-}
-.left-sidebar::before {
-    content: ''; position: absolute; inset: 0;
-    background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 24px 24px; pointer-events: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--red) transparent;
 }
 .sidebar-item {
-    position: relative; padding: 16px 24px 16px 28px;
+    padding: 14px 30px;
     font-size: 0.88rem; font-weight: 600; letter-spacing: 0.06em;
     text-transform: uppercase; cursor: pointer;
-    transition: background 0.25s, padding-left 0.25s, color 0.25s;
+    transition: background 0.25s, color 0.25s;
     border-left: 3px solid transparent; color: rgba(255,255,255,0.7);
 }
-.sidebar-item:hover { background: rgba(194,38,38,0.18); border-left-color: var(--red); padding-left: 36px; color: #fff; }
+.sidebar-item:hover { background: rgba(194,38,38,0.18); color: #fff; }
 .sidebar-item.active { background: rgba(194,38,38,0.25); border-left-color: var(--red); color: #fff; }
+
+.view-toggle { display: none !important; } /* Hide toggle on desktop by default */
+
 
 /* =====================================================
    MENU SECTION
@@ -286,6 +281,7 @@ header {
 .search-input::placeholder { color: rgba(255,255,255,0.45); }
 .search-clear { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.4rem; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.2s; flex-shrink: 0; }
 .search-clear:hover { color: #fff; }
+.view-toggle { display: none; }
 .search-dropdown {
     position: absolute; top: calc(100% - 8px); left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 580px; background: #1a0408;
@@ -316,6 +312,49 @@ header {
 .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; grid-auto-rows: 1fr; }
 .menu-grid.single-column { grid-template-columns: minmax(160px, 220px); grid-auto-rows: 1fr; }
 .menu-grid.three-columns { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+/* =====================================================
+   LIST VIEW OVERRIDES
+   ===================================================== */
+.menu-grid.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.menu-grid.list-view .menu-item {
+    flex-direction: row;
+    height: auto;
+    text-align: left;
+    align-items: center;
+    padding: 10px;
+}
+.menu-grid.list-view .item-image-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    border-bottom: none;
+    margin-right: 16px;
+}
+.menu-grid.list-view .item-details {
+    align-items: flex-start;
+    padding: 0;
+    justify-content: center;
+}
+.menu-grid.list-view .item-name {
+    margin-bottom: 4px;
+    min-height: auto;
+    justify-content: flex-start;
+}
+.menu-grid.list-view .item-price {
+    text-align: left;
+    margin-top: 0;
+    padding-bottom: 0;
+}
+.menu-grid.list-view .item-rating {
+    width: auto;
+    margin-left: auto;
+    padding: 0 10px;
+}
 
 
 
@@ -373,7 +412,26 @@ header {
 }
 .item-price { width: 100%; text-align: center; font-size: 1.15rem; color: var(--red); font-weight: 800; margin-top: auto; padding-bottom: 4px; font-family: 'Be Vietnam Pro', sans-serif; }
 .item-pieces { font-size: 0.72rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
-.item-rating { color: #d4a320; font-size: 0.7rem; padding: 4px 12px 12px; opacity: 0.85; width: 100%; text-align: center; }
+.item-rating {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    color: #ffd700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    z-index: 5;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+.item-rating span { color: rgba(255,255,255,0.7); font-size: 0.65rem; font-weight: 500; }
+
 
 /* Discount Badge */
 .discount-badge {
@@ -515,10 +573,35 @@ footer a:hover { opacity: 0.85; }
     RESPONSIVE — 1024px
     ===================================================== */
 @media (max-width: 1024px) {
-    .left-sidebar { display: none; }
-    .menu-section { padding: 0 30px 60px; }
-    .hero-banner { width: calc(100% + 60px); margin-left: -30px; }
+    .content-wrapper { flex-direction: column; }
+    .left-sidebar {
+        width: 100%;
+        height: auto;
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        position: sticky;
+        top: 70px;
+        padding: 0 10px;
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+        background: #1a0408;
+        z-index: 800;
+        scrollbar-width: none;
+    }
+    .left-sidebar::-webkit-scrollbar { display: none; }
+    .sidebar-item {
+        padding: 14px 20px;
+        white-space: nowrap;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+    }
+    .sidebar-item.active { border-bottom-color: var(--red); }
+    .menu-section { padding: 0 20px 60px; }
+    .hero-banner { width: calc(100% + 40px); margin-left: -20px; }
     .category-heading::before { display: none; }
+    .view-toggle { display: block !important; } /* Show toggle ONLY on mobile */
 }
 
 /* RESPONSIVE — 768px */
@@ -529,28 +612,35 @@ footer a:hover { opacity: 0.85; }
     .nav-menu a { padding: 12px 20px; width: 100%; text-align: right; }
     .nav-menu a.active::after { display: none; }
     .nav-account-icon { justify-content: flex-end; }
-    .menu-section { padding: 0 20px 60px; }
-    .hero-banner { width: calc(100% + 40px)1e; max-width: 90%; font-weight: 400; }
-    .mobile-info a { color: white; text-decoration: none; border-bottom: 1px dotted rgba(255,255,255,0.4); }
-    .mobile-info i { margin-right: 5px; }
-    .pipe { font-weight: 800; margin: 0 4px; }
-    .mobile-menu { font-size: 0.88rem; color: white; font-weight: 400; }
-    .mobile-copyright { font-size: 0.78rem; color: white; font-weight: 500; }
+    .menu-section { padding: 0 16px 60px; }
+    .hero-banner { width: calc(100% + 32px); margin-left: -16px; }
     .search-wrapper { top: 70px; }
+
+    /* Item detail modal — full screen on mobile */
+    .modal { display: none; position: fixed; z-index: 2000; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); }
+    .modal.active { display: flex; align-items: flex-start; justify-content: center; padding: 0; }
+    .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        overflow-y: auto;
+    }
+    .modal-image { height: 300px; }
 }
 
 /* RESPONSIVE — 480px */    
 @media (max-width: 480px) { 
     .logo { font-size: 1rem; }
-    .menu-section { padding: 0 15px 60px; }
-    .hero-banner { width: calc(100% + 30px); margin-left: -15px; }
+    .menu-section { padding: 0 12px 60px; }
+    .hero-banner { width: calc(100% + 24px); margin-left: -12px; }
     .menu-grid, .menu-grid.single-column, .menu-grid.three-columns { grid-template-columns: 1fr 1fr; gap: 10px; }
     .menu-item { max-width: none; }
     .item-image-placeholder { height: 120px; }
-    .modal-content { width: 96%; }
-    .modal-image { height: 200px; }
     .modal-variation-block { max-width: 52%; }
 }
+
 
 /* RESPONSIVE — 375px */
 @media (max-width: 375px) {
@@ -560,3 +650,112 @@ footer a:hover { opacity: 0.85; }
 
 .modal-close i { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
 
+/* =====================================================
+   LIST VIEW STYLING
+   ===================================================== */
+.menu-grid.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.menu-grid.list-view .menu-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 15px;
+    height: auto;
+    text-align: left;
+    gap: 20px;
+}
+
+.menu-grid.list-view .item-image-placeholder {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 0;
+    border-radius: 12px;
+}
+
+.menu-grid.list-view .item-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.menu-grid.list-view .item-name {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.menu-grid.list-view .item-rating {
+    margin: 0;
+    font-size: 0.8rem;
+}
+
+.menu-grid.list-view .item-price {
+    font-size: 1rem;
+    color: var(--red);
+    margin-top: 5px;
+}
+
+/* Search Bar Icon Sync */
+.view-toggle {
+    align-items: center;
+    justify-content: center;
+    color: var(--muted) !important;
+}
+.view-toggle:hover {
+    color: var(--white) !important;
+}
+
+/* Search bar color override for icon requested by user */
+#viewToggleIcon {
+    color: rgba(255,255,255,0.7) !important;
+    transition: color 0.2s;
+}
+.search-bar:hover #viewToggleIcon {
+    color: #fff !important;
+}
+
+/* Light theme overrides for list view */
+.light-theme .menu-grid.list-view .menu-item {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+.item-rating {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    color: #ffd700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    z-index: 5;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.item-rating span {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.65rem;
+    font-weight: 500;
+}
+
+/* List view rating adjustment */
+.menu-grid.list-view .item-rating {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+    padding: 0;
+    border: none;
+    margin-top: 5px;
+    justify-content: flex-start;
+}

@@ -465,3 +465,43 @@ function goToSignIn() {
     sessionStorage.setItem('redirect_after_login', 'menu.php');
     window.location.href = 'account.php';
 }
+
+function toggleMenuView() {
+    if (window.innerWidth > 1024) return; // Only for mobile
+    const grids = document.querySelectorAll('.menu-grid');
+    const icon  = document.getElementById('viewToggleIcon');
+    const isList = grids[0].classList.toggle('list-view');
+    
+    grids.forEach((grid, idx) => {
+        if (idx > 0) grid.classList.toggle('list-view', isList);
+    });
+
+    if (isList) {
+        icon.classList.replace('fa-list', 'fa-grip');
+        localStorage.setItem('menu-view', 'list');
+    } else {
+        icon.classList.replace('fa-grip', 'fa-list');
+        localStorage.setItem('menu-view', 'grid');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.innerWidth <= 1024 && localStorage.getItem('menu-view') === 'list') {
+        const grids = document.querySelectorAll('.menu-grid');
+        const icon  = document.getElementById('viewToggleIcon');
+        if (grids.length && icon) {
+            grids.forEach(g => g.classList.add('list-view'));
+            icon.classList.replace('fa-list', 'fa-grip');
+        }
+    }
+});
+
+// Remove list view if resizing to desktop
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 1024) {
+        document.querySelectorAll('.menu-grid').forEach(g => g.classList.remove('list-view'));
+    } else if (localStorage.getItem('menu-view') === 'list') {
+        document.querySelectorAll('.menu-grid').forEach(g => g.classList.add('list-view'));
+    }
+});
+

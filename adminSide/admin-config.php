@@ -317,7 +317,8 @@ if (!function_exists('logAdminActivity')) {
             require_once $logger;
         }
         if (function_exists('logActivity')) {
-            logActivity($action, $details, $_SESSION['user_email'] ?? '', $_SESSION['user_name'] ?? '');
+            $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            logActivity($action, $details, $userId);
         }
     }
 }

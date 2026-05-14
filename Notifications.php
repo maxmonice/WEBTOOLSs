@@ -32,7 +32,7 @@ class Notifications {
                 $sql = "
                     SELECT id, title, message, type, is_read, created_at 
                     FROM notifications 
-                    WHERE (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                    WHERE (target_role = 'all' OR (target_role = ? AND (target_user_id = ? OR target_user_id IS NULL)))
                     ORDER BY created_at DESC 
                     LIMIT $limit
                 ";
@@ -82,7 +82,7 @@ class Notifications {
                     SELECT COUNT(*) as count 
                     FROM notifications 
                     WHERE is_read = FALSE 
-                    AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                    AND (target_role = 'all' OR (target_role = ? AND (target_user_id = ? OR target_user_id IS NULL)))
                 ";
                 $stmt = $this->pdo->prepare($sql);
                 $stmt->execute([$userRole, $userId]);
@@ -111,7 +111,7 @@ class Notifications {
                     UPDATE notifications 
                     SET is_read = TRUE 
                     WHERE is_read = FALSE 
-                    AND (target_role = 'all' OR target_role = ? OR target_user_id = ?)
+                    AND (target_role = 'all' OR (target_role = ? AND (target_user_id = ? OR target_user_id IS NULL)))
                 ";
                 $stmt = $this->pdo->prepare($sql);
                 return $stmt->execute([$userRole, $userId]);

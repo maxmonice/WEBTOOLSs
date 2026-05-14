@@ -24,9 +24,24 @@ if ($rating < 1 || $rating > 5) {
 }
 
 if ($type === 'rider') {
-    // For now, we just acknowledge rider ratings. 
-    // In a full implementation, you'd update a 'riders' table.
-    echo json_encode(['success' => true, 'message' => 'Rider rated successfully']);
+    try {
+        // Find the rider_id for this order
+        $stmt = $pdo->prepare("SELECT rider_id FROM orders WHERE id = ? LIMIT 1");
+        $stmt->execute([$orderId]);
+        $riderId = $stmt->fetchColumn();
+
+        if (!$riderId) {
+            echo json_encode(['success' => false, 'message' => 'No rider assigned to this order']);
+            exit;
+        }
+
+        $insert = $pdo->prepare("INSERT INTO reviews (order_id, user_id, review_type, target_id, rating, created_at) VALUES (?, ?, 'rider', ?, ?, NOW())");
+        $insert->execute([$orderId, $userId, $riderId, $rating]);
+
+        echo json_encode(['success' => true, 'message' => 'Rider rated successfully']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Failed to save rider rating: ' . $e->getMessage()]);
+    }
     exit;
 }
 
@@ -50,15 +65,15 @@ if ($type === 'food') {
             $menuItem = $stmt->fetch();
 
             if ($menuItem) {
+                // Insert into reviews table
+                $ins = $pdo->prepare("INSERT INTO reviews (order_id, user_id, review_type, target_id, rating, created_at) VALUES (?, ?, 'food', ?, ?, NOW())");
+                $ins->execute([$orderId, $userId, $menuItem['id'], $rating]);
+
+                // Legacy update for menu_items table
                 $oldRating = (float)$menuItem['rating'];
                 $oldCount = (int)$menuItem['rating_count'];
-                
-                // Calculate new average rating
-                // New Rating = ((Old Rating * Old Count) + New Rating) / (Old Count + 1)
                 $newCount = $oldCount + 1;
                 $newRating = (($oldRating * $oldCount) + $rating) / $newCount;
-                
-                // Round to 1 decimal place
                 $newRating = round($newRating, 1);
 
                 $update = $pdo->prepare("UPDATE menu_items SET rating = ?, rating_count = ? WHERE id = ?");
@@ -70,7 +85,7 @@ if ($type === 'food') {
         echo json_encode(['success' => true, 'message' => 'Food items rated successfully']);
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        echo json_encode(['success' => false, 'message' => 'Failed to save rating: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Failed to save food rating: ' . $e->getMessage()]);
     }
     exit;
 }

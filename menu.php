@@ -8,23 +8,37 @@ $isLoggedIn = isset($_SESSION['user_id']) && ($_SESSION['session_side'] ?? '') =
 <script>window.IS_LOGGED_IN = <?= json_encode($isLoggedIn) ?>;</script>
 <?php
 
-// Fetch categories for sidebar
-$categories = $pdo->query("SELECT * FROM categories ORDER BY display_order ASC")->fetchAll();
+// Fetch categories for sidebar (exclude gallery)
+$categories = $pdo->query("SELECT * FROM categories WHERE slug != 'gallery' ORDER BY display_order ASC")->fetchAll();
 
-// Fetch menu items
+// Fetch menu items with variations
 $stmt = $pdo->prepare("
-    SELECT m.*, c.slug as category_slug 
+    SELECT m.*, c.slug as category_slug,
+           (SELECT GROUP_CONCAT(CONCAT(name, ':', price) SEPARATOR '|') 
+            FROM menu_item_variations 
+            WHERE menu_item_id = m.id) as variations_list,
+           IFNULL((SELECT AVG(rating) FROM reviews WHERE review_type = 'food' AND target_id = m.id), 0) as rating_avg
     FROM menu_items m 
     LEFT JOIN categories c ON m.category_id = c.id 
-    WHERE m.is_available = 1 
+    WHERE m.is_available = 1 AND m.is_archived = 0
     ORDER BY c.display_order ASC, m.name ASC
 ");
 $stmt->execute();
 $allItems = $stmt->fetchAll();
 
-// Group items by category
+// Group items by category and parse variations
 $menuByCategory = [];
 foreach ($allItems as $item) {
+    $vars = [];
+    if ($item['variations_list']) {
+        foreach (explode('|', $item['variations_list']) as $v) {
+            $parts = explode(':', $v);
+            if (count($parts) >= 2) {
+                $vars[] = ['name' => $parts[0], 'price' => (float)$parts[1]];
+            }
+        }
+    }
+    $item['variations_data'] = $vars;
     $menuByCategory[$item['category_id']][] = $item;
 }
 ?>
@@ -91,6 +105,7 @@ foreach ($allItems as $item) {
                     <i class="fas fa-search search-icon"></i>
                     <input type="text" id="menuSearch" class="search-input" placeholder="Search">
                     <button class="search-clear" id="searchClear" style="display:none;">×</button>
+                    <button class="view-toggle" id="viewToggle" onclick="toggleMenuView()" title="Toggle List/Grid View" style="background:none; border:none; color:rgba(255,255,255,0.6); font-size:1.1rem; cursor:pointer; margin-left:10px; padding:0 5px; transition:color 0.2s;"><i class="fa-solid fa-list" id="viewToggleIcon"></i></button>
                 </div>
                 <div class="search-dropdown" id="searchDropdown"></div>
             </div>
@@ -115,8 +130,7 @@ foreach ($allItems as $item) {
                             'image' => $item['image_path'],
                             'category' => $cat['name']
                         ];
-                        if ($item['pieces']) $data['pieces'] = $item['pieces'];
-                        if ($item['variations']) $data['variations'] = json_decode($item['variations'], true);
+                        if (!empty($item['variations_data'])) $data['variations'] = $item['variations_data'];
                         
                         $jsonAttr = htmlspecialchars(json_encode($data, JSON_UNESCAPED_UNICODE), ENT_QUOTES);
                     ?>
@@ -128,8 +142,12 @@ foreach ($allItems as $item) {
                                 <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
                                 <div class="item-price">₱<?= number_format($item['price'], 2) ?></div>
                             </div>
-                            <div class="item-rating" aria-label="<?= $item['rating'] ?> stars">
-                                <?= str_repeat('★', round($item['rating'])) ?>
+                            <?php 
+                                $avgRating = round($item['rating_avg']); 
+                                $stars = $avgRating > 0 ? str_repeat('★', $avgRating) : '<span>No ratings yet</span>';
+                            ?>
+                            <div class="item-rating" aria-label="<?= $avgRating ?> stars">
+                                <?= $stars ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -260,6 +278,38 @@ foreach ($allItems as $item) {
                     }
                 }
             });
+        }
+    });
+
+    function toggleMenuView() {
+        const grids = document.querySelectorAll('.menu-grid');
+        const icon = document.getElementById('viewToggleIcon');
+        
+        let isListView = false;
+        grids.forEach(grid => {
+            grid.classList.toggle('list-view');
+            if (grid.classList.contains('list-view')) {
+                isListView = true;
+            }
+        });
+        
+        if (isListView) {
+            icon.className = 'fa-solid fa-border-all'; // grid icon
+        } else {
+            icon.className = 'fa-solid fa-list'; // list icon
+        }
+        
+        // Save preference
+        localStorage.setItem('menu-view-pref', isListView ? 'list' : 'grid');
+    }
+
+    // Apply saved view preference on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const pref = localStorage.getItem('menu-view-pref');
+        if (pref === 'list') {
+            document.querySelectorAll('.menu-grid').forEach(g => g.classList.add('list-view'));
+            const icon = document.getElementById('viewToggleIcon');
+            if (icon) icon.className = 'fa-solid fa-border-all';
         }
     });
     </script>

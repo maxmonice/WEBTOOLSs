@@ -7,7 +7,43 @@ $pdo = getDB();
 $galleryItems = [];
 
 try {
-    $stmt = $pdo->prepare("SELECT id, name, description, image FROM content_items WHERE category = 'gallery' ORDER BY created_at DESC");
+    // Auto-create gallery table if missing
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS gallery (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            image_path VARCHAR(255) NOT NULL,
+            sort_order INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+    $count = $pdo->query("SELECT COUNT(*) FROM gallery")->fetchColumn();
+    if ($count == 0) {
+        $images = [
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%2042.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20128.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20129.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20131.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20132.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20133.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20134.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20135.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20136.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20138.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20139.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20140.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20141.png?raw=true",
+            "https://github.com/veejay6072-ops/Luke-s-Seafood-Website/blob/main/image%20143.png?raw=true"
+        ];
+        $stmt = $pdo->prepare("INSERT INTO gallery (title, image_path, sort_order) VALUES (?, ?, ?)");
+        $order = 0;
+        foreach ($images as $img) {
+            $stmt->execute(['Gallery Image ' . ($order + 1), $img, $order]);
+            $order++;
+        }
+    }
+
+    $stmt = $pdo->prepare("SELECT id, title as name, '' as description, image_path as image FROM gallery ORDER BY sort_order ASC, created_at DESC");
     $stmt->execute();
     $galleryItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {

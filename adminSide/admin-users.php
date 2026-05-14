@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'INSERT INTO users (name, email, password_hash, provider, email_verified, created_at)
                      VALUES (?, ?, ?, ?, 1, NOW())'
                 )->execute([$name, $email, $hash, 'email']);
-                logActivity('user_added', "Admin added new user: " . htmlspecialchars($name), $_SESSION['user_email'], $_SESSION['user_name']);
+                logActivity('user_added', "Admin added new user: " . htmlspecialchars($name), (int)$_SESSION['user_id']);
                 $successMsg = "User <strong>" . htmlspecialchars($name) . "</strong> added successfully.";
             } catch (\Throwable $e) {
                 $errorMsg = 'Error: ' . $e->getMessage();
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($result) {
                         $action = $newStatus === 'suspended' ? 'user_suspended' : 'user_reactivated';
                         $details = "Admin " . ($newStatus === 'suspended' ? 'suspended' : 'reactivated') . " user: " . $u['name'];
-                        logActivity($action, $details, $_SESSION['user_email'], $_SESSION['user_name']);
+                        logActivity($action, $details, (int)$_SESSION['user_id']);
                         
                         $successMsg = "User <strong>" . htmlspecialchars($u['name']) . "</strong> " . ($newStatus === 'suspended' ? 'suspended' : 'reactivated') . ".";
                     } else {
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'UPDATE users SET is_archived = 1, archived_at = NOW() WHERE id = ? AND email != ?'
                     )->execute([$uid, 'admin@gmail.com']);
 
-                    logActivity('user_archived', 'Admin archived user: ' . htmlspecialchars($u['name'] ?? '') . ' (' . htmlspecialchars($u['email'] ?? '') . ')', $_SESSION['user_email'], $_SESSION['user_name']);
+                    logActivity('user_archived', 'Admin archived user: ' . htmlspecialchars($u['name'] ?? '') . ' (' . htmlspecialchars($u['email'] ?? '') . ')', (int)$_SESSION['user_id']);
                     $successMsg = 'User <strong>' . htmlspecialchars($u['name'] ?? '') . '</strong> was moved to <strong>Archive</strong> (Users tab).';
                 }
             } catch (\Throwable $e) {

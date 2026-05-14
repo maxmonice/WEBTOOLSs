@@ -21,28 +21,29 @@ try {
     $stmt->execute(['user_id']);
     $hasUserIdColumn = (int)$stmt->fetchColumn() > 0;
 
-    if ($hasUserIdColumn) {
-        $query = "SELECT id, status, total_amount, total, payment_method, notes, created_at FROM orders WHERE user_id = ? AND status IN ('delivered', 'cancelled') ORDER BY created_at DESC";
-        $params = [$userId];
-    } else {
-        $query = "SELECT id, status, total_amount, total, payment_method, notes, created_at FROM orders WHERE user_email = ? AND status IN ('delivered', 'cancelled') ORDER BY created_at DESC";
-        $params = [$_SESSION['user_email'] ?? ''];
-    }
-
+    $query = "
+        SELECT 
+            o.id, o.status, o.total_amount, o.total, o.payment_method, o.created_at,
+            (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) as items_count,
+            (SELECT mi.name FROM order_items oi JOIN menu_items mi ON oi.menu_item_id = mi.id WHERE oi.order_id = o.id LIMIT 1) as first_item_name
+        FROM orders o 
+        WHERE o.user_id = ? AND o.status IN ('delivered', 'cancelled') 
+        ORDER BY o.created_at DESC
+    ";
     $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
+    $stmt->execute([$userId]);
     $rows = $stmt->fetchAll();
 
     $history = [];
     foreach ($rows as $row) {
-        $notes = json_decode($row['notes'] ?? '{}', true) ?: [];
+        $count = (int)$row['items_count'];
         $history[] = [
             'id'             => (int) $row['id'],
             'status'         => $row['status'],
             'total_amount'   => floatval($row['total_amount'] ?: ($row['total'] ?? 0)),
             'payment_method' => $row['payment_method'],
-            'items_count'    => isset($notes['items']) ? count($notes['items']) : 0,
-            'items_summary'  => isset($notes['items'][0]['name']) ? $notes['items'][0]['name'] . (count($notes['items']) > 1 ? ' + others' : '') : 'Seafood Order',
+            'items_count'    => $count,
+            'items_summary'  => $row['first_item_name'] ? ($row['first_item_name'] . ($count > 1 ? ' + others' : '')) : 'Seafood Order',
             'created_at'     => $row['created_at'],
         ];
     }

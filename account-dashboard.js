@@ -5,12 +5,15 @@
                 const res  = await fetch('auth.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({action:'check_session'}) });
                 const data = await res.json();
                 if (!data.success) { sessionStorage.clear(); window.location.href = 'account.php'; return; }
-                if (data.is_admin || data.role === 'admin') {
-                    window.location.href = 'adminSide/admin-chat.php';
+                const urlParams = new URLSearchParams(window.location.search);
+                window.isUserViewMode = urlParams.get('user_view') === 'true';
+
+                if ((data.is_admin || data.role === 'admin') && !window.isUserViewMode) {
+                    window.location.href = 'adminSide/admin-dashboard.php';
                     return;
                 }
-                if (data.is_staff || data.role === 'staff') {
-                    window.location.href = 'staffSide/staff-chat.php';
+                if ((data.is_staff || data.role === 'staff') && !window.isUserViewMode) {
+                    window.location.href = 'staffSide/staff-dashboard.php';
                     return;
                 }
                 sessionStorage.setItem('user_id',    data.user_id || '');
@@ -344,6 +347,7 @@
 
         // â”€â”€ Toast â”€â”€
         function showToast(msg, isError = false) {
+            if (window.isUserViewMode) return; // Suppress toasts for admin/staff view
             console.log('ðŸ”” Showing Toast:', msg);
             const t = document.getElementById('toast');
             document.getElementById('toastMsg').textContent = msg;
@@ -2157,3 +2161,21 @@ document.getElementById('mobile-menu').addEventListener('click', () => {
             }
         }, 3000);
 })();
+
+// ── Mobile hamburger nav toggle ──
+(function() {
+    const toggle = document.getElementById('mobile-menu');
+    const navMenu = document.getElementById('navMenu');
+    if (toggle && navMenu) {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            navMenu.classList.toggle('active');
+        });
+        document.addEventListener('click', (e) => {
+            if (!navMenu.contains(e.target) && e.target !== toggle) {
+                navMenu.classList.remove('active');
+            }
+        });
+    }
+})();
+

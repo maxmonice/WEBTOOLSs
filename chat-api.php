@@ -6,43 +6,6 @@ require_once 'Db.php';
 
 $pdo = getDB();
 
-function ensureChatTable(PDO $pdo): void {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages'");
-    $stmt->execute();
-    if ((int)$stmt->fetchColumn() === 0) {
-        $pdo->exec("CREATE TABLE chat_messages (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            order_id INT DEFAULT NULL,
-            sender_id INT DEFAULT NULL,
-            sender_type ENUM('customer','rider','admin','staff','support') NOT NULL,
-            receiver_id INT DEFAULT NULL,
-            receiver_type ENUM('customer','rider','admin','staff','support') NOT NULL,
-            message TEXT NOT NULL,
-            is_read TINYINT(1) DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-        )");
-    } else {
-        foreach (['sender_type', 'receiver_type'] as $column) {
-            $stmt = $pdo->prepare("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages' AND COLUMN_NAME = ?");
-            $stmt->execute([$column]);
-            $columnType = $stmt->fetchColumn();
-            if ($columnType && (strpos($columnType, "'staff'") === false || strpos($columnType, "'support'") === false)) {
-                $pdo->exec("ALTER TABLE chat_messages MODIFY {$column} ENUM('customer','rider','admin','staff','support') NOT NULL");
-            }
-        }
-    }
-}
-
-function firstUserIdByRole(PDO $pdo, string $role): ?int {
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1");
-    $stmt->execute([$role]);
-    $id = $stmt->fetchColumn();
-    return $id ? (int)$id : null;
-}
-
-ensureChatTable($pdo);
-
 // Determine requester identity
 $userId = $_SESSION['user_id'] ?? null;
 $riderId = $_SESSION['rider_id'] ?? null;
@@ -104,7 +67,7 @@ switch ($action) {
         }
 
         try {
-            $stmt = $pdo->prepare("INSERT INTO chat_messages 
+            $stmt = $pdo->prepare("INSERT INTO communications 
                 (order_id, sender_id, sender_type, receiver_id, receiver_type, message) 
                 VALUES (?, ?, ?, ?, ?, ?)");
 
@@ -156,7 +119,7 @@ switch ($action) {
             if ($orderId) {
                 // Fetch by order (Rider <-> Customer)
                 $stmt = $pdo->prepare("
-                    SELECT * FROM chat_messages 
+                    SELECT * FROM communications 
                     WHERE order_id = ? 
                     ORDER BY created_at ASC
                 ");
@@ -164,7 +127,7 @@ switch ($action) {
             } elseif ($senderType === 'customer' && ($otherType === 'admin' || $otherType === 'support')) {
                 $isSharedSupportHistory = true;
                 $stmt = $pdo->prepare("
-                    SELECT * FROM chat_messages
+                    SELECT * FROM communications
                     WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff','support'))
                        OR (receiver_id = ? AND receiver_type = 'customer' AND sender_type IN ('admin','staff')))
                     ORDER BY created_at ASC
@@ -173,7 +136,7 @@ switch ($action) {
             } elseif (($senderType === 'admin' || $senderType === 'staff') && $otherType === 'customer') {
                 $isSharedSupportHistory = true;
                 $stmt = $pdo->prepare("
-                    SELECT * FROM chat_messages
+                    SELECT * FROM communications
                     WHERE ((sender_id = ? AND sender_type = 'customer' AND receiver_type IN ('admin','staff','support'))
                        OR (receiver_id = ? AND receiver_type = 'customer' AND sender_type IN ('admin','staff')))
                     ORDER BY created_at ASC
@@ -182,7 +145,7 @@ switch ($action) {
             } else {
                 // Fetch by peer (Admin <-> X)
                 $stmt = $pdo->prepare("
-                    SELECT * FROM chat_messages 
+                    SELECT * FROM communications 
                     WHERE (sender_id = ? AND sender_type = ? AND receiver_id = ? AND receiver_type = ?)
                        OR (sender_id = ? AND sender_type = ? AND receiver_id = ? AND receiver_type = ?)
                     ORDER BY created_at ASC
@@ -203,9 +166,6 @@ switch ($action) {
             }
             foreach ($messages as &$m) {
                 $m['timestamp'] = date('g:i A', strtotime($m['created_at']));
-                // Map sender type for frontend simplicity
-                // If I am the sender, mark as 'outgoing' or similar?
-                // Frontend usually handles this by comparing sender_id
             }
 
             echo json_encode(['success' => true, 'messages' => $messages]);
@@ -226,7 +186,7 @@ switch ($action) {
                 $supportStmt = $pdo->query("SELECT DISTINCT
                     CASE WHEN sender_type = 'customer' THEN sender_id ELSE receiver_id END AS peer_id,
                     'customer' AS peer_type
-                FROM chat_messages
+                FROM communications
                 WHERE (sender_type = 'customer' AND receiver_type IN ('admin','staff','support'))
                    OR (receiver_type = 'customer' AND sender_type IN ('admin','staff'))");
                 $threadRows = array_merge($threadRows, $supportStmt->fetchAll(PDO::FETCH_ASSOC));
@@ -235,7 +195,7 @@ switch ($action) {
                     $stmt = $pdo->query("SELECT DISTINCT
                     CASE WHEN sender_type = 'staff' THEN sender_id ELSE receiver_id END AS peer_id,
                     CASE WHEN sender_type = 'staff' THEN sender_type ELSE receiver_type END AS peer_type
-                FROM chat_messages
+                FROM communications
                 WHERE (sender_type = 'staff' AND receiver_type = 'admin')
                    OR (sender_type = 'admin' AND receiver_type = 'staff')");
                     $threadRows = array_merge($threadRows, $stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -243,7 +203,7 @@ switch ($action) {
                     $stmt = $pdo->prepare("SELECT DISTINCT
                     CASE WHEN sender_type = 'admin' THEN sender_id ELSE receiver_id END AS peer_id,
                     CASE WHEN sender_type = 'admin' THEN sender_type ELSE receiver_type END AS peer_type
-                FROM chat_messages
+                FROM communications
                 WHERE (sender_type = 'staff' AND receiver_type = 'admin' AND sender_id = ?)
                    OR (sender_type = 'admin' AND receiver_type = 'staff' AND receiver_id = ?)");
                     $stmt->execute([$senderId, $senderId]);
@@ -263,7 +223,7 @@ switch ($action) {
                 $stmt = $pdo->prepare("SELECT DISTINCT
                     CASE WHEN sender_type != ? THEN sender_id ELSE receiver_id END as peer_id,
                     CASE WHEN sender_type != ? THEN sender_type ELSE receiver_type END as peer_type
-                FROM chat_messages
+                FROM communications
                 WHERE sender_type = ? OR receiver_type = ?");
                 $stmt->execute([$senderType, $senderType, $senderType, $senderType]);
                 $peers = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -289,6 +249,8 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         break;
+
+
     case 'get_staff_list':
         if (!$isAdmin) {
             echo json_encode(['success' => false, 'message' => 'Unauthorized']);

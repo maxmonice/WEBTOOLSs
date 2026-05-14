@@ -97,16 +97,14 @@ try {
     // --- Phone Number Validation ---
     $currentMobile = trim((string)($paymentDetails['mobile'] ?? ''));
     if (!empty($currentMobile)) {
-        // Check if this mobile number has been used by a different email in past orders
+        // Check if this mobile number is already taken by another user
         $checkStmt = $pdo->prepare("
-            SELECT user_email FROM orders 
-            WHERE notes LIKE ? AND user_email != ? 
+            SELECT id FROM users 
+            WHERE phone = ? AND id != ? 
             LIMIT 1
         ");
-        $checkStmt->execute(['%' . $currentMobile . '%', $userEmail]);
-        $existing = $checkStmt->fetch();
-
-        if ($existing) {
+        $checkStmt->execute([$currentMobile, $sessionUserId]);
+        if ($checkStmt->fetch()) {
             echo json_encode([
                 'success' => false, 
                 'message' => 'This phone number is already registered to another customer account. Please use a different number.'
@@ -116,20 +114,17 @@ try {
     }
 
     $orderNotes = json_encode([
-        'items'           => $items,
         'payment_details' => $paymentDetails,
-        'user_email'      => $userEmail,
-        'user_name'       => $userName,
         'shipping'        => floatval($data['shipping'] ?? 0),
         'subtotal'        => floatval($data['subtotal'] ?? 0),
     ], JSON_UNESCAPED_UNICODE);
 
     $stmt = $pdo->prepare("
-        INSERT INTO orders (user_id, user_name, user_email, status, subtotal, tax, shipping, total_amount, address, delivery_latitude, delivery_longitude, payment_method, notes, created_at, updated_at)
-        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO orders (user_id, status, subtotal, tax, shipping, total_amount, address, delivery_latitude, delivery_longitude, payment_method, notes, created_at, updated_at)
+        VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     ");
     $stmt->execute([
-        $sessionUserId, $userName, $userEmail, 
+        $sessionUserId, 
         floatval($data['subtotal'] ?? 0), 
         floatval($data['tax'] ?? 0), 
         floatval($data['shipping'] ?? 0), 
@@ -137,8 +132,36 @@ try {
     ]);
     $orderId = (int) $pdo->lastInsertId();
 
+    // --- Insert Order Items ---
+    if (!empty($items)) {
+        $itemStmt = $pdo->prepare("
+            INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_purchase, notes)
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        foreach ($items as $item) {
+            // Find menu_item_id by name if not provided (fallback)
+            $mid = $item['id'] ?? null;
+            if (!$mid) {
+                $findMid = $pdo->prepare("SELECT id FROM menu_items WHERE name = ? LIMIT 1");
+                $findMid->execute([$item['name']]);
+                $mid = $findMid->fetchColumn();
+            }
+            
+            if ($mid) {
+                $itemPrice = floatval(preg_replace('/[^0-9.]/', '', $item['price'] ?? '0'));
+                $itemStmt->execute([
+                    $orderId, 
+                    $mid, 
+                    (int)($item['quantity'] ?? 1), 
+                    $itemPrice,
+                    json_encode($item['variations'] ?? [])
+                ]);
+            }
+        }
+    }
+
     $itemCount = count($items);
-    logActivity('order_placed', "Order #{$orderId} placed — {$itemCount} item(s) — ₱{$total}", $userEmail, $userName);
+    logActivity('order_placed', "Order #{$orderId} placed — {$itemCount} item(s) — ₱{$total}", $sessionUserId);
 
     try {
         require_once __DIR__ . '/Notifications.php';

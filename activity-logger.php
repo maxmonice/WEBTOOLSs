@@ -14,7 +14,7 @@ require_once 'db.php';
  * @param string $userAgent User's browser info (optional)
  * @return bool Success status
  */
-function logActivity($action, $details, $userEmail = '', $userName = '', $ipAddress = '', $userAgent = '') {
+function logActivity($action, $details, $userId = null, $ipAddress = '', $userAgent = '') {
     try {
         $pdo = getDB();
         
@@ -27,23 +27,19 @@ function logActivity($action, $details, $userEmail = '', $userName = '', $ipAddr
             session_start();
         }
         
-        if (empty($userEmail) && isset($_SESSION['user_email'])) {
-            $userEmail = $_SESSION['user_email'];
-        }
-        if (empty($userName) && isset($_SESSION['user_name'])) {
-            $userName = $_SESSION['user_name'];
+        if ($userId === null && isset($_SESSION['user_id'])) {
+            $userId = (int)$_SESSION['user_id'];
         }
         
         $stmt = $pdo->prepare("
             INSERT INTO audit_logs (
-                action, details, user_email, user_name, ip_address, user_agent, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+                action, details, user_id, ip_address, user_agent, created_at
+            ) VALUES (?, ?, ?, ?, ?, NOW())
         ");
         
-        return $stmt->execute([$action, $details, $userEmail, $userName, $ipAddress, $userAgent]);
+        return $stmt->execute([$action, $details, $userId, $ipAddress, $userAgent]);
         
     } catch (PDOException $e) {
-        // Log error but don't break the application
         error_log("Activity logging failed: " . $e->getMessage());
         return false;
     }
@@ -60,16 +56,18 @@ function getRecentActivities($limit = 100, $action = '') {
     try {
         $pdo = getDB();
         
-        $sql = "SELECT * FROM audit_logs";
+        $sql = "SELECT al.*, u.name as user_name, u.email as user_email 
+                FROM audit_logs al 
+                LEFT JOIN users u ON al.user_id = u.id";
         $params = [];
         
         if (!empty($action)) {
-            $sql .= " WHERE action = ?";
+            $sql .= " WHERE al.action = ?";
             $params[] = $action;
         }
         
-        $sql .= " ORDER BY created_at DESC LIMIT ?";
-        $params[] = $limit;
+        $sql .= " ORDER BY al.created_at DESC LIMIT ?";
+        $params[] = (int)$limit;
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -100,7 +98,7 @@ function getActivityStats() {
         $today = (int) $stmt->fetchColumn();
         
         // Unique users today
-        $stmt = $pdo->prepare("SELECT COUNT(DISTINCT user_email) FROM audit_logs WHERE DATE(created_at) = CURDATE() AND user_email != ''");
+        $stmt = $pdo->prepare("SELECT COUNT(DISTINCT user_id) FROM audit_logs WHERE DATE(created_at) = CURDATE() AND user_id IS NOT NULL");
         $stmt->execute();
         $usersToday = (int) $stmt->fetchColumn();
         
@@ -121,6 +119,7 @@ function getActivityStats() {
         return ['total' => 0, 'today' => 0, 'users_today' => 0, 'security' => 0];
     }
 }
+
 ?>
 
 

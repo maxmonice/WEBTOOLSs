@@ -25,52 +25,9 @@ function getDB(): PDO {
         ];
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-            try {
-                $stmt = $pdo->prepare(
-                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'status'"
-                );
-                $stmt->execute();
-                if ((int)$stmt->fetchColumn() === 0) {
-                    $pdo->exec("ALTER TABLE users ADD COLUMN status ENUM('active','suspended') NOT NULL DEFAULT 'active' AFTER role");
-                }
-                $stmt = $pdo->prepare(
-                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_archived'"
-                );
-                $stmt->execute();
-                if ((int)$stmt->fetchColumn() === 0) {
-                    $pdo->exec("ALTER TABLE users ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0 AFTER status");
-                }
-                $stmt = $pdo->prepare(
-                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'archived_at'"
-                );
-                $stmt->execute();
-                if ((int)$stmt->fetchColumn() === 0) {
-                    $pdo->exec("ALTER TABLE users ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL AFTER is_archived");
-                }
-                $stmt = $pdo->prepare(
-                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings'"
-                );
-                $stmt->execute();
-                if ((int)$stmt->fetchColumn() > 0) {
-                    $stmt = $pdo->prepare(
-                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-                         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'event_time_end'"
-                    );
-                    $stmt->execute();
-                    if ((int)$stmt->fetchColumn() === 0) {
-                        $pdo->exec(
-                            'ALTER TABLE bookings ADD COLUMN event_time_end TIME NULL DEFAULT NULL AFTER event_time'
-                        );
-                    }
-                }
-            } catch (Throwable $_) {}
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Database connection failed.']);
+            echo json_encode(['success' => false, 'error' => 'Database connection failed: ' . $e->getMessage()]);
             exit;
         }
     }

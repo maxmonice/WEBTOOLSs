@@ -44,6 +44,16 @@ try {
         exit;
     }
 
+    // Fetch items from normalized table
+    $itemStmt = $pdo->prepare("
+        SELECT oi.*, mi.name 
+        FROM order_items oi 
+        JOIN menu_items mi ON oi.menu_item_id = mi.id 
+        WHERE oi.order_id = ?
+    ");
+    $itemStmt->execute([$order['id']]);
+    $items = $itemStmt->fetchAll();
+
     // Parse stored JSON notes
     $notes = json_decode($order['notes'] ?? '{}', true) ?: [];
 
@@ -53,8 +63,9 @@ try {
             'id'             => (int) $order['id'],
             'status'         => $order['status'],
             'total_amount'   => floatval($order['total_amount']),
-            'subtotal'       => floatval($notes['subtotal'] ?? 0),
-            'shipping'       => floatval($notes['shipping']  ?? 0),
+            'subtotal'       => floatval($order['subtotal'] ?? $notes['subtotal'] ?? 0),
+            'tax'            => floatval($order['tax'] ?? 0),
+            'shipping'       => floatval($order['shipping'] ?? $notes['shipping'] ?? 0),
             'address'        => $order['address'],
             'delivery_latitude'  => isset($order['delivery_latitude'])  ? floatval($order['delivery_latitude'])  : null,
             'delivery_longitude' => isset($order['delivery_longitude']) ? floatval($order['delivery_longitude']) : null,
@@ -63,7 +74,7 @@ try {
             'payment_method' => $order['payment_method'],
             'rider_id'       => $order['rider_id'] ?? null,
             'rider_name'     => $order['rider_name'] ?? 'Your Rider',
-            'items'          => $notes['items'] ?? [],
+            'items'          => $items,
             'created_at'     => $order['created_at'],
             'updated_at'     => $order['updated_at'],
         ],

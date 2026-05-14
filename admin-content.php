@@ -4,23 +4,14 @@ require_once __DIR__ . '/adminSide/admin-config.php';
 
 requireAdmin();
 
-// ── Ensure archive columns exist ──────────────────────────────────────────────
+// ── Ensure archive columns exist (Redirected to menu_items) ───────────────────
 try {
-    $pdo->exec("ALTER TABLE content_items ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+    $pdo->exec("ALTER TABLE menu_items ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
 } catch (PDOException $_) {}
 try {
-    $pdo->exec("ALTER TABLE content_items ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL");
+    $pdo->exec("ALTER TABLE menu_items ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL");
 } catch (PDOException $_) {}
-try {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS content_variations (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        content_id INT NOT NULL,
-        variation_name VARCHAR(255) NOT NULL,
-        variation_price DECIMAL(10,2) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (content_id) REFERENCES content_items(id) ON DELETE CASCADE
-    )");
-} catch (PDOException $_) {}
+// menu_item_variations already exists from normalization script
 
 // ── POST handlers ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -61,17 +52,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $type = $data['type'] ?? 'menu';
         try {
             if ($type === 'gallery') {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE category='gallery' AND (is_archived IS NULL OR is_archived=0) ORDER BY created_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE c.slug='gallery' AND (m.is_archived IS NULL OR m.is_archived=0) ORDER BY m.created_at DESC");
             } else {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE category IN ('Salad','Fusion','A La Carte','Platters','Bento') AND (is_archived IS NULL OR is_archived=0) ORDER BY category ASC, created_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE c.slug != 'gallery' AND (m.is_archived IS NULL OR m.is_archived=0) ORDER BY c.name ASC, m.created_at DESC");
             }
             $stmt->execute();
             $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
             // attach variations
-            $varStmt = $pdo->prepare("SELECT * FROM content_variations WHERE content_id=? ORDER BY created_at ASC");
+            $varStmt = $pdo->prepare("SELECT id, name as variation_name, price as variation_price FROM menu_item_variations WHERE menu_item_id=? ORDER BY created_at ASC");
             foreach ($items as &$item) {
                 $varStmt->execute([$item['id']]);
                 $item['variations'] = $varStmt->fetchAll(PDO::FETCH_ASSOC);
+                // Map image_path to image for frontend compatibility
+                $item['image'] = $item['image_path'];
             }
             echo json_encode(['success'=>true,'items'=>$items]);
         } catch (PDOException $e) {
@@ -84,13 +77,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($data['action'] === 'get_content') {
         $id = (int)($data['id'] ?? 0);
         try {
-            $stmt = $pdo->prepare("SELECT * FROM content_items WHERE id=?");
+            $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.id=?");
             $stmt->execute([$id]);
             $item = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($item) {
-                $varStmt = $pdo->prepare("SELECT * FROM content_variations WHERE content_id=? ORDER BY created_at ASC");
+                $varStmt = $pdo->prepare("SELECT id, name as variation_name, price as variation_price FROM menu_item_variations WHERE menu_item_id=? ORDER BY created_at ASC");
                 $varStmt->execute([$id]);
                 $item['variations'] = $varStmt->fetchAll(PDO::FETCH_ASSOC);
+                $item['image'] = $item['image_path'];
             }
             echo json_encode(['success'=>true,'content'=>$item]);
         } catch (PDOException $e) {
@@ -108,8 +102,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $image       = $data['image'] ?? '';
         $variations  = $data['variations'] ?? [];
         try {
-            $stmt = $pdo->prepare("INSERT INTO content_items (name,description,price,category,image,is_archived,created_at) VALUES (?,?,?,?,?,0,NOW())");
-            $stmt->execute([$name,$description,$price,$category,$image]);
+            // Find category ID
+            $catStmt = $pdo->prepare("SELECT id FROM categories WHERE name = ? LIMIT 1");
+            $catStmt->execute([$category]);
+            $catId = $catStmt->fetchColumn();
+            if (!$catId) {
+                // Auto-create category if missing
+                $slug = strtolower(str_replace(' ', '-', $category));
+                $pdo->prepare("INSERT INTO categories (name, slug, display_order) VALUES (?, ?, 0)")->execute([$category, $slug]);
+                $catId = $pdo->lastInsertId();
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO menu_items (name,description,price,category_id,image_path,is_archived,created_at) VALUES (?,?,?,?,?,0,NOW())");
+            $stmt->execute([$name,$description,$price,$catId,$image]);
             $contentId = $pdo->lastInsertId();
 
             $notif = new Notifications($pdo);
@@ -120,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if (!empty($variations) && is_array($variations)) {
-                $varStmt = $pdo->prepare("INSERT INTO content_variations (content_id,variation_name,variation_price,created_at) VALUES (?,?,?,NOW())");
+                $varStmt = $pdo->prepare("INSERT INTO menu_item_variations (menu_item_id,name,price,created_at) VALUES (?,?,?,NOW())");
                 foreach ($variations as $v) {
                     if (!empty($v['name']) && isset($v['price'])) {
                         $varStmt->execute([$contentId, $v['name'], $v['price']]);
@@ -145,12 +150,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $image       = $data['image'] ?? '';
         $variations  = $data['variations'] ?? [];
         try {
-            $stmt = $pdo->prepare("UPDATE content_items SET name=?,description=?,price=?,category=?,image=? WHERE id=?");
-            $stmt->execute([$name,$description,$price,$category,$image,$id]);
+            // Find category ID
+            $catStmt = $pdo->prepare("SELECT id FROM categories WHERE name = ? LIMIT 1");
+            $catStmt->execute([$category]);
+            $catId = $catStmt->fetchColumn();
+
+            $stmt = $pdo->prepare("UPDATE menu_items SET name=?,description=?,price=?,category_id=?,image_path=? WHERE id=?");
+            $stmt->execute([$name,$description,$price,$catId,$image,$id]);
             // Replace variations
-            $pdo->prepare("DELETE FROM content_variations WHERE content_id=?")->execute([$id]);
+            $pdo->prepare("DELETE FROM menu_item_variations WHERE menu_item_id=?")->execute([$id]);
             if (!empty($variations) && is_array($variations)) {
-                $varStmt = $pdo->prepare("INSERT INTO content_variations (content_id,variation_name,variation_price,created_at) VALUES (?,?,?,NOW())");
+                $varStmt = $pdo->prepare("INSERT INTO menu_item_variations (menu_item_id,name,price,created_at) VALUES (?,?,?,NOW())");
                 foreach ($variations as $v) {
                     if (!empty($v['name']) && isset($v['price'])) {
                         $varStmt->execute([$id, $v['name'], $v['price']]);
@@ -169,10 +179,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($data['action'] === 'archive_content') {
         $id = (int)($data['id'] ?? 0);
         try {
-            $infoStmt = $pdo->prepare("SELECT name,category FROM content_items WHERE id=?");
+            $infoStmt = $pdo->prepare("SELECT name FROM menu_items WHERE id=?");
             $infoStmt->execute([$id]);
             $info = $infoStmt->fetch(PDO::FETCH_ASSOC);
-            $pdo->prepare("UPDATE content_items SET is_archived=1, archived_at=NOW() WHERE id=?")->execute([$id]);
+            $pdo->prepare("UPDATE menu_items SET is_archived=1, archived_at=NOW() WHERE id=?")->execute([$id]);
             logAdminActivity($pdo, 'content_archived', "Archived '{$info['name']}' (ID:{$id})");
             echo json_encode(['success'=>true,'message'=>'Item moved to archive']);
         } catch (PDOException $e) {
@@ -185,7 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($data['action'] === 'restore_content') {
         $id = (int)($data['id'] ?? 0);
         try {
-            $pdo->prepare("UPDATE content_items SET is_archived=0, archived_at=NULL WHERE id=?")->execute([$id]);
+            $pdo->prepare("UPDATE menu_items SET is_archived=0, archived_at=NULL WHERE id=?")->execute([$id]);
             logAdminActivity($pdo, 'content_restored', "Restored content item (ID:{$id})");
             echo json_encode(['success'=>true,'message'=>'Item restored successfully']);
         } catch (PDOException $e) {
@@ -199,11 +209,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $type = $data['type'] ?? 'all'; // all | menu | gallery
         try {
             if ($type === 'menu') {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE is_archived=1 AND category IN ('Salad','Fusion','A La Carte','Platters','Bento') ORDER BY archived_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 AND c.slug != 'gallery' ORDER BY m.archived_at DESC");
             } elseif ($type === 'gallery') {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE is_archived=1 AND category='gallery' ORDER BY archived_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 AND c.slug='gallery' ORDER BY m.archived_at DESC");
             } else {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE is_archived=1 ORDER BY archived_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 ORDER BY m.archived_at DESC");
             }
             $stmt->execute();
             echo json_encode(['success'=>true,'items'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);
@@ -240,13 +250,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ── GET: page data ────────────────────────────────────────────────────────────
 $contentItems = [];
 try {
-    $stmt = $pdo->prepare("SELECT * FROM content_items WHERE (is_archived IS NULL OR is_archived=0) ORDER BY created_at DESC");
+    $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE (m.is_archived IS NULL OR m.is_archived=0) ORDER BY m.created_at DESC");
     $stmt->execute();
     $contentItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($contentItems as &$item) { $item['image'] = $item['image_path']; }
 } catch (PDOException $e) {
-    try {
-        $pdo->exec("CREATE TABLE IF NOT EXISTS content_items (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2) NOT NULL DEFAULT 0, category VARCHAR(100) NOT NULL, image VARCHAR(500), is_archived TINYINT(1) DEFAULT 0, archived_at TIMESTAMP NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-    } catch (PDOException $_) {}
+    // continue
 }
 
 $feedbackItems = [];
@@ -262,8 +271,8 @@ $contentStats = [
     'updated_today'  => 0,
     'missing_images' => 0,
 ];
-try { $contentStats['updated_today']  = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE DATE(created_at)=CURDATE() AND (is_archived IS NULL OR is_archived=0)")->fetchColumn(); } catch (Throwable $_) {}
-try { $contentStats['missing_images'] = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE (image IS NULL OR image='') AND (is_archived IS NULL OR is_archived=0)")->fetchColumn(); } catch (Throwable $_) {}
+try { $contentStats['updated_today']  = (int)$pdo->query("SELECT COUNT(*) FROM menu_items WHERE DATE(created_at)=CURDATE() AND (is_archived IS NULL OR is_archived=0)")->fetchColumn(); } catch (Throwable $_) {}
+try { $contentStats['missing_images'] = (int)$pdo->query("SELECT COUNT(*) FROM menu_items WHERE (image_path IS NULL OR image_path='') AND (is_archived IS NULL OR is_archived=0)")->fetchColumn(); } catch (Throwable $_) {}
 
 ?><!DOCTYPE html>
 <html lang="en">

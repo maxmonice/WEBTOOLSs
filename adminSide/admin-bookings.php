@@ -211,12 +211,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $columns = [
             'event_name', 'address', 'event_date', 'event_time', 'event_type', 'num_guests',
-            'full_name', 'contact_number', 'email_address', 'notes', 'user_email', 'user_name',
+            'full_name', 'contact_number', 'email_address', 'notes'
         ];
         $placeholders = array_fill(0, count($columns), '?');
         $execValues = [
             $eventName, $address, $formattedDate, $tStart, $eventType, $numGuests,
-            $fullName, $contactNumber, $emailAddress, $notes, $userEmail, $userName,
+            $fullName, $contactNumber, $emailAddress, $notes
         ];
         if (admin_bookings_has_column($pdo, 'event_time_end')) {
             $ti = array_search('event_time', $columns, true);
@@ -441,7 +441,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => false, 'message' => 'Invalid booking id']);
             exit;
         }
-        $stmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+        $stmt = $pdo->prepare("
+            SELECT b.*, u.email AS user_email, u.name AS user_name 
+            FROM bookings b 
+            LEFT JOIN users u ON b.user_id = u.id 
+            WHERE b.id = ?
+        ");
         $stmt->execute([$id]);
         $booking = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$booking) {
@@ -485,7 +490,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($data['action'] === 'get_day_bookings') {
         $date = $data['date'] ?? '';
-        $stmt = $pdo->prepare("SELECT * FROM bookings WHERE event_date = ? ORDER BY created_at");
+        $stmt = $pdo->prepare("
+            SELECT b.*, u.email AS user_email, u.name AS user_name 
+            FROM bookings b 
+            LEFT JOIN users u ON b.user_id = u.id 
+            WHERE b.event_date = ? 
+            ORDER BY b.created_at
+        ");
         $stmt->execute([$date]);
         echo json_encode(
             ['success' => true, 'bookings' => $stmt->fetchAll(PDO::FETCH_ASSOC)],
@@ -498,7 +509,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get bookings for display
 $bookings = [];
 try {
-    $bookings = $pdo->query("SELECT * FROM bookings ORDER BY created_at DESC")->fetchAll();
+    $bookings = $pdo->query("
+        SELECT b.*, u.email AS user_email, u.name AS user_name 
+        FROM bookings b 
+        LEFT JOIN users u ON b.user_id = u.id 
+        ORDER BY b.created_at DESC
+    ")->fetchAll();
 } catch (PDOException $e) {}
 
 $viewMode = $_GET['view'] ?? 'calendar';

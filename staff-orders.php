@@ -60,7 +60,7 @@ $unreadCount = $notifications->getUnreadCount('staff', $_SESSION['user_id']);
 try {
     $stmt = $pdo->prepare(
         "SELECT o.id, o.status, o.created_at,
-                COALESCE(o.total_amount, o.total, 0) AS total,
+                COALESCE(o.total_amount, 0) AS total,
                 COALESCE(u.name, 'Unknown') AS customer_name,
                 COALESCE(u.email, '—') AS customer_email
          FROM orders o

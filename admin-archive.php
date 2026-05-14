@@ -3,9 +3,9 @@ require_once __DIR__ . '/adminSide/admin-config.php';
 
 requireAdmin();
 
-// ── Ensure archive columns exist ──────────────────────────────────────────────
-try { $pdo->exec("ALTER TABLE content_items ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0"); } catch (PDOException $_) {}
-try { $pdo->exec("ALTER TABLE content_items ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL"); } catch (PDOException $_) {}
+// ── Ensure archive columns exist (Redirected to menu_items) ───────────────────
+try { $pdo->exec("ALTER TABLE menu_items ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0"); } catch (PDOException $_) {}
+try { $pdo->exec("ALTER TABLE menu_items ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL"); } catch (PDOException $_) {}
 
 // ── POST / AJAX handlers ───────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -29,14 +29,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
             if ($type === 'menu') {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE is_archived=1 AND category IN ('Salad','Fusion','A La Carte','Platters','Bento') ORDER BY archived_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 AND c.slug != 'gallery' ORDER BY m.archived_at DESC");
             } elseif ($type === 'gallery') {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE is_archived=1 AND category='gallery' ORDER BY archived_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 AND c.slug='gallery' ORDER BY m.archived_at DESC");
             } else {
-                $stmt = $pdo->prepare("SELECT * FROM content_items WHERE is_archived=1 ORDER BY archived_at DESC");
+                $stmt = $pdo->prepare("SELECT m.*, c.name as category FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 ORDER BY m.archived_at DESC");
             }
             $stmt->execute();
-            echo json_encode(['success' => true, 'items' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($items as &$item) { $item['image'] = $item['image_path']; }
+            echo json_encode(['success' => true, 'items' => $items]);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -47,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($data['action'] ?? '') === 'restore_content') {
         $id = (int)($data['id'] ?? 0);
         try {
-            $pdo->prepare("UPDATE content_items SET is_archived=0, archived_at=NULL WHERE id=?")->execute([$id]);
-            logAdminActivity($pdo, 'content_restored', "Restored content item (ID:{$id})");
+            $pdo->prepare("UPDATE menu_items SET is_archived=0, archived_at=NULL WHERE id=?")->execute([$id]);
+            logAdminActivity($pdo, 'content_restored', "Restored menu item (ID:{$id})");
             echo json_encode(['success' => true, 'message' => 'Item restored successfully']);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -60,10 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($data['action'] ?? '') === 'permanent_delete') {
         $id = (int)($data['id'] ?? 0);
         try {
-            $infoStmt = $pdo->prepare("SELECT name FROM content_items WHERE id=?");
+            $infoStmt = $pdo->prepare("SELECT name FROM menu_items WHERE id=?");
             $infoStmt->execute([$id]);
             $info = $infoStmt->fetch(PDO::FETCH_ASSOC);
-            $pdo->prepare("DELETE FROM content_items WHERE id=? AND is_archived=1")->execute([$id]);
+            $pdo->prepare("DELETE FROM menu_items WHERE id=? AND is_archived=1")->execute([$id]);
             $label = $info['name'] ?? ('#' . $id);
             logAdminActivity($pdo, 'content_deleted', "Permanently deleted '{$label}' (ID:{$id})");
             echo json_encode(['success' => true, 'message' => 'Item permanently deleted']);
@@ -140,9 +142,9 @@ $archivedMenu    = 0;
 $archivedGallery = 0;
 $archivedUsers   = 0;
 try {
-    $archivedTotal   = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE is_archived=1")->fetchColumn();
-    $archivedMenu    = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE is_archived=1 AND category IN ('Salad','Fusion','A La Carte','Platters','Bento')")->fetchColumn();
-    $archivedGallery = (int)$pdo->query("SELECT COUNT(*) FROM content_items WHERE is_archived=1 AND category='gallery'")->fetchColumn();
+    $archivedTotal   = (int)$pdo->query("SELECT COUNT(*) FROM menu_items WHERE is_archived=1")->fetchColumn();
+    $archivedMenu    = (int)$pdo->query("SELECT COUNT(m.id) FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 AND c.slug != 'gallery'")->fetchColumn();
+    $archivedGallery = (int)$pdo->query("SELECT COUNT(m.id) FROM menu_items m JOIN categories c ON m.category_id = c.id WHERE m.is_archived=1 AND c.slug = 'gallery'")->fetchColumn();
 } catch (Throwable $_) {}
 try {
     $archivedUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE COALESCE(is_archived,0)=1 AND email != 'admin@gmail.com'")->fetchColumn();

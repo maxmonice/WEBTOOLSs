@@ -304,13 +304,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $columns = [
                 'event_name', 'address', 'event_date', 'event_time', 'event_type',
                 'num_guests', 'full_name', 'contact_number', 'email_address',
-                'notes', 'user_email', 'user_name', 'status', 'created_at'
+                'notes', 'status', 'created_at'
             ];
-            $placeholders = ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', "'pending'", 'NOW()'];
+            $placeholders = ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', "'pending'", 'NOW()'];
             $values = [
                 $eventName, $address, date('Y-m-d', strtotime($eventDate)), $defaultTimeSql, $eventType,
-                $numGuests, $fullName, $contactNumber, $emailAddress, $notes,
-                $userEmail, $userName
+                $numGuests, $fullName, $contactNumber, $emailAddress, $notes
             ];
 
             if (bookingColumnExists($db, 'event_time_end')) {

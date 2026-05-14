@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $whereClause = $hasUserId ? 'o.user_id = ?' : 'o.user_email = ?';
             $ownerParam = $hasUserId ? $userId : $userEmail;
 
-            // Fetch orders with rider info when available
+            // Fetch orders with rider info from users table
             $stmt = $db->prepare("
                 SELECT 
                     o.id,
@@ -98,11 +98,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     o.created_at,
                     $updatedAtSelect
                     $deliveredAtSelect
-                    $riderSelect
-                    $deliveryRatingSelect
-                    $riderFields
+                    o.rider_id as rider_ref,
+                    $deliveryRatingSelect,
+                    r.name as rider_name,
+                    r.phone as rider_phone,
+                    (SELECT AVG(rating) FROM reviews WHERE review_type = 'rider' AND target_id = o.rider_id) as rider_avg_rating
                 FROM orders o
-                $riderJoin
+                LEFT JOIN users r ON o.rider_id = r.id AND r.role = 'rider'
                 WHERE $whereClause
                 ORDER BY o.created_at DESC
                 LIMIT ? OFFSET ?
@@ -151,8 +153,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $riderRated = false;
                 if ($order['rider_ref']) {
                     $ratingStmt = $db->prepare("
-                        SELECT rating, comment FROM rider_ratings 
-                        WHERE order_id = ? AND customer_id = ?
+                        SELECT rating, comment FROM reviews 
+                        WHERE review_type = 'rider' AND order_id = ? AND user_id = ?
                     ");
                     $ratingStmt->execute([$order['id'], $userId]);
                     $existingRating = $ratingStmt->fetch(PDO::FETCH_ASSOC);
@@ -161,8 +163,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
                 // Get food ratings for this order
                 $foodRatingStmt = $db->prepare("
-                    SELECT menu_item_id, rating, comment FROM food_ratings
-                    WHERE order_id = ? AND customer_id = ?
+                    SELECT target_id as menu_item_id, rating, comment FROM reviews
+                    WHERE review_type = 'food' AND order_id = ? AND user_id = ?
                 ");
                 $foodRatingStmt->execute([$order['id'], $userId]);
                 $foodRatings = $foodRatingStmt->fetchAll(PDO::FETCH_ASSOC);

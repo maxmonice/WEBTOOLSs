@@ -93,7 +93,7 @@ function buildReportData(PDO $pdo, string $report): array {
             ['Revenue This Month', pesoReport(scalar($pdo, "SELECT COALESCE(SUM(COALESCE(total_amount,total,0)),0) FROM orders WHERE MONTH(created_at)=MONTH(CURDATE()) AND YEAR(created_at)=YEAR(CURDATE()) AND status='delivered'"))],
             ['Completed Orders', (string)(int)scalar($pdo, "SELECT COUNT(*) FROM orders WHERE status='delivered'")],
         ];
-        $data = rows($pdo, "SELECT id, COALESCE(user_name, user_email, 'Customer') AS customer, payment_method, COALESCE(total_amount,total,0) AS total, status, created_at FROM orders ORDER BY created_at DESC LIMIT 100");
+        $data = rows($pdo, "SELECT o.id, COALESCE(u.name, 'Guest') AS customer, o.payment_method, COALESCE(o.total_amount,o.total,0) AS total, o.status, o.created_at FROM orders o LEFT JOIN users u ON o.user_id = u.id ORDER BY o.created_at DESC LIMIT 100");
         $table = [['Order ID', 'Customer', 'Payment', 'Total', 'Status', 'Date']];
         foreach ($data as $r) $table[] = ['ORD-' . str_pad((string)$r['id'], 4, '0', STR_PAD_LEFT), $r['customer'], $r['payment_method'], pesoReport((float)$r['total']), ucfirst((string)$r['status']), (string)$r['created_at']];
         return [$summary, $table];
@@ -107,7 +107,7 @@ function buildReportData(PDO $pdo, string $report): array {
             ['Processing / Confirmed', (string)(int)scalar($pdo, "SELECT COUNT(*) FROM orders WHERE status IN ('processing','confirmed')")],
             ['Delivered', (string)(int)scalar($pdo, "SELECT COUNT(*) FROM orders WHERE status='delivered'")],
         ];
-        $data = rows($pdo, "SELECT id, COALESCE(user_name,user_email,'Customer') AS customer, payment_method, address, rider_id, status, COALESCE(total_amount,total,0) AS total, created_at FROM orders ORDER BY created_at DESC LIMIT 100");
+        $data = rows($pdo, "SELECT o.id, COALESCE(u.name, 'Guest') AS customer, o.payment_method, o.address, o.rider_id, o.status, COALESCE(o.total_amount,o.total,0) AS total, o.created_at FROM orders o LEFT JOIN users u ON o.user_id = u.id ORDER BY o.created_at DESC LIMIT 100");
         $table = [['Order ID', 'Customer', 'Payment', 'Delivery Details', 'Status', 'Total']];
         foreach ($data as $r) $table[] = ['ORD-' . str_pad((string)$r['id'], 4, '0', STR_PAD_LEFT), $r['customer'], $r['payment_method'], trim((string)$r['address']) . ($r['rider_id'] ? ' | Rider: ' . $r['rider_id'] : ''), ucfirst((string)$r['status']), pesoReport((float)$r['total'])];
         return [$summary, $table];
@@ -149,7 +149,7 @@ function buildReportData(PDO $pdo, string $report): array {
             ['Completed Deliveries', (string)(int)scalar($pdo, "SELECT COUNT(*) FROM orders WHERE status='delivered'")],
             ['Assigned Riders', (string)(int)scalar($pdo, "SELECT COUNT(DISTINCT rider_id) FROM orders WHERE rider_id IS NOT NULL AND rider_id <> ''")],
         ];
-        $data = rows($pdo, "SELECT id, COALESCE(user_name,user_email,'Customer') AS customer, rider_id, address, status, eta, delivered_at, updated_at FROM orders WHERE status IN ('confirmed','shipped','delivered') OR rider_id IS NOT NULL ORDER BY updated_at DESC LIMIT 100");
+        $data = rows($pdo, "SELECT o.id, COALESCE(u.name, 'Guest') AS customer, o.rider_id, o.address, o.status, o.eta, o.delivered_at, o.updated_at FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.status IN ('confirmed','shipped','delivered') OR o.rider_id IS NOT NULL ORDER BY o.updated_at DESC LIMIT 100");
         $table = [['Order ID', 'Customer', 'Rider', 'Delivery Address', 'Progress', 'Completed']];
         foreach ($data as $r) $table[] = ['ORD-' . str_pad((string)$r['id'], 4, '0', STR_PAD_LEFT), $r['customer'], $r['rider_id'] ?: 'Unassigned', $r['address'], ucfirst((string)$r['status']) . ($r['eta'] ? ' | ETA: ' . $r['eta'] : ''), $r['delivered_at'] ?: '-'];
         return [$summary, $table];
@@ -157,19 +157,17 @@ function buildReportData(PDO $pdo, string $report): array {
 
     if ($report === 'ratings') {
         $summary = [['Metric', 'Value']];
-        if (!tableExists($pdo, 'food_ratings')) {
-            $summary[] = ['Food Ratings', 'No food ratings table found yet'];
+        if (!tableExists($pdo, 'reviews')) {
+            $summary[] = ['Food Ratings', 'No reviews table found yet'];
             return [$summary, [['Menu Item', 'Average Rating', 'Reviews', 'Latest Feedback', 'Date']]];
         }
-        $summary[] = ['Total Food Reviews', (string)(int)scalar($pdo, "SELECT COUNT(*) FROM food_ratings")];
-        $summary[] = ['Average Rating', number_format(scalar($pdo, "SELECT AVG(rating) FROM food_ratings"), 2) . ' / 5'];
-        $feedbackColumn = columnExists($pdo, 'food_ratings', 'review') ? 'review' : (columnExists($pdo, 'food_ratings', 'comment') ? 'comment' : null);
-        $feedbackExpr = $feedbackColumn ? "MAX(fr.`{$feedbackColumn}`)" : "''";
-        $join = tableExists($pdo, 'content_items')
-            ? "LEFT JOIN content_items ci ON ci.id = fr.menu_item_id"
-            : (tableExists($pdo, 'menu_items') ? "LEFT JOIN menu_items ci ON ci.id = fr.menu_item_id" : "");
-        $nameExpr = $join ? "COALESCE(ci.name, CONCAT('Menu Item #', fr.menu_item_id))" : "CONCAT('Menu Item #', fr.menu_item_id)";
-        $data = rows($pdo, "SELECT fr.menu_item_id, {$nameExpr} AS item_name, AVG(fr.rating) AS avg_rating, COUNT(*) AS review_count, {$feedbackExpr} AS latest_review, MAX(fr.created_at) AS latest_date FROM food_ratings fr {$join} GROUP BY fr.menu_item_id, item_name ORDER BY review_count DESC, avg_rating DESC LIMIT 100");
+        $summary[] = ['Total Food Reviews', (string)(int)scalar($pdo, "SELECT COUNT(*) FROM reviews WHERE review_type = 'food'")];
+        $summary[] = ['Average Food Rating', number_format(scalar($pdo, "SELECT AVG(rating) FROM reviews WHERE review_type = 'food'"), 2) . ' / 5'];
+        $summary[] = ['Total Rider Reviews', (string)(int)scalar($pdo, "SELECT COUNT(*) FROM reviews WHERE review_type = 'rider'")];
+        
+        $join = tableExists($pdo, 'menu_items') ? "LEFT JOIN menu_items ci ON ci.id = fr.target_id" : "";
+        $nameExpr = $join ? "COALESCE(ci.name, CONCAT('Menu Item #', fr.target_id))" : "CONCAT('Item #', fr.target_id)";
+        $data = rows($pdo, "SELECT fr.target_id, {$nameExpr} AS item_name, AVG(fr.rating) AS avg_rating, COUNT(*) AS review_count, MAX(fr.comment) AS latest_review, MAX(fr.created_at) AS latest_date FROM reviews fr {$join} WHERE fr.review_type = 'food' GROUP BY fr.target_id, item_name ORDER BY review_count DESC, avg_rating DESC LIMIT 100");
         $table = [['Menu Item', 'Average Rating', 'Reviews', 'Latest Feedback', 'Date']];
         foreach ($data as $r) $table[] = [$r['item_name'], number_format((float)$r['avg_rating'], 2) . ' / 5', (string)$r['review_count'], $r['latest_review'] ?: '-', (string)$r['latest_date']];
         return [$summary, $table];

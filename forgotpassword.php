@@ -129,6 +129,10 @@ function sendPasswordResetEmail($recipient_email, $recipient_name, $reset_token)
 
     try {
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->SMTPDebug = 3; // Detailed debug output
+        $mail->Debugoutput = function($str, $level) {
+            file_put_contents(__DIR__ . '/email_debug.log', date('Y-m-d H:i:s') . " [SMTP] - $str\n", FILE_APPEND);
+        };
         $mail->isSMTP();
         $mail->Host = $smtpHost;
         $mail->Port = $smtpPort;

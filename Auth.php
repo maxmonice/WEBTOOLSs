@@ -15,13 +15,25 @@ loadLocalEnv(__DIR__ . '/.env');
 
 // --- CORS & headers ---
 header('Content-Type: application/json');
+error_reporting(0);
+ini_set('display_errors', 0);
 
-$allowed_origins = ['https://localhost', 'https://127.0.0.1', 'https://webtoolss.test'];
+
+$allowed_origins = [
+    'https://localhost', 'http://localhost', 
+    'https://127.0.0.1', 'http://127.0.0.1', 
+    'https://webtoolss.test', 'http://webtoolss.test'
+];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $allowed_origins)) {
     header('Access-Control-Allow-Origin: ' . $origin);
 } else {
-    header('Access-Control-Allow-Origin: https://localhost');
+    // Fallback or dynamic
+    if ($origin) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+    } else {
+        header('Access-Control-Allow-Origin: *');
+    }
 }
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -114,9 +126,10 @@ function seedAdminAccount($db): void {
 function verifyRecaptcha(string $token): bool {
     // Allow bypass for local development
     $host = $_SERVER['HTTP_HOST'] ?? '';
-    if (strpos($host, 'localhost') !== false || strpos($host, '.test') !== false || strpos($host, '127.0.0.1') !== false) {
+    if (strpos($host, 'localhost') !== false || strpos($host, '.test') !== false || strpos($host, '.local') !== false || strpos($host, '127.0.0.1') !== false) {
         return true;
     }
+
 
     $secretKey = getenv('RECAPTCHA_SECRET_KEY') ?: '6LcpWt4sAAAAAGPrhF2EIUDLbAy3Ocp_pFvDUdCE';
     if ($token === '') {
@@ -206,6 +219,25 @@ function handleSignup(array $data): void {
         'email' => $email,
     ]);
 
+    // --- LOCAL DEV BYPASS ---
+    // On local/test domains, skip OTP email and auto-verify the account immediately.
+    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+    $isLocal = str_contains($host, 'localhost')
+        || str_contains($host, '127.0.0.1')
+        || str_ends_with($host, '.test')
+        || str_ends_with($host, '.local');
+
+    if ($isLocal) {
+        // Auto-verify and log in directly — no email needed
+        $db->prepare('UPDATE users SET email_verified = 1 WHERE id = ?')->execute([$userId]);
+        startUserSession($userId, $name, $email, 'customer', 'customer');
+        logActivity('signup', 'New user registered (local dev auto-verified)', $userId);
+        respond(true, 'Account created successfully.', [
+            'name'  => $name,
+            'email' => $email,
+        ]);
+    }
+
     // Store pending data in session (never in the response)
     $_SESSION['pending_user_id']    = $userId;
     $_SESSION['pending_user_name']  = $name;
@@ -218,6 +250,7 @@ function handleSignup(array $data): void {
         'otpSent' => (bool)$sent,
     ]);
     if (!$sent) {
+        // OTP failed — still let them in on local, otherwise fail cleanly
         $db->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
         unset($_SESSION['pending_user_id'], $_SESSION['pending_user_name'],
               $_SESSION['pending_user_email'], $_SESSION['pending_context']);
@@ -229,6 +262,7 @@ function handleSignup(array $data): void {
         'email_hint'   => maskEmail($email),
     ]);
 }
+
 
 // =====================================================
 //  LOGIN — validates credentials, then requires OTP
@@ -321,7 +355,7 @@ function handleLogin(array $data): void {
         
         // Log login activity
         $logRole = ($email === 'admin@gmail.com') ? 'admin' : $userRole;
-        logActivity($logRole . '_login', ucfirst($logRole) . ' user logged in successfully', $user['email'], $user['name']);
+        logActivity($logRole . '_login', ucfirst($logRole) . ' user logged in successfully', (int)$user['id']);
         
         respond(true, 'Login successful.', [
             'name'     => $user['name'],
@@ -352,6 +386,26 @@ function handleLogin(array $data): void {
         ]);
         respond(false, 'Your account has been suspended. Please contact the administrator.');
     }
+    // --- LOCAL DEV BYPASS ---
+    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+    $isLocal = str_contains($host, 'localhost')
+        || str_contains($host, '127.0.0.1')
+        || str_ends_with($host, '.test')
+        || str_ends_with($host, '.local');
+
+    if ($isLocal) {
+        // Auto-verify and log in directly
+        $db->prepare('UPDATE users SET email_verified = 1 WHERE id = ?')->execute([$user['id']]);
+        $side = $GLOBALS['side'] ?? 'customer';
+        startUserSession((int)$user['id'], $user['name'], $user['email'], 'customer', $side);
+        logActivity('login', 'User logged in (local dev auto-verified)', (int)$user['id']);
+        
+        respond(true, 'Login successful.', [
+            'name'  => $user['name'],
+            'email' => $user['email']
+        ]);
+    }
+
     $_SESSION['pending_user_id']    = $user['id'];
     $_SESSION['pending_user_name']  = $user['name'];
     $_SESSION['pending_user_email'] = $user['email'];
@@ -377,6 +431,7 @@ function handleLogin(array $data): void {
         'email_hint'   => maskEmail($user['email']),
     ]);
 }
+
 
 // =====================================================
 //  VERIFY OTP — completes login or signup
@@ -479,7 +534,7 @@ function handleVerifyOtp(array $data): void {
     // Log user login activity
     $actionType = $context === 'signup' ? 'user_signup' : 'user_login';
     $details = $context === 'signup' ? 'New user completed signup and verification' : 'User logged in successfully';
-    logActivity($actionType, $details, $email, $name);
+    logActivity($actionType, $details, $userId);
     
     debugLog($runId, 'H4', 'Auth.php:handleVerifyOtp:success', 'OTP verification succeeded and user session started', [
         'userId' => $userId,
@@ -595,7 +650,7 @@ function handleGoogleAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, status FROM users WHERE provider = "google" AND provider_id = ? AND COALESCE(is_archived,0) = 0 LIMIT 1'
+        'SELECT id, name, email, role, status FROM users WHERE provider = "google" AND provider_id = ? AND COALESCE(is_archived,0) = 0 LIMIT 1'
     );
     $stmt->execute([$googleId]);
     $user = $stmt->fetch();
@@ -627,10 +682,11 @@ function handleGoogleAuth(array $data): void {
     }
 
     $side = $GLOBALS['side'] ?? 'customer';
-    startUserSession($userId, $name, $email, 'customer', $side);
+    $role = $user['role'] ?? 'customer';
+    startUserSession($userId, $name, $email, $role, $side);
     
     // Log Google login activity
-    logActivity('google_login', 'User logged in with Google OAuth', $email, $name);
+    logActivity('google_login', 'User logged in with Google OAuth', $userId);
     
     respond(true, 'Signed in with Google.', ['name' => $name, 'email' => $email]);
 }
@@ -694,7 +750,7 @@ function handleFacebookAuth(array $data): void {
     $db = getDB();
 
     $stmt = $db->prepare(
-        'SELECT id, name, email, status FROM users WHERE provider = "facebook" AND provider_id = ? AND COALESCE(is_archived,0) = 0 LIMIT 1'
+        'SELECT id, name, email, role, status FROM users WHERE provider = "facebook" AND provider_id = ? AND COALESCE(is_archived,0) = 0 LIMIT 1'
     );
     $stmt->execute([$facebookId]);
     $user = $stmt->fetch();
@@ -719,8 +775,9 @@ function handleFacebookAuth(array $data): void {
     }
 
     $side = $GLOBALS['side'] ?? 'customer';
-    startUserSession($userId, $name, $email ?: '', 'customer', $side);
-    logActivity('facebook_login', 'User logged in with Facebook OAuth', $email ?: '', $name);
+    $role = $user['role'] ?? 'customer';
+    startUserSession($userId, $name, $email ?: '', $role, $side);
+    logActivity('facebook_login', 'User logged in with Facebook OAuth', $userId);
     respond(true, 'Signed in with Facebook.', ['name' => $name, 'email' => $email]);
 }
 
@@ -754,6 +811,11 @@ function handleCheckSession(): void {
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
         
+        if (!$user) {
+            session_destroy();
+            respond(false, 'Session invalid: User record not found.');
+        }
+
         if ($user && !empty($user['is_archived'])) {
             session_destroy();
             respond(false, 'This account is no longer active.');
@@ -768,19 +830,30 @@ function handleCheckSession(): void {
             session_destroy();
             respond(false, 'Your account has been suspended.');
         }
+
         $role = $user['role'] ?? ($_SESSION['role'] ?? 'customer');
         $_SESSION['role'] = $role;
         unset($_SESSION['is_admin'], $_SESSION['is_staff']);
+        
         if ($role === 'admin' || ($_SESSION['user_email'] ?? '') === 'admin@gmail.com') {
             $_SESSION['is_admin'] = true;
+            $_SESSION['session_side'] = 'staff';
         } elseif ($role === 'staff') {
             $_SESSION['is_staff'] = true;
+            $_SESSION['session_side'] = 'staff';
+        } else {
+            $_SESSION['session_side'] = 'customer';
         }
         
         // Fetch last used address and mobile from orders
-        $lastOrder = $db->prepare('SELECT address, payment_details FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5');
-        $lastOrder->execute([$_SESSION['user_id']]);
-        $orders = $lastOrder->fetchAll();
+        $orders = [];
+        try {
+            $lastOrder = $db->prepare('SELECT address, payment_details FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5');
+            $lastOrder->execute([$_SESSION['user_id']]);
+            $orders = $lastOrder->fetchAll();
+        } catch (\Throwable $e) {
+            debugLog($runId, 'H6', 'Auth.php:handleCheckSession:orders_error', 'Could not fetch last orders', ['error' => $e->getMessage()]);
+        }
         
         $lastAddress = '';
         $mobiles = [];
@@ -800,15 +873,15 @@ function handleCheckSession(): void {
 
         respond(true, 'Session active.', [
             'user_id' => (int)$_SESSION['user_id'],
-            'name' => $_SESSION['user_name'],
-            'email' => $_SESSION['user_email'],
+            'name' => $_SESSION['user_name'] ?? '',
+            'email' => $_SESSION['user_email'] ?? '',
             'role' => $role,
-            'session_side' => $_SESSION['session_side'] ?? '',
-            'is_admin' => $_SESSION['is_admin'] ?? false,
-            'is_staff' => $_SESSION['is_staff'] ?? false,
-            'last_address' => $user['address'] ?: $lastAddress,
-            'phone' => $user['phone'] ?: '',
-            'address' => $user['address'] ?: '',
+            'session_side' => $_SESSION['session_side'] ?? 'customer',
+            'is_admin' => !empty($_SESSION['is_admin']),
+            'is_staff' => !empty($_SESSION['is_staff']),
+            'last_address' => ($user['address'] ?? '') ?: $lastAddress,
+            'phone' => $user['phone'] ?? '',
+            'address' => $user['address'] ?? '',
             'last_mobiles' => $mobiles,
             'redirect' => $redirect,
         ]);

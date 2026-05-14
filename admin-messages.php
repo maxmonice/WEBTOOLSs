@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $stmt = $pdo->prepare("SELECT * FROM messages WHERE id = ? AND parent_id IS NULL");
+            $stmt = $pdo->prepare("SELECT * FROM communications WHERE id = ? AND parent_id IS NULL");
             $stmt->execute([$parentId]);
             $parent = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -33,27 +33,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            $recipientRole = $parent['sender_role'] === 'admin' ? $parent['recipient_role'] : $parent['sender_role'];
-            $recipientId = $parent['sender_role'] === 'admin' ? $parent['recipient_id'] : $parent['sender_id'];
+            $recipientRole = $parent['sender_type'] === 'admin' ? $parent['receiver_type'] : $parent['sender_type'];
+            $recipientId = $parent['sender_type'] === 'admin' ? $parent['receiver_id'] : $parent['sender_id'];
 
             $insert = $pdo->prepare("
-                INSERT INTO messages (
-                    parent_id, sender_role, sender_id, sender_name, sender_email,
-                    recipient_role, recipient_id, subject, message, status, created_at
-                ) VALUES (?, 'admin', ?, ?, ?, ?, ?, ?, ?, 'replied', NOW())
+                INSERT INTO communications (
+                    parent_id, sender_type, sender_id, 
+                    receiver_type, receiver_id, subject, message, status, created_at
+                ) VALUES (?, 'admin', ?, ?, ?, ?, ?, 'replied', NOW())
             ");
             $insert->execute([
                 $parentId,
                 $_SESSION['user_id'] ?? null,
-                $_SESSION['user_name'] ?? 'Admin',
-                $_SESSION['user_email'] ?? null,
                 $recipientRole,
                 $recipientId ?: null,
                 $parent['subject'],
                 $reply
             ]);
 
-            $pdo->prepare("UPDATE messages SET status = 'replied', updated_at = NOW() WHERE id = ?")->execute([$parentId]);
+            $pdo->prepare("UPDATE communications SET status = 'replied', updated_at = NOW() WHERE id = ?")->execute([$parentId]);
 
             if ($recipientId) {
                 $notifications->create(
@@ -105,15 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $stmt = $pdo->prepare("
-                INSERT INTO messages (
-                    sender_role, sender_id, sender_name, sender_email,
-                    recipient_role, recipient_id, subject, message, status, created_at
-                ) VALUES ('admin', ?, ?, ?, 'staff', ?, ?, ?, 'open', NOW())
+                INSERT INTO communications (
+                    sender_type, sender_id, 
+                    receiver_type, receiver_id, subject, message, status, created_at
+                ) VALUES ('admin', ?, 'staff', ?, ?, ?, 'open', NOW())
             ");
             $stmt->execute([
                 $_SESSION['user_id'] ?? null,
-                $_SESSION['user_name'] ?? 'Admin',
-                $_SESSION['user_email'] ?? null,
                 $recipientId > 0 ? $recipientId : null,
                 $subject,
                 $message
@@ -144,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $pdo->prepare("UPDATE messages SET status = 'closed', updated_at = NOW() WHERE id = ?")->execute([$messageId]);
+            $pdo->prepare("UPDATE communications SET status = 'closed', updated_at = NOW() WHERE id = ?")->execute([$messageId]);
             logAdminActivity($pdo, 'message_closed', "Closed message #{$messageId}");
             echo json_encode(['success' => true, 'message' => 'Message closed']);
             exit;
@@ -164,12 +160,13 @@ $repliesByParent = [];
 
 try {
     $staffMessages = $pdo->query("
-        SELECT *
-        FROM messages
-        WHERE parent_id IS NULL
-          AND ((sender_role = 'staff' AND recipient_role = 'admin')
-            OR (sender_role = 'admin' AND recipient_role = 'staff'))
-        ORDER BY FIELD(status, 'open', 'replied', 'closed'), created_at DESC
+        SELECT c.*, u.name as sender_name
+        FROM communications c
+        LEFT JOIN users u ON c.sender_id = u.id
+        WHERE c.parent_id IS NULL
+          AND ((c.sender_type = 'staff' AND c.receiver_type = 'admin')
+            OR (c.sender_type = 'admin' AND c.receiver_type = 'staff'))
+        ORDER BY FIELD(c.status, 'open', 'replied', 'closed'), c.created_at DESC
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $_) {}
 
@@ -188,7 +185,13 @@ $parentIds = array_merge(
 if (!empty($parentIds)) {
     try {
         $placeholders = implode(',', array_fill(0, count($parentIds), '?'));
-        $stmt = $pdo->prepare("SELECT * FROM messages WHERE parent_id IN ($placeholders) ORDER BY created_at ASC");
+        $stmt = $pdo->prepare("
+            SELECT c.*, u.name as sender_name 
+            FROM communications c 
+            LEFT JOIN users u ON c.sender_id = u.id 
+            WHERE c.parent_id IN ($placeholders) 
+            ORDER BY c.created_at ASC
+        ");
         $stmt->execute($parentIds);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $reply) {
             $repliesByParent[(int)$reply['parent_id']][] = $reply;
@@ -199,7 +202,7 @@ if (!empty($parentIds)) {
 $openStaffCount = count(array_filter($staffMessages, fn($m) => $m['status'] === 'open'));
 $repliedToday = 0;
 try {
-    $repliedToday = (int)$pdo->query("SELECT COUNT(*) FROM messages WHERE sender_role = 'admin' AND parent_id IS NOT NULL AND DATE(created_at) = CURDATE()")->fetchColumn();
+    $repliedToday = (int)$pdo->query("SELECT COUNT(*) FROM communications WHERE sender_type = 'admin' AND parent_id IS NOT NULL AND DATE(created_at) = CURDATE()")->fetchColumn();
 } catch (\Throwable $_) {}
 ?>
 <!DOCTYPE html>
